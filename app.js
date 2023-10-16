@@ -7,6 +7,7 @@ const port = 3001;
 const proyek = require("./utils/proyek");
 const produk = require("./utils/produk");
 const stok = require("./utils/stok");
+const keranjangproyek = require("./utils/keranjangproyek");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -16,7 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 //set up cors
 app.use(cors());
 app.use((req, res, next) => {
-  console.log(`IP: ${req.ip}`);
+  console.log(`IP: ${req.ip} ${new Date()}`);
   next();
 });
 
@@ -91,6 +92,30 @@ app.put("/api/proyek", async (req, res) => {
 });
 app.delete("/api/proyek", async (req, res) => {
   proyek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// keranjangproyek
+app.get("/api/keranjangproyek", async (req, res) => {
+  const list = keranjangproyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/keranjangproyek", async (req, res) => {
+  const result = await keranjangproyek
+    .create(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/keranjangproyek", async (req, res) => {
+  const result = await keranjangproyek
+    .update(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/keranjangproyek", async (req, res) => {
+  keranjangproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));

@@ -1,7 +1,7 @@
 const connection = require("./db");
 const table = "proyek";
-const list = () => {
-  const sql = `Select * From ${table}`;
+const list = ({ id }) => {
+  const sql = `Select * From ${table} ${id ? `where id=${id}` : ""}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
