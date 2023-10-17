@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "keranjangproyek";
 const list = ({ id_proyek }) => {
   const qcol = id_proyek
-    ? `, ${table}.harga as hargajual, ${table}.id as id_keranjangproyek, stok.id as id_stok`
+    ? `, ${table}.harga as hargajual, ${table}.id as id_keranjangproyek, ${table}.jumlah as jumlah, stok.id as id_stok, stok.jumlah as stok`
     : "";
   const qid_proyek = id_proyek ? `id_proyek = ${id_proyek}` : "";
   const qleft_join = id_proyek
@@ -29,7 +29,12 @@ const create = ({ id_stok, id_proyek, jumlah, harga }) => {
 };
 
 const update = ({ id, id_stok, id_proyek, jumlah, harga }) => {
-  const sql = `update ${table} set id_stok='${id_stok}', id_proyek='${id_proyek}', jumlah='${jumlah}', harga='${harga}' where id=${id}`;
+  const sql = `update ${table} set ${id_proyek ? `id_stok=${id_stok},` : ""} ${
+    id_proyek ? `id_proyek=${id_proyek},` : ""
+  } ${jumlah ? `jumlah=${jumlah},` : ""} ${
+    harga ? `harga=${harga}` : ""
+  } where id=${id}`;
+  console.log(sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);

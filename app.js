@@ -105,19 +105,19 @@ app.get("/api/keranjangproyek", async (req, res) => {
 app.post("/api/keranjangproyek", async (req, res) => {
   const result = await keranjangproyek
     .create(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil ditambahkan" }))
+    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/keranjangproyek", async (req, res) => {
   const result = await keranjangproyek
     .update(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
+    .then((result) => res.json({ message: "Produk berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
+    .then((result) => res.json({ message: "Produk berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
