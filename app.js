@@ -8,6 +8,7 @@ const proyek = require("./utils/proyek");
 const produk = require("./utils/produk");
 const stok = require("./utils/stok");
 const keranjangproyek = require("./utils/keranjangproyek");
+const karyawan = require("./utils/karyawan");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -118,6 +119,30 @@ app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Produk berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// karyawan
+app.get("/api/karyawan", async (req, res) => {
+  const list = karyawan.list(req.query);
+  res.json(await list);
+});
+app.post("/api/karyawan", async (req, res) => {
+  const result = await karyawan
+    .create(req.body)
+    .then((result) => res.json({ message: "karyawan berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/karyawan", async (req, res) => {
+  const result = await karyawan
+    .update(req.body)
+    .then((result) => res.json({ message: "karyawan berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/karyawan", async (req, res) => {
+  karyawan
+    .destroy(req.body)
+    .then((result) => res.json({ message: "karyawan berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
