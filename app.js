@@ -9,6 +9,7 @@ const produk = require("./utils/produk");
 const stok = require("./utils/stok");
 const keranjangproyek = require("./utils/keranjangproyek");
 const karyawan = require("./utils/karyawan");
+const pengeluaran = require("./utils/pengeluaran");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -143,6 +144,30 @@ app.delete("/api/karyawan", async (req, res) => {
   karyawan
     .destroy(req.body)
     .then((result) => res.json({ message: "karyawan berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// pengeluaran
+app.get("/api/pengeluaran", async (req, res) => {
+  const list = pengeluaran.list(req.query);
+  res.json(await list);
+});
+app.post("/api/pengeluaran", async (req, res) => {
+  const result = await pengeluaran
+    .create(req.body)
+    .then((result) => res.json({ message: "pengeluaran berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/pengeluaran", async (req, res) => {
+  const result = await pengeluaran
+    .update(req.body)
+    .then((result) => res.json({ message: "pengeluaran berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/pengeluaran", async (req, res) => {
+  pengeluaran
+    .destroy(req.body)
+    .then((result) => res.json({ message: "pengeluaran berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
