@@ -1,0 +1,28 @@
+If you want to calculate sums from multiple tables with one-to-many relationships, you can use subqueries or additional joins. Let's assume you have three tables: `parent`, `child1`, and `child2`, and you want to get the sum of values from both `child1` and `child2` for each parent.
+
+Here's an example query:
+
+```sql
+SELECT p.parent_id,
+       p.parent_name,
+       COALESCE(SUM(c1.value), 0) as total_value_child1,
+       COALESCE(SUM(c2.value), 0) as total_value_child2
+FROM parent p
+LEFT JOIN child1 c1 ON p.parent_id = c1.parent_id
+LEFT JOIN child2 c2 ON p.parent_id = c2.parent_id
+GROUP BY p.parent_id, p.parent_name;
+```
+
+Explanation:
+
+1. `SELECT p.parent_id, p.parent_name`: This selects the `parent_id` and `parent_name` from the `parent` table.
+
+2. `COALESCE(SUM(c1.value), 0) as total_value_child1`: This calculates the sum of `value` from `child1`. `COALESCE` is used to handle cases where there are no matching records in `child1` for a parent. It returns 0 if there are no matching records.
+
+3. `COALESCE(SUM(c2.value), 0) as total_value_child2`: Similarly, this calculates the sum of `value` from `child2` and handles cases where there are no matching records in `child2`.
+
+4. `FROM parent p LEFT JOIN child1 c1 ON p.parent_id = c1.parent_id LEFT JOIN child2 c2 ON p.parent_id = c2.parent_id`: This performs left joins between the `parent` table and `child1` and `child2` tables based on the `parent_id`. This ensures that all parents are included in the result, even if there are no matching records in `child1` or `child2`.
+
+5. `GROUP BY p.parent_id, p.parent_name`: This groups the results by `parent_id` and `parent_name`.
+
+Keep in mind that you should replace the table and column names in the query with the actual names used in your database. If you have more tables to include, you can continue to join them and use `SUM` functions as needed.
