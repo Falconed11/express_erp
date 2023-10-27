@@ -15,6 +15,7 @@ const distributor = require("./utils/distributor");
 const klien = require("./utils/klien");
 const gudang = require("./utils/gudang");
 const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
+const user = require("./utils/user");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -299,6 +300,38 @@ app.delete("/api/pengeluaranperusahaan", async (req, res) => {
     .then((result) =>
       res.json({ message: "pengeluaranperusahaan berhasil dihapus" })
     )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// user
+app.get("/api/user", async (req, res) => {
+  const list = user.list(req.query);
+  res.json(await list);
+});
+app.post("/api/user", async (req, res) => {
+  const result = await user
+    .create(req.body)
+    .then((result) => res.json({ message: "user berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/user", async (req, res) => {
+  const result = await user
+    .update(req.body)
+    .then((result) => res.json({ message: "user berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/user", async (req, res) => {
+  user
+    .destroy(req.body)
+    .then((result) => res.json({ message: "user berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// login
+app.post("/api/login", async (req, res) => {
+  const result = await user
+    .login(req.body)
+    .then((result) => res.json(result))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
