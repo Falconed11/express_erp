@@ -16,6 +16,9 @@ const klien = require("./utils/klien");
 const gudang = require("./utils/gudang");
 const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
 const user = require("./utils/user");
+const kategoriproduk = require("./utils/kategoriproduk");
+const subkategoriproduk = require("./utils/subkategoriproduk");
+const merek = require("./utils/merek");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -332,6 +335,86 @@ app.post("/api/login", async (req, res) => {
   const result = await user
     .login(req.body)
     .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// kategoriproduk
+app.get("/api/kategoriproduk", async (req, res) => {
+  const list = kategoriproduk.list(req.query);
+  res.json(await list);
+});
+app.post("/api/kategoriproduk", async (req, res) => {
+  const result = await kategoriproduk
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "kategoriproduk berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kategoriproduk", async (req, res) => {
+  const result = await kategoriproduk
+    .update(req.body)
+    .then((result) => res.json({ message: "kategoriproduk berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/kategoriproduk", async (req, res) => {
+  kategoriproduk
+    .destroy(req.body)
+    .then((result) => res.json({ message: "kategoriproduk berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// subkategoriproduk
+app.get("/api/subkategoriproduk", async (req, res) => {
+  const list = subkategoriproduk.list(req.query);
+  res.json(await list);
+});
+app.post("/api/subkategoriproduk", async (req, res) => {
+  const result = await subkategoriproduk
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "subkategoriproduk berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/subkategoriproduk", async (req, res) => {
+  const result = await subkategoriproduk
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "subkategoriproduk berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/subkategoriproduk", async (req, res) => {
+  subkategoriproduk
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "subkategoriproduk berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// merek
+app.get("/api/merek", async (req, res) => {
+  const list = merek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/merek", async (req, res) => {
+  const result = await merek
+    .create(req.body)
+    .then((result) => res.json({ message: "merek berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/merek", async (req, res) => {
+  const result = await merek
+    .update(req.body)
+    .then((result) => res.json({ message: "merek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/merek", async (req, res) => {
+  merek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "merek berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

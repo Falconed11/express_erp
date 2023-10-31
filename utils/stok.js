@@ -10,8 +10,19 @@ const list = () => {
   });
 };
 
-const create = ({ nama, merek, tipe, satuan, harga, jumlah }) => {
-  const sql = `insert into ${table} (nama, merek, tipe, satuan, harga, jumlah) values ('${nama}', '${merek}', '${tipe}', '${satuan}', '${harga}', '${jumlah}')`;
+const create = ({
+  nama,
+  merek,
+  tipe,
+  satuan,
+  harga,
+  jumlah,
+  terbayar,
+  tanggalbeli,
+  id_gudang,
+  id_distributor,
+}) => {
+  const sql = `insert into ${table} (nama, merek, tipe, satuan, harga, jumlah, terbayar, tanggalbeli, id_gudang, id_distributor) values ('${nama}', '${merek}', '${tipe}', '${satuan}', '${harga}', '${jumlah}', '${terbayar}', '${tanggalbeli}', '${id_gudang}', '${id_distributor}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -20,8 +31,20 @@ const create = ({ nama, merek, tipe, satuan, harga, jumlah }) => {
   });
 };
 
-const update = ({ id, nama, merek, tipe, satuan, harga, jumlah }) => {
-  const sql = `update ${table} set nama='${nama}', merek='${merek}', tipe='${tipe}', satuan='${satuan}', harga='${harga}', jumlah='${jumlah}' where id=${id}`;
+const update = ({
+  id,
+  nama,
+  merek,
+  tipe,
+  satuan,
+  harga,
+  jumlah,
+  terbayar,
+  tanggalbeli,
+  id_gudang,
+  id_distributor,
+}) => {
+  const sql = `update ${table} set nama='${nama}', merek='${merek}', tipe='${tipe}', satuan='${satuan}', harga='${harga}', jumlah='${jumlah}', terbayar='${terbayar}', tanggalbeli='${tanggalbeli}', id_gudang='${id_gudang}', id_distributor='${id_distributor}' where id=${id}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
