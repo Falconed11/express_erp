@@ -1,6 +1,9 @@
 const connection = require("./db");
+
+const table = "produk";
+
 const list = () => {
-  const sql = `Select * From produk`;
+  const sql = `Select * From ${table}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
@@ -9,8 +12,17 @@ const list = () => {
   });
 };
 
-const create = ({ nama, kategori, keterangan }) => {
-  const sql = `insert into produk (nama, kategori, keterangan) values ('${nama}', '${kategori}', '${keterangan}')`;
+const create = ({
+  nama,
+  id_kategori,
+  id_subkategori,
+  id_merek,
+  tipe,
+  jumlah,
+  satuan,
+  keterangan,
+}) => {
+  const sql = `insert into ${table} (nama, id_kategori, id_subkategori, id_merek, tipe, jumlah, satuan, keterangan) values ('${nama}', '${id_kategori}', '${id_subkategori}', '${id_merek}', '${tipe}', '${jumlah}', '${satuan}', '${keterangan}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -19,8 +31,18 @@ const create = ({ nama, kategori, keterangan }) => {
   });
 };
 
-const update = ({ id, nama, kategori, keterangan }) => {
-  const sql = `update produk set nama='${nama}', kategori='${kategori}', keterangan='${keterangan}' where id=${id}`;
+const update = ({
+  id,
+  nama,
+  id_kategori,
+  id_subkategori,
+  id_merek,
+  tipe,
+  jumlah,
+  satuan,
+  keterangan,
+}) => {
+  const sql = `update ${table} set nama='${nama}', id_kategori='${id_kategori}', id_subkategori='${id_subkategori}', id_merek='${id_merek}', tipe='${tipe}', jumlah='${jumlah}', satuan='${satuan}', keterangan='${keterangan}' where id=${id}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -30,7 +52,7 @@ const update = ({ id, nama, kategori, keterangan }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from produk where id = ${id}`;
+  const sql = `delete from ${table} where id = ${id}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
