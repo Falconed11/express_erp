@@ -3,7 +3,7 @@ const connection = require("./db");
 const table = "subkategoriproduk";
 
 const list = () => {
-  const sql = `Select * From ${table}`;
+  const sql = `Select ${table}.*, kategoriproduk.nama as kategori From ${table} left join kategoriproduk on ${table}.id_kategoriproduk = kategoriproduk.id`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
