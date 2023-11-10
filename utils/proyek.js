@@ -10,8 +10,8 @@ const list = ({ id }) => {
   });
 };
 
-const create = ({ nama, klien, status, keterangan }) => {
-  const sql = `insert into ${table} (nama, klien, status, keterangan) values ('${nama}', '${klien}', '${status}', '${keterangan}')`;
+const create = ({ nama, klien, status, tanggal, keterangan }) => {
+  const sql = `insert into ${table} (nama, klien, status, tanggal, keterangan) values ('${nama}', '${klien}', '${status}', '${tanggal}', '${keterangan}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -20,8 +20,9 @@ const create = ({ nama, klien, status, keterangan }) => {
   });
 };
 
-const update = ({ id, nama, klien, status, keterangan }) => {
-  const sql = `update ${table} set nama='${nama}', klien='${klien}', status='${status}', keterangan='${keterangan}' where id=${id}`;
+const update = ({ id, nama, klien, status, tanggal, keterangan }) => {
+  const sql = `update ${table} set nama='${nama}', klien='${klien}', status='${status}', tanggal='${tanggal}', keterangan='${keterangan}' where id=${id}`;
+  console.log(sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);

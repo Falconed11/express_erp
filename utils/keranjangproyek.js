@@ -2,14 +2,18 @@ const connection = require("./db");
 const table = "keranjangproyek";
 const list = ({ id_proyek }) => {
   const qcol = id_proyek
-    ? `, ${table}.harga as hargajual, ${table}.id as id_keranjangproyek, ${table}.jumlah as jumlah, stok.id as id_stok, stok.jumlah as stok`
-    : "";
+    ? `k.harga as hargajual, k.id as id_keranjangproyek, k.jumlah as jumlah, s.id as id_stok, s.jumlah as stok, s.harga as hargabeli, p.nama, p.satuan, p.tipe, kp.nama as kategori, sk.nama as subkategori, m.nama as merek`
+    : "*";
   const qid_proyek = id_proyek ? `id_proyek = ${id_proyek}` : "";
   const qleft_join = id_proyek
-    ? `left join stok on ${table}.id_stok = stok.id`
+    ? `left join stok s on k.id_stok = s.id
+    left join produk p on s.id_produk = p.id
+    left join kategoriproduk kp on p.id_kategori = kp.id
+    left join subkategoriproduk sk on p.id_subkategori = sk.id
+    left join merek m on p.id_merek = m.id`
     : "";
   const where = id_proyek ? "where" : "";
-  const sql = `Select * ${qcol} From ${table} ${qleft_join} ${where} ${qid_proyek}`;
+  const sql = `Select ${qcol} From ${table} k ${qleft_join} ${where} ${qid_proyek}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];

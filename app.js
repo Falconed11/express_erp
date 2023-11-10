@@ -4,6 +4,10 @@ const cors = require("cors");
 const app = express();
 const port = 3001;
 
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 const proyek = require("./utils/proyek");
 const produk = require("./utils/produk");
 const stok = require("./utils/stok");
@@ -27,8 +31,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 //set up cors
 app.use(cors());
+
 app.use((req, res, next) => {
-  console.log(`IP: ${req.ip} ${new Date()}`);
+  console.log(`IP: ${req.ip} ${req.method}${req.url} ${new Date()}`);
   next();
 });
 
@@ -415,6 +420,33 @@ app.delete("/api/merek", async (req, res) => {
   merek
     .destroy(req.body)
     .then((result) => res.json({ message: "merek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// nota
+app.get("/api/nota", async (req, res) => {
+  const list = nota.list(req.query);
+  res.json(await list);
+});
+app.post("/api/nota", upload.single("file"), async (req, res) => {
+  // const result = await nota
+  //   .create(req.body)
+  //   .then((result) => res.json({ message: "nota berhasil ditambahkan" }))
+  //   .catch((e) => res.status(400).json({ message: e.message }));
+  console.log(req.file);
+  console.log(req.body);
+  res.json({ message: "Success" });
+});
+app.put("/api/nota", async (req, res) => {
+  const result = await nota
+    .update(req.body)
+    .then((result) => res.json({ message: "nota berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/nota", async (req, res) => {
+  nota
+    .destroy(req.body)
+    .then((result) => res.json({ message: "nota berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
