@@ -4,9 +4,18 @@ const cors = require("cors");
 const app = express();
 const port = 3001;
 
+// multer setup
 const multer = require("multer");
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// const storage = multer.memoryStorage();
+// const upload = multer({ dest: "nota/" });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "nota/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, new Date().getTime() + `.jpeg`);
+  },
+});
 
 const proyek = require("./utils/proyek");
 const produk = require("./utils/produk");
@@ -23,11 +32,14 @@ const user = require("./utils/user");
 const kategoriproduk = require("./utils/kategoriproduk");
 const subkategoriproduk = require("./utils/subkategoriproduk");
 const merek = require("./utils/merek");
+const statusproyek = require("./utils/statusproyek");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
 // Parse URL-encoded bodies (e.g., form data)
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(multer({ storage }).single("file"));
 
 //set up cors
 app.use(cors());
@@ -97,7 +109,11 @@ app.get("/api/proyek", async (req, res) => {
 app.post("/api/proyek", async (req, res) => {
   const result = await proyek
     .create(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil ditambahkan" }))
+    .then((result) =>
+      res.json({
+        message: "Proyek berhasil ditambahkan",
+      })
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/proyek", async (req, res) => {
@@ -423,12 +439,18 @@ app.delete("/api/merek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
+// statusproyek
+app.get("/api/statusproyek", async (req, res) => {
+  const list = statusproyek.list(req.query);
+  res.json(await list);
+});
+
 // nota
 app.get("/api/nota", async (req, res) => {
   const list = nota.list(req.query);
   res.json(await list);
 });
-app.post("/api/nota", upload.single("file"), async (req, res) => {
+app.post("/api/nota", async (req, res) => {
   // const result = await nota
   //   .create(req.body)
   //   .then((result) => res.json({ message: "nota berhasil ditambahkan" }))
