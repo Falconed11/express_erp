@@ -58,6 +58,10 @@ app.get("/api/produk", async (req, res) => {
   const list = produk.list(req.query);
   res.json(await list);
 });
+app.get("/api/kategoriproduk", async (req, res) => {
+  const list = produk.listKategori(req.query);
+  res.json(await list);
+});
 app.post("/api/produk", async (req, res) => {
   const result = await produk
     .create(req.body)
