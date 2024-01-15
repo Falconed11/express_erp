@@ -22,6 +22,7 @@ const produk = require("./utils/produk");
 const stok = require("./utils/stok");
 const keranjangproyek = require("./utils/keranjangproyek");
 const karyawan = require("./utils/karyawan");
+const perusahaan = require("./utils/perusahaan");
 const pengeluaran = require("./utils/pengeluaran");
 const lembur = require("./utils/lembur");
 const distributor = require("./utils/distributor");
@@ -126,6 +127,12 @@ app.put("/api/proyek", async (req, res) => {
     .then((result) => res.json({ message: "Proyek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/proyekupdatediskonpajak", async (req, res) => {
+  const result = await proyek
+    .updateDiskonPajak(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.delete("/api/proyek", async (req, res) => {
   proyek
     .destroy(req.body)
@@ -178,6 +185,30 @@ app.delete("/api/karyawan", async (req, res) => {
   karyawan
     .destroy(req.body)
     .then((result) => res.json({ message: "karyawan berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// perusahaan
+app.get("/api/perusahaan", async (req, res) => {
+  const list = perusahaan.list(req.query);
+  res.json(await list);
+});
+app.post("/api/perusahaan", async (req, res) => {
+  const result = await perusahaan
+    .create(req.body)
+    .then((result) => res.json({ message: "perusahaan berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/perusahaan", async (req, res) => {
+  const result = await perusahaan
+    .update(req.body)
+    .then((result) => res.json({ message: "perusahaan berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/perusahaan", async (req, res) => {
+  perusahaan
+    .destroy(req.body)
+    .then((result) => res.json({ message: "perusahaan berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
