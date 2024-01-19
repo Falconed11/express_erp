@@ -23,7 +23,7 @@ const table = "keranjangproyek";
 //   });
 // };
 const list = ({ id_proyek, instalasi }) => {
-  const sql = `Select kp.id id_keranjangproyek, kp.jumlah, p.* From ${table} kp left join produk p on kp.id_produk = p.id where 1=1 ${
+  const sql = `Select kp.id id_keranjangproyek, kp.jumlah, kp.harga hargakustom, p.* From ${table} kp left join produk p on kp.id_produk = p.id where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
   } ${instalasi ? `and instalasi = ${instalasi}` : ""}`;
   return new Promise((resolve, reject) => {
@@ -44,8 +44,8 @@ const list = ({ id_proyek, instalasi }) => {
 //   });
 // };
 
-const create = ({ id_produk, id_proyek, jumlah, instalasi }) => {
-  const sql = `insert into ${table} (id_produk, id_proyek, jumlah, instalasi) values ('${id_produk}', '${id_proyek}', '${jumlah}', '${instalasi}')`;
+const create = ({ id_produk, id_proyek, jumlah, harga, instalasi }) => {
+  const sql = `insert into ${table} (id_produk, id_proyek, jumlah, harga, instalasi) values ('${id_produk}', '${id_proyek}', '${jumlah}', '${harga}', '${instalasi}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -69,8 +69,9 @@ const create = ({ id_produk, id_proyek, jumlah, instalasi }) => {
 //   });
 // };
 
-const update = ({ id, jumlah }) => {
-  const sql = `update ${table} set jumlah = ${jumlah} where id=${id}`;
+const update = ({ id, jumlah, harga }) => {
+  const sql = `update ${table} set jumlah = ${jumlah}, harga = ${harga} where id=${id}`;
+  console.log(sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
