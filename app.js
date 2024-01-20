@@ -34,6 +34,8 @@ const kategoriproduk = require("./utils/kategoriproduk");
 const subkategoriproduk = require("./utils/subkategoriproduk");
 const merek = require("./utils/merek");
 const statusproyek = require("./utils/statusproyek");
+const nota = require("./utils/nota");
+const keranjangnota = require("./utils/keranjangnota");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -161,6 +163,62 @@ app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Produk berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// nota
+app.get("/api/nota", async (req, res) => {
+  const list = nota.list(req.query);
+  res.json(await list);
+});
+app.post("/api/nota", async (req, res) => {
+  const result = await nota
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Nota berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/nota", async (req, res) => {
+  const result = await nota
+    .update(req.body)
+    .then((result) => res.json({ message: "Nota berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/nota", async (req, res) => {
+  nota
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Nota berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// keranjangnota
+app.get("/api/keranjangnota", async (req, res) => {
+  const list = keranjangnota.list(req.query);
+  res.json(await list);
+});
+app.post("/api/keranjangnota", async (req, res) => {
+  const result = await keranjangnota
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Keranjang Nota berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/keranjangnota", async (req, res) => {
+  const result = await keranjangnota
+    .update(req.body)
+    .then((result) => res.json({ message: "Keranjang Nota berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/keranjangnota", async (req, res) => {
+  keranjangnota
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Keranjang Nota berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
