@@ -18,9 +18,11 @@ const storage = multer.diskStorage({
 });
 
 const proyek = require("./utils/proyek");
+const keranjangproyek = require("./utils/keranjangproyek");
+const aruskasproyek = require("./utils/aruskasproyek");
+const pembayaranproyek = require("./utils/pembayaranproyek");
 const produk = require("./utils/produk");
 const stok = require("./utils/stok");
-const keranjangproyek = require("./utils/keranjangproyek");
 const karyawan = require("./utils/karyawan");
 const perusahaan = require("./utils/perusahaan");
 const pengeluaran = require("./utils/pengeluaran");
@@ -163,6 +165,62 @@ app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Produk berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// aruskasproyek
+app.get("/api/aruskasproyek", async (req, res) => {
+  const list = aruskasproyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/aruskasproyek", async (req, res) => {
+  const result = await aruskasproyek
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Arus Kas Proyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/aruskasproyek", async (req, res) => {
+  const result = await aruskasproyek
+    .update(req.body)
+    .then((result) => res.json({ message: "Arus Kas Proyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/aruskasproyek", async (req, res) => {
+  aruskasproyek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Arus Kas Proyek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// pembayaranproyke
+app.get("/api/pembayaranproyek", async (req, res) => {
+  const list = pembayaranproyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/pembayaranproyek", async (req, res) => {
+  const result = await pembayaranproyek
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Pembayaran Proyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/pembayaranproyek", async (req, res) => {
+  const result = await pembayaranproyek
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Pembayaran Proyek berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/pembayaranproyek", async (req, res) => {
+  pembayaranproyek
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Pembayaran Proyek berhasil dihapus" })
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
