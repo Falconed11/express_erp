@@ -19,6 +19,8 @@ const storage = multer.diskStorage({
 
 const proyek = require("./utils/proyek");
 const keranjangproyek = require("./utils/keranjangproyek");
+const operasionalkantor = require("./utils/operasionalkantor");
+const kategorioperasionalkantor = require("./utils/kategorioperasionalkantor");
 const aruskasproyek = require("./utils/aruskasproyek");
 const pembayaranproyek = require("./utils/pembayaranproyek");
 const produk = require("./utils/produk");
@@ -38,6 +40,7 @@ const merek = require("./utils/merek");
 const statusproyek = require("./utils/statusproyek");
 const nota = require("./utils/nota");
 const keranjangnota = require("./utils/keranjangnota");
+const laporan = require("./utils/laporan");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -108,6 +111,12 @@ app.delete("/api/stok", async (req, res) => {
     .destroy(req.body)
     .then((result) => res.json({ message: "Stok berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// laporan
+app.get("/api/laporan", async (req, res) => {
+  const list = laporan.laporanLR(req.query);
+  res.json(await list);
 });
 
 // proyek
@@ -194,7 +203,7 @@ app.delete("/api/aruskasproyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
-// pembayaranproyke
+// pembayaranproyek
 app.get("/api/pembayaranproyek", async (req, res) => {
   const list = pembayaranproyek.list(req.query);
   res.json(await list);
@@ -277,6 +286,66 @@ app.delete("/api/keranjangnota", async (req, res) => {
   keranjangnota
     .destroy(req.body)
     .then((result) => res.json({ message: "Keranjang Nota berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// operasionalkantor
+app.get("/api/operasionalkantor", async (req, res) => {
+  const list = operasionalkantor.list(req.query);
+  res.json(await list);
+});
+app.post("/api/operasionalkantor", async (req, res) => {
+  const result = await operasionalkantor
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Operasional Kantor berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/operasionalkantor", async (req, res) => {
+  const result = await operasionalkantor
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Operasional Kantor berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/operasionalkantor", async (req, res) => {
+  operasionalkantor
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Operasional Kantor berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// kategorioperasionalkantor
+app.get("/api/kategorioperasionalkantor", async (req, res) => {
+  const list = kategorioperasionalkantor.list(req.query);
+  res.json(await list);
+});
+app.post("/api/kategorioperasionalkantor", async (req, res) => {
+  const result = await kategorioperasionalkantor
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Kategori Operasional Kantor berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kategorioperasionalkantor", async (req, res) => {
+  const result = await kategorioperasionalkantor
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Kategori Operasional Kantor berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/kategorioperasionalkantor", async (req, res) => {
+  kategorioperasionalkantor
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Kategori Operasional Kantor berhasil dihapus" })
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
