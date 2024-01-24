@@ -1,10 +1,22 @@
 const connection = require("./db");
 const table = "pembayaranproyek";
 
-const list = ({ id_proyek }) => {
+const list = ({ id_proyek, monthyear }) => {
   const sql = `Select * from ${table} where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
-  }`;
+  } ${monthyear ? `and DATE_FORMAT(tanggal, '%m-%Y')=${monthyear}` : ""}`;
+  return new Promise((resolve, reject) => {
+    connection.query(sql, (err, res) => {
+      if (!res) res = [];
+      resolve(res);
+    });
+  });
+};
+
+const total = ({ id_proyek, monthyear }) => {
+  const sql = `Select sum(nominal) total from ${table} where 1=1 ${
+    id_proyek ? `and id_proyek=${id_proyek}` : ""
+  } ${monthyear ? `and DATE_FORMAT(tanggal, '%m-%Y')='${monthyear}'` : ""}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
@@ -44,4 +56,4 @@ const destroy = ({ id }) => {
   });
 };
 
-module.exports = { list, create, update, destroy };
+module.exports = { list, create, update, destroy, total };

@@ -114,8 +114,8 @@ app.delete("/api/stok", async (req, res) => {
 });
 
 // laporan
-app.get("/api/laporan", async (req, res) => {
-  const list = laporan.laporanLR(req.query);
+app.get("/api/totalOperasional", async (req, res) => {
+  const list = laporan.totalOperasional(req.query);
   res.json(await list);
 });
 
@@ -206,6 +206,10 @@ app.delete("/api/aruskasproyek", async (req, res) => {
 // pembayaranproyek
 app.get("/api/pembayaranproyek", async (req, res) => {
   const list = pembayaranproyek.list(req.query);
+  res.json(await list);
+});
+app.get("/api/totalpembayaranproyek", async (req, res) => {
+  const list = pembayaranproyek.total(req.query);
   res.json(await list);
 });
 app.post("/api/pembayaranproyek", async (req, res) => {
