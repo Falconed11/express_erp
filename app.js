@@ -158,6 +158,10 @@ app.get("/api/keranjangproyek", async (req, res) => {
   const list = keranjangproyek.list(req.query);
   res.json(await list);
 });
+app.get("/api/versikeranjangproyek", async (req, res) => {
+  const list = keranjangproyek.listVersion(req.query);
+  res.json(await list);
+});
 app.post("/api/keranjangproyek", async (req, res) => {
   const result = await keranjangproyek
     .create(req.body)
