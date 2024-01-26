@@ -58,7 +58,6 @@ const listVersion = ({ id_proyek }) => {
 
 const create = ({ id_produk, id_proyek, jumlah, harga, instalasi, versi }) => {
   const sql = `insert into ${table} (id_produk, id_proyek, jumlah, harga, instalasi, versi) values ('${id_produk}', '${id_proyek}', '${jumlah}', '${harga}', '${instalasi}', '${versi}')`;
-  console.log({ sql });
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
