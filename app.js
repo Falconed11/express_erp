@@ -168,6 +168,12 @@ app.post("/api/keranjangproyek", async (req, res) => {
     .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.post("/api/versibarukeranjangproyek", async (req, res) => {
+  const result = await keranjangproyek
+    .createNewVersion(req.body)
+    .then((result) => res.json({ message: "Versi baru berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.put("/api/keranjangproyek", async (req, res) => {
   const result = await keranjangproyek
     .update(req.body)

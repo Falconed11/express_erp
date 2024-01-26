@@ -22,10 +22,10 @@ const table = "keranjangproyek";
 //     });
 //   });
 // };
-const list = ({ id_proyek, instalasi }) => {
+const list = ({ id_proyek, instalasi, versi }) => {
   const sql = `Select kp.id id_keranjangproyek, kp.jumlah, kp.harga hargakustom, p.* From ${table} kp left join produk p on kp.id_produk = p.id where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
-  } ${instalasi ? `and instalasi = ${instalasi}` : ""}`;
+  } ${instalasi ? `and instalasi = ${instalasi}` : ""} and versi=${versi}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
@@ -56,8 +56,9 @@ const listVersion = ({ id_proyek }) => {
 //   });
 // };
 
-const create = ({ id_produk, id_proyek, jumlah, harga, instalasi }) => {
-  const sql = `insert into ${table} (id_produk, id_proyek, jumlah, harga, instalasi) values ('${id_produk}', '${id_proyek}', '${jumlah}', '${harga}', '${instalasi}')`;
+const create = ({ id_produk, id_proyek, jumlah, harga, instalasi, versi }) => {
+  const sql = `insert into ${table} (id_produk, id_proyek, jumlah, harga, instalasi, versi) values ('${id_produk}', '${id_proyek}', '${jumlah}', '${harga}', '${instalasi}', '${versi}')`;
+  console.log({ sql });
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -67,7 +68,7 @@ const create = ({ id_produk, id_proyek, jumlah, harga, instalasi }) => {
 };
 
 const createNewVersion = ({ id_proyek, versi }) => {
-  const sql = `INSERT INTO ${table} ('id_proyek', 'id_produk', 'jumlah', 'harga', 'instalasi', 'keterangan',  'versi') SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, (max(versi) + 1) FROM keranjangproyek
+  const sql = `INSERT INTO ${table} (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi) SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, (SELECT max(versi) + 1 from keranjangproyek where id_proyek=${id_proyek}) FROM keranjangproyek
   WHERE id_proyek=${id_proyek} and versi=${versi}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
@@ -113,4 +114,11 @@ const destroy = ({ id }) => {
   });
 };
 
-module.exports = { list, listVersion, create, update, destroy };
+module.exports = {
+  list,
+  listVersion,
+  create,
+  createNewVersion,
+  update,
+  destroy,
+};
