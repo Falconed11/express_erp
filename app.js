@@ -19,6 +19,7 @@ const storage = multer.diskStorage({
 
 const proyek = require("./utils/proyek");
 const keranjangproyek = require("./utils/keranjangproyek");
+const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const operasionalkantor = require("./utils/operasionalkantor");
 const kategorioperasionalkantor = require("./utils/kategorioperasionalkantor");
 const aruskasproyek = require("./utils/aruskasproyek");
@@ -184,6 +185,64 @@ app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Produk berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// rekapitulasiproyek
+app.get("/api/rekapitulasiproyek", async (req, res) => {
+  const list = rekapitulasiproyek.list(req.query);
+  res.json(await list);
+});
+app.get("/api/versirekapitulasiproyek", async (req, res) => {
+  const list = rekapitulasiproyek.listVersion(req.query);
+  res.json(await list);
+});
+app.post("/api/rekapitulasiproyek", async (req, res) => {
+  const result = await rekapitulasiproyek
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Rekapitulasi Proyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.post("/api/versibarurekapitulasiproyek", async (req, res) => {
+  const result = await rekapitulasiproyek
+    .createNewVersion(req.body)
+    .then((result) => res.json({ message: "Versi baru berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/rekapitulasiproyek", async (req, res) => {
+  const result = await rekapitulasiproyek
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Rekapitulasi Proyek berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/rekapitulasiproyek", async (req, res) => {
+  rekapitulasiproyek
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Rekapitulasi Proyek berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// jenisproyek
+app.post("/api/jenisproyek", async (req, res) => {
+  const result = await rekapitulasiproyek
+    .createJenisProyek(req.body)
+    .then((result) =>
+      res.json({ message: "Rekapitulasi Proyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/jenisproyek", async (req, res) => {
+  const result = await rekapitulasiproyek
+    .updateJenisProyek(req.body)
+    .then((result) =>
+      res.json({ message: "Rekapitulasi Proyek berhasil diubah" })
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
