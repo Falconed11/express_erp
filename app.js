@@ -18,6 +18,7 @@ const storage = multer.diskStorage({
 });
 
 const proyek = require("./utils/proyek");
+const dashboard = require("./utils/dashboard");
 const keranjangproyek = require("./utils/keranjangproyek");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const operasionalkantor = require("./utils/operasionalkantor");
@@ -60,6 +61,34 @@ app.use((req, res, next) => {
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
+});
+
+// dashboard
+app.get("/api/sumpenawaran", async (req, res) => {
+  const list = dashboard.sumPenawaran(req.query);
+  res.json(await list);
+});
+app.post("/api/proyek", async (req, res) => {
+  const result = await proyek
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Proyek berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/proyek", async (req, res) => {
+  const result = await proyek
+    .update(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/proyek", async (req, res) => {
+  proyek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
 });
 
 // produk
@@ -141,16 +170,16 @@ app.put("/api/proyek", async (req, res) => {
     .then((result) => res.json({ message: "Proyek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/proyekupdatediskonpajak", async (req, res) => {
-  const result = await proyek
-    .updateDiskonPajak(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
 app.delete("/api/proyek", async (req, res) => {
   proyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/updateversiproyek", async (req, res) => {
+  const result = await proyek
+    .updateVersion(req.body)
+    .then((result) => res.json({ message: "Versi proyek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

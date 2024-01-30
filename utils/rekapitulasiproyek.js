@@ -4,9 +4,10 @@ const table = "rekapitulasiproyek";
 const list = ({ id_proyek, versi }) => {
   const sql = `Select r.* From ${table} r left join proyek p on r.id_proyek = p.id where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
-  } and versi=${versi}`;
+  } and r.versi=${versi}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
+      console.log(err);
       if (!res) res = [];
       resolve(res);
     });
