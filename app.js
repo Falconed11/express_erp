@@ -23,7 +23,7 @@ const keranjangproyek = require("./utils/keranjangproyek");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const operasionalkantor = require("./utils/operasionalkantor");
 const kategorioperasionalkantor = require("./utils/kategorioperasionalkantor");
-const aruskasproyek = require("./utils/aruskasproyek");
+const pengeluaranproyek = require("./utils/pengeluaranproyek");
 const pembayaranproyek = require("./utils/pembayaranproyek");
 const produk = require("./utils/produk");
 const stok = require("./utils/stok");
@@ -275,29 +275,33 @@ app.put("/api/jenisproyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
-// aruskasproyek
-app.get("/api/aruskasproyek", async (req, res) => {
-  const list = aruskasproyek.list(req.query);
+// pengeluaranproyek
+app.get("/api/pengeluaranproyek", async (req, res) => {
+  const list = pengeluaranproyek.list(req.query);
   res.json(await list);
 });
-app.post("/api/aruskasproyek", async (req, res) => {
-  const result = await aruskasproyek
+app.post("/api/pengeluaranproyek", async (req, res) => {
+  const result = await pengeluaranproyek
     .create(req.body)
     .then((result) =>
-      res.json({ message: "Arus Kas Proyek berhasil ditambahkan" })
+      res.json({ message: "Pengeluaran Proyek berhasil ditambahkan" })
     )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/aruskasproyek", async (req, res) => {
-  const result = await aruskasproyek
+app.put("/api/pengeluaranproyek", async (req, res) => {
+  const result = await pengeluaranproyek
     .update(req.body)
-    .then((result) => res.json({ message: "Arus Kas Proyek berhasil diubah" }))
+    .then((result) =>
+      res.json({ message: "Pengeluaran Proyek berhasil diubah" })
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.delete("/api/aruskasproyek", async (req, res) => {
-  aruskasproyek
+app.delete("/api/pengeluaranproyek", async (req, res) => {
+  pengeluaranproyek
     .destroy(req.body)
-    .then((result) => res.json({ message: "Arus Kas Proyek berhasil dihapus" }))
+    .then((result) =>
+      res.json({ message: "Pengeluaran Proyek berhasil dihapus" })
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
