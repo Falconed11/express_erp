@@ -144,7 +144,7 @@ app.delete("/api/stok", async (req, res) => {
 });
 
 // laporan
-app.get("/api/totalOperasional", async (req, res) => {
+app.get("/api/totaloperasional", async (req, res) => {
   const list = laporan.totalOperasional(req.query);
   res.json(await list);
 });
