@@ -4,7 +4,9 @@ const table = "pengeluaranproyek";
 const list = ({ id_proyek, monthyear }) => {
   const sql = `Select pp.id id_pengeluaranproyek, pp.tanggal, pp.jumlah, pp.harga hargakustom, pp.status, pp.keterangan keteranganpp, k.nama namakaryawan, p.* From ${table} pp left join produk p on pp.id_produk = p.id left join karyawan k on pp.id_karyawan = k.id where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
-  } ${monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') ='${monthyear}'` : ""}`;
+  } ${
+    monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') ='${monthyear}'` : ""
+  } order by tanggal`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];

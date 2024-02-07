@@ -148,6 +148,10 @@ app.get("/api/totaloperasional", async (req, res) => {
   const list = laporan.totalOperasional(req.query);
   res.json(await list);
 });
+app.get("/api/bulananproyek", async (req, res) => {
+  const list = laporan.bulananProyek(req.query);
+  res.json(await list);
+});
 
 // proyek
 app.get("/api/proyek", async (req, res) => {

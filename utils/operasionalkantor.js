@@ -1,9 +1,20 @@
 const connection = require("./db");
 const table = "operasionalkantor";
 
-const list = ({ id_karyawan, id_kategorioperasionalkantor, tanggal }) => {
+const list = ({
+  id_karyawan,
+  id_kategorioperasionalkantor,
+  tanggal,
+  start,
+  end,
+  id_kategori,
+}) => {
   const sql = `Select o.*, k.nama karyawan, ko.nama kategori from ${table} o left join karyawan k on o.id_karyawan = k.id left join kategorioperasionalkantor ko on o.id_kategorioperasionalkantor = ko.id where 1=1 ${
     id_karyawan ? `and id_proyek=${id_karyawan}` : ""
+  } ${start ? `and tanggal>='${start}'` : ""} ${
+    start ? `and tanggal>='${start}'` : ""
+  } ${end ? `and tanggal<='${end}'` : ""} ${
+    id_kategori ? `and id_kategorioperasionalkantor=${id_kategori}` : ""
   }`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
