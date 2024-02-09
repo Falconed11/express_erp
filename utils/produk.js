@@ -18,7 +18,7 @@ const table = "produk";
 const list = ({ kategori }) => {
   const sql = `select * from ${table} ${
     kategori ? `where kategori = '${kategori}'` : ""
-  } order by kategori`;
+  } order by kategori, nama, merek`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
