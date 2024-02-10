@@ -15,6 +15,7 @@ const list = ({ id }) => {
 };
 
 const create = ({
+  id,
   id_perusahaan,
   swasta,
   nama,
@@ -34,7 +35,7 @@ const create = ({
       if (res.length > 0) {
         id_kustom = res[0].id_kustom + 1;
       }
-      sql = `insert into ${table} (id_kustom, id_perusahaan, swasta, nama, klien, instansi, kota, id_karyawan, id_statusproyek, tanggal, keterangan) values ('${id_kustom}', '${id_perusahaan}', '${swasta}', '${nama}', '${klien}', '${instansi}', '${kota}', '${id_karyawan}', '${id_statusproyek}', '${tanggal}', '${keterangan}')`;
+      sql = `insert into ${table} (id_second, id_kustom, id_perusahaan, swasta, nama, klien, instansi, kota, id_karyawan, id_statusproyek, tanggal, keterangan) values ('${id}', '${id_kustom}', '${id_perusahaan}', '${swasta}', '${nama}', '${klien}', '${instansi}', '${kota}', '${id_karyawan}', '${id_statusproyek}', '${tanggal}', '${keterangan}')`;
       connection.query(sql, (err, res) => {
         if (err) reject(err);
         resolve(res);
@@ -45,6 +46,7 @@ const create = ({
 
 const update = ({
   id,
+  id_second,
   id_perusahaan,
   swasta,
   nama,
@@ -56,7 +58,7 @@ const update = ({
   tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_perusahaan='${id_perusahaan}', swasta='${swasta}', nama='${nama}', klien='${klien}', instansi='${instansi}', kota='${kota}', id_karyawan='${id_karyawan}', id_statusproyek='${id_statusproyek}', tanggal='${tanggal}', keterangan='${keterangan}' where id=${id}`;
+  const sql = `update ${table} set id_second='${id_second}', id_perusahaan='${id_perusahaan}', swasta='${swasta}', nama='${nama}', klien='${klien}', instansi='${instansi}', kota='${kota}', id_karyawan='${id_karyawan}', id_statusproyek='${id_statusproyek}', tanggal='${tanggal}', keterangan='${keterangan}' where id=${id}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);

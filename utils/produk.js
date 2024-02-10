@@ -58,6 +58,7 @@ const listKategori = () => {
 
 const create = ({
   kategori,
+  id_kustom,
   nama,
   merek,
   tipe,
@@ -68,7 +69,7 @@ const create = ({
   hargajual,
   keterangan,
 }) => {
-  const sql = `insert into ${table} (kategori, nama, merek, tipe, vendor, stok, satuan, hargamodal, hargajual, keterangan) values ('${kategori}', '${nama}', '${merek}', '${tipe}', '${vendor}', '${stok}', '${satuan}', '${hargamodal}', '${hargajual}', '${keterangan}')`;
+  const sql = `insert into ${table} (kategori, id_kustom, nama, merek, tipe, vendor, stok, satuan, hargamodal, hargajual, keterangan) values ('${kategori}', '${id_kustom}', '${nama}', '${merek}', '${tipe}', '${vendor}', '${stok}', '${satuan}', '${hargamodal}', '${hargajual}', '${keterangan}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -99,6 +100,7 @@ const create = ({
 
 const update = ({
   id,
+  id_kustom,
   kategori,
   nama,
   merek,
@@ -110,7 +112,7 @@ const update = ({
   hargajual,
   keterangan,
 }) => {
-  const sql = `update ${table} set kategori='${kategori}', nama='${nama}', merek='${merek}', tipe='${tipe}', vendor='${vendor}', stok='${stok}', satuan='${satuan}', hargamodal='${hargamodal}', hargajual='${hargajual}', keterangan='${keterangan}' where id=${id}`;
+  const sql = `update ${table} set kategori='${kategori}', id_kustom='${id_kustom}', nama='${nama}', merek='${merek}', tipe='${tipe}', vendor='${vendor}', stok='${stok}', satuan='${satuan}', hargamodal='${hargamodal}', hargajual='${hargajual}', keterangan='${keterangan}' where id=${id}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
