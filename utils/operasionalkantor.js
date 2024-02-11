@@ -27,11 +27,21 @@ const list = ({
 const create = ({
   id_karyawan,
   id_kategorioperasionalkantor,
+  karyawan,
+  kategori,
   biaya,
   tanggal,
   keterangan,
 }) => {
-  const sql = `insert into ${table} (id_karyawan, id_kategorioperasionalkantor, biaya, tanggal, keterangan) values ('${id_karyawan}', '${id_kategorioperasionalkantor}', '${biaya}', '${tanggal}', '${keterangan}')`;
+  const sql = `insert into ${table} (id_karyawan, id_kategorioperasionalkantor, biaya, tanggal, keterangan) values (${
+    karyawan
+      ? `(select id from karyawan where nama='${karyawan}')`
+      : `'${id_karyawan}'`
+  }, ${
+    kategori
+      ? `(select id from kategorioperasionalkantor where nama='${kategori}')`
+      : `'${id_kategorioperasionalkantor}'`
+  }, '${biaya}', '${tanggal}', '${keterangan}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);

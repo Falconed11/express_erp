@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "pembayaranproyek";
 
 const list = ({ id_proyek, monthyear }) => {
-  const sql = `Select * from ${table} where 1=1 ${
+  const sql = `Select p.id id_proyek, p.nama, p.instansi, pp.* from ${table} pp left join proyek p on pp.id_proyek=p.id where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
   } ${monthyear ? `and DATE_FORMAT(tanggal, '%m-%Y')=${monthyear}` : ""}`;
   return new Promise((resolve, reject) => {
@@ -25,8 +25,19 @@ const total = ({ id_proyek, monthyear }) => {
   });
 };
 
-const create = ({ id_proyek, nominal, carabayar, tanggal, keterangan }) => {
-  const sql = `insert into ${table} (id_proyek, nominal, carabayar, tanggal, keterangan) values ('${id_proyek}', '${nominal}', '${carabayar}', '${tanggal}', '${keterangan}')`;
+const create = ({
+  id_proyek,
+  idproyek,
+  nominal,
+  carabayar,
+  tanggal,
+  keterangan,
+}) => {
+  const sql = `insert into ${table} (id_proyek, nominal, carabayar, tanggal, keterangan) values (${
+    idproyek
+      ? `(select id from proyek where id_second='${idproyek}')`
+      : `${id_proyek}`
+  }, '${nominal}', '${carabayar}', '${tanggal}', '${keterangan}')`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
