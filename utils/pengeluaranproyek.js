@@ -1,11 +1,13 @@
 const connection = require("./db");
 const table = "pengeluaranproyek";
 
-const list = ({ id_proyek, monthyear }) => {
+const list = ({ id_proyek, monthyear, start, end }) => {
   const sql = `Select pr.id id_proyek, pr.nama namaproyek, pr.instansi, pp.id id_pengeluaranproyek, pp.tanggal, pp.jumlah, pp.harga hargakustom, pp.status, pp.keterangan keteranganpp, k.nama namakaryawan, p.* From ${table} pp left join produk p on pp.id_produk = p.id left join karyawan k on pp.id_karyawan = k.id left join proyek pr on pp.id_proyek=pr.id where 1=1 ${
     id_proyek ? `and id_proyek=${id_proyek}` : ""
   } ${
     monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') ='${monthyear}'` : ""
+  } ${start ? `and pp.tanggal>='${start}'` : ""} ${
+    end ? `and pp.tanggal<='${end}'` : ""
   } order by tanggal`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
