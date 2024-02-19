@@ -69,12 +69,28 @@ const create = ({
   hargajual,
   keterangan,
 }) => {
-  const sql = `insert into ${table} (kategori, id_kustom, nama, merek, tipe, vendor, stok, satuan, hargamodal, hargajual, keterangan) values ('${kategori}', '${id_kustom}', '${nama}', '${merek}', '${tipe}', '${vendor}', '${stok}', '${satuan}', '${hargamodal}', '${hargajual}', '${keterangan}')`;
+  const sql = `insert into ${table} (kategori, id_kustom, nama, merek, tipe, vendor, stok, satuan, hargamodal, hargajual, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
+    connection.query(
+      sql,
+      [
+        kategori,
+        id_kustom,
+        nama,
+        merek,
+        tipe,
+        vendor,
+        stok,
+        satuan,
+        hargamodal,
+        hargajual,
+        keterangan,
+      ],
+      (err, res) => {
+        if (err) reject(err);
+        resolve(res);
+      }
+    );
   });
 };
 

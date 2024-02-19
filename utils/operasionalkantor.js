@@ -15,7 +15,7 @@ const list = ({
     start ? `and tanggal>='${start}'` : ""
   } ${end ? `and tanggal<='${end}'` : ""} ${
     id_kategori ? `and id_kategorioperasionalkantor=${id_kategori}` : ""
-  }`;
+  } order by o.tanggal desc`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
