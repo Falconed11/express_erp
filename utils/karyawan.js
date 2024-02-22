@@ -13,9 +13,10 @@ const list = () => {
 };
 
 const create = ({ nama }) => {
-  const sql = `insert into ${table} (nama) values ('${nama}')`;
+  const sql = `insert into ${table} (nama) values (?)`;
+  const values = [nama];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -23,9 +24,10 @@ const create = ({ nama }) => {
 };
 
 const update = ({ id, nama }) => {
-  const sql = `update ${table} set nama='${nama}' where id=${id}`;
+  const sql = `update ${table} set nama=? where id=?`;
+  const values = [nama, id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -33,9 +35,10 @@ const update = ({ id, nama }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
+  const sql = `delete from ${table} where id = ?`;
+  const values = [id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });

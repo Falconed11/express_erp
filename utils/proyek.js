@@ -7,6 +7,10 @@ const list = ({ id, start, end }) => {
   } ${start ? `and p.tanggal>='${start}'` : ""} ${
     end ? `and p.tanggal<='${end}'` : ""
   } order by p.tanggal desc`;
+  const values = [];
+  if (id) values.push(id);
+  if (start) values.push(start);
+  if (end) values.push(end);
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
@@ -24,20 +28,37 @@ const create = ({
   instansi,
   kota,
   id_karyawan,
+  karyawan,
   id_statusproyek,
   tanggal,
   keterangan,
 }) => {
-  let sql = `select id_kustom from ${table} where DATE_FORMAT(tanggal, '%m %Y') = DATE_FORMAT('${tanggal}', '%m %Y') order by id_kustom desc limit 1`;
+  let sql = `select id_kustom from ${table} where DATE_FORMAT(tanggal, '%m %Y') = DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1`;
+  let values = [tanggal];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       let id_kustom = 1;
       if (res.length > 0) {
         id_kustom = res[0].id_kustom + 1;
       }
-      sql = `insert into ${table} (id_second, id_kustom, id_perusahaan, swasta, nama, klien, instansi, kota, id_karyawan, id_statusproyek, tanggal, keterangan) values ('${id}', '${id_kustom}', '${id_perusahaan}', '${swasta}', '${nama}', '${klien}', '${instansi}', '${kota}', '${id_karyawan}', '${id_statusproyek}', '${tanggal}', '${keterangan}')`;
-      connection.query(sql, (err, res) => {
+      sql = `insert into ${table} (id_second, id_kustom, id_perusahaan, swasta, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ${
+        karyawan ? `(select id from karyawan where nama = ?)` : "?"
+      }, ?, ?)`;
+      values = [
+        id,
+        id_kustom,
+        id_perusahaan,
+        swasta,
+        nama,
+        klien,
+        instansi,
+        kota,
+        karyawan ?? id_karyawan,
+        tanggal,
+        keterangan ?? "",
+      ];
+      connection.query(sql, values, (err, res) => {
         if (err) reject(err);
         resolve(res);
       });
@@ -59,9 +80,23 @@ const update = ({
   tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_second='${id_second}', id_perusahaan='${id_perusahaan}', swasta='${swasta}', nama='${nama}', klien='${klien}', instansi='${instansi}', kota='${kota}', id_karyawan='${id_karyawan}', id_statusproyek='${id_statusproyek}', tanggal='${tanggal}', keterangan='${keterangan}' where id=${id}`;
+  const sql = `update ${table} set id_second=?, id_perusahaan=?, swasta=?, nama=?, klien=?, instansi=?, kota=?, id_karyawan=?, id_statusproyek=?, tanggal=?, keterangan=? where id=?`;
+  const values = [
+    id_second,
+    id_perusahaan,
+    swasta,
+    nama,
+    klien,
+    instansi,
+    kota,
+    id_karyawan,
+    id_statusproyek,
+    tanggal,
+    keterangan,
+    id,
+  ];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -69,9 +104,10 @@ const update = ({
 };
 
 const updateVersion = ({ id, versi }) => {
-  const sql = `update ${table} set versi='${versi}' where id=${id}`;
+  const sql = `update ${table} set versi=? where id=?`;
+  const values = [versi, id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -79,9 +115,10 @@ const updateVersion = ({ id, versi }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
+  const sql = `delete from ${table} where id = ?`;
+  const values = [id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });

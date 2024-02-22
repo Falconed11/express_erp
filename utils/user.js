@@ -8,9 +8,10 @@ const saltRounds = 10;
 const table = "user";
 
 const login = ({ username, password }) => {
-  const sql = `Select * From ${table} Where username='${username}'`;
+  const sql = `Select * From ${table} Where username=?`;
+  const values = [username];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       if (res.length == 0) {
         resolve({ message: "Username tidak ditemukan" });
@@ -45,8 +46,9 @@ const create = ({ username, password, peran }) => {
     bcrypt.hash(password, saltRounds, function (err, hash) {
       // Store hash in your password DB.
       if (err) return reject(err);
-      const sql = `insert into ${table} (username, password, peran) values ('${username}','${hash}','${peran}')`;
-      connection.query(sql, (err, res) => {
+      const sql = `insert into ${table} (username, password, peran) values (?,'${hash}',?)`;
+      const values = [username, peran];
+      connection.query(sql, values, (err, res) => {
         if (err) reject(err);
         resolve(res);
       });
@@ -57,7 +59,8 @@ const create = ({ username, password, peran }) => {
 const update = ({ id, username, password, peran, passwordlama }) => {
   return new Promise((resolve, reject) => {
     connection.query(
-      `Select password From ${table} Where id='${id}'`,
+      `Select password From ${table} Where id=?`,
+      [id],
       (err, res) => {
         if (err) {
           reject(err);
@@ -77,14 +80,14 @@ const update = ({ id, username, password, peran, passwordlama }) => {
             reject({ message: "Password lama tidak sesuai" });
             return;
           }
-          console.log("Ini tetap jalan");
           bcrypt.hash(password, saltRounds, function (err, hash) {
             // Store hash in your password DB.
             if (err) return reject(err);
-            const sql = `update ${table} set username='${username}', ${
+            const sql = `update ${table} set username=?, ${
               password ? `password='${hash}',` : ""
-            } peran='${peran}' where id=${id}`;
-            connection.query(sql, (err, res) => {
+            } peran=? where id=?`;
+            const values = [username, peran, id];
+            connection.query(sql, values, (err, res) => {
               if (err) reject(err);
               resolve(res);
             });
@@ -96,9 +99,10 @@ const update = ({ id, username, password, peran, passwordlama }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
+  const sql = `delete from ${table} where id = ?`;
+  const values = [id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });

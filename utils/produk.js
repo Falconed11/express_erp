@@ -17,10 +17,10 @@ const table = "produk";
 
 const list = ({ kategori }) => {
   const sql = `select * from ${table} ${
-    kategori ? `where kategori = '${kategori}'` : ""
+    kategori ? `where kategori = ?` : ""
   } order by kategori, nama, merek`;
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, [kategori], (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -84,7 +84,7 @@ const create = ({
         satuan,
         hargamodal,
         hargajual,
-        keterangan,
+        keterangan ?? "",
       ],
       (err, res) => {
         if (err) reject(err);
@@ -128,18 +128,35 @@ const update = ({
   hargajual,
   keterangan,
 }) => {
-  const sql = `update ${table} set kategori='${kategori}', id_kustom='${id_kustom}', nama='${nama}', merek='${merek}', tipe='${tipe}', vendor='${vendor}', stok='${stok}', satuan='${satuan}', hargamodal='${hargamodal}', hargajual='${hargajual}', keterangan='${keterangan}' where id=${id}`;
+  const sql = `update ${table} set kategori=?, id_kustom=?, nama=?, merek=?, tipe=?, vendor=?, stok=?, satuan=?, hargamodal=?, hargajual=?, keterangan=? where id=?`;
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
+    connection.query(
+      sql,
+      [
+        kategori,
+        id_kustom,
+        nama,
+        merek,
+        tipe,
+        vendor,
+        stok,
+        satuan,
+        hargamodal,
+        hargajual,
+        keterangan,
+        id,
+      ],
+      (err, res) => {
+        if (err) reject(err);
+        resolve(res);
+      }
+    );
   });
 };
 const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
+  const sql = `delete from ${table} where id = ?`;
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, [id], (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
