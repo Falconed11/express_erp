@@ -24,10 +24,14 @@ const table = "keranjangproyek";
 // };
 const list = ({ id_proyek, instalasi, versi }) => {
   const sql = `Select kp.id id_keranjangproyek, kp.jumlah, kp.harga hargakustom, p.* From ${table} kp left join produk p on kp.id_produk = p.id where 1=1 ${
-    id_proyek ? `and id_proyek=${id_proyek}` : ""
-  } ${instalasi ? `and instalasi = ${instalasi}` : ""} and versi=${versi}`;
+    id_proyek ? `and id_proyek=?` : ""
+  } ${instalasi ? `and instalasi = ?` : ""} and versi=?`;
+  const values = [];
+  if (id_proyek) values.push(id_proyek);
+  if (instalasi) values.push(instalasi);
+  values.push(versi);
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (!res) res = [];
       resolve(res);
     });
@@ -36,10 +40,12 @@ const list = ({ id_proyek, instalasi, versi }) => {
 
 const listVersion = ({ id_proyek }) => {
   const sql = `select distinct versi from ${table} where 1=1 ${
-    id_proyek ? `and id_proyek=${id_proyek}` : ""
+    id_proyek ? `and id_proyek=?` : ""
   }`;
+  const values = [];
+  if (id_proyek) values.push(id_proyek);
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (!res) res = [];
       resolve(res);
     });
@@ -57,9 +63,21 @@ const listVersion = ({ id_proyek }) => {
 // };
 
 const create = ({ id_produk, id_proyek, jumlah, harga, instalasi, versi }) => {
-  const sql = `insert into ${table} (id_produk, id_proyek, jumlah, harga, instalasi, versi) values ('${id_produk}', '${id_proyek}', '${jumlah}', '${harga}', '${instalasi}', '${versi}')`;
+  if (!jumlah)
+    return new Promise((resolve, reject) =>
+      reject({ message: `Jumlah Belum Diisi` })
+    );
+  const sql = `insert into ${table} (id_produk, id_proyek, jumlah, harga, instalasi, versi) values (?, ?, ?, ?, ?, ?)`;
+  const values = [
+    id_produk,
+    id_proyek,
+    jumlah,
+    harga ?? 0,
+    instalasi ?? 0,
+    versi,
+  ];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -67,10 +85,10 @@ const create = ({ id_produk, id_proyek, jumlah, harga, instalasi, versi }) => {
 };
 
 const createNewVersion = ({ id_proyek, versi }) => {
-  const sql = `INSERT INTO ${table} (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi) SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, (SELECT max(versi) + 1 from keranjangproyek where id_proyek=${id_proyek}) FROM keranjangproyek
-  WHERE id_proyek=${id_proyek} and versi=${versi}`;
+  const sql = `INSERT INTO ${table} (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi) SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, (SELECT max(versi) + 1 from keranjangproyek where id_proyek=?) FROM keranjangproyek WHERE id_proyek=? and versi=?`;
+  const values = [id_proyek, id_proyek, versi];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -93,10 +111,10 @@ const createNewVersion = ({ id_proyek, versi }) => {
 // };
 
 const update = ({ id, jumlah, harga }) => {
-  const sql = `update ${table} set jumlah = ${jumlah}, harga = ${harga} where id=${id}`;
-  console.log(sql);
+  const sql = `update ${table} set jumlah = ?, harga = ? where id=?`;
+  const values = [jumlah, harga, id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -104,9 +122,10 @@ const update = ({ id, jumlah, harga }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
+  const sql = `delete from ${table} where id = ?`;
+  const values = [id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
