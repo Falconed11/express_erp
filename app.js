@@ -41,6 +41,7 @@ const subkategoriproduk = require("./utils/subkategoriproduk");
 const merek = require("./utils/merek");
 const statusproyek = require("./utils/statusproyek");
 const nota = require("./utils/nota");
+const kwitansi = require("./utils/kwitansi");
 const keranjangnota = require("./utils/keranjangnota");
 const laporan = require("./utils/laporan");
 
@@ -396,6 +397,34 @@ app.delete("/api/keranjangnota", async (req, res) => {
   keranjangnota
     .destroy(req.body)
     .then((result) => res.json({ message: "Keranjang Nota berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// kwitansi
+app.get("/api/kwitansi", async (req, res) => {
+  const list = kwitansi.list(req.query);
+  res.json(await list);
+});
+app.post("/api/kwitansi", async (req, res) => {
+  const result = await kwitansi
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Kwitansi berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kwitansi", async (req, res) => {
+  const result = await kwitansi
+    .update(req.body)
+    .then((result) => res.json({ message: "Kwitansi berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/kwitansi", async (req, res) => {
+  kwitansi
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Kwitansi berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -773,33 +802,6 @@ app.delete("/api/merek", async (req, res) => {
 app.get("/api/statusproyek", async (req, res) => {
   const list = statusproyek.list(req.query);
   res.json(await list);
-});
-
-// nota
-app.get("/api/nota", async (req, res) => {
-  const list = nota.list(req.query);
-  res.json(await list);
-});
-app.post("/api/nota", async (req, res) => {
-  // const result = await nota
-  //   .create(req.body)
-  //   .then((result) => res.json({ message: "nota berhasil ditambahkan" }))
-  //   .catch((e) => res.status(400).json({ message: e.message }));
-  console.log(req.file);
-  console.log(req.body);
-  res.json({ message: "Success" });
-});
-app.put("/api/nota", async (req, res) => {
-  const result = await nota
-    .update(req.body)
-    .then((result) => res.json({ message: "nota berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/nota", async (req, res) => {
-  nota
-    .destroy(req.body)
-    .then((result) => res.json({ message: "nota berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
 });
 
 app.listen(port, () => {
