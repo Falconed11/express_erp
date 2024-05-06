@@ -44,6 +44,7 @@ const nota = require("./utils/nota");
 const kwitansi = require("./utils/kwitansi");
 const keranjangnota = require("./utils/keranjangnota");
 const laporan = require("./utils/laporan");
+const alat = require("./utils/alat");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -152,6 +153,19 @@ app.get("/api/totaloperasional", async (req, res) => {
 app.get("/api/bulananproyek", async (req, res) => {
   const list = laporan.bulananProyek(req.query);
   res.json(await list);
+});
+
+// alat
+app.post("/api/importpengeluaranproyek", async (req, res) => {
+  const result = await alat
+    .importPengeluaranProyek(req.body)
+    .then((result) =>
+      res.json({
+        message: "Import berhasil",
+        result: result,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
 });
 
 // proyek
