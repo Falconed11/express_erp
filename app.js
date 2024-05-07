@@ -161,7 +161,29 @@ app.post("/api/importpengeluaranproyek", async (req, res) => {
     .importPengeluaranProyek(req.body)
     .then((result) =>
       res.json({
-        message: "Import berhasil",
+        message: result.msg,
+        result: result,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.post("/api/importpembayaranproyek", async (req, res) => {
+  const result = await alat
+    .importPembayaranProyek(req.body)
+    .then((result) =>
+      res.json({
+        message: result.msg,
+        result: result,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.post("/api/importoperasionalkantor", async (req, res) => {
+  const result = await alat
+    .importOperasionalKantor(req.body)
+    .then((result) =>
+      res.json({
+        message: result.msg,
         result: result,
       })
     )

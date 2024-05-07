@@ -17,35 +17,19 @@ const importPengeluaranProyek = ({
   harga_satuan,
   lunas,
 }) => {
-  let sql =
-    "INSERT INTO karyawan (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM karyawan WHERE nama = ?);";
-  let values = [nama_karyawan, nama_karyawan];
+  merek = merek ?? "";
+  vendor = vendor ?? "";
+  tipe = tipe ?? "";
+  let sql = "";
+  let values = [];
+  const isExpense = nama_karyawan ? 1 : 0;
   return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log("Karyawan");
-    });
-
     sql =
       "INSERT INTO jenisproyek (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM jenisproyek WHERE nama = ?);";
     values = [jenis_proyek, jenis_proyek];
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       console.log("jenisproyek");
-    });
-    sql =
-      "INSERT INTO vendor (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM vendor WHERE nama = ?);";
-    values = [vendor, vendor];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log("vendor");
-    });
-    sql =
-      "INSERT INTO merek (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM merek WHERE nama = ?);";
-    values = [merek, merek];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log("merek");
     });
     sql =
       "INSERT INTO instansi (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);";
@@ -71,35 +55,106 @@ const importPengeluaranProyek = ({
       console.log(err);
       console.log("proyek");
     });
-    sql =
-      "INSERT INTO produk (nama, id_merek, id_vendor, tipe) SELECT ?,(select id from merek where nama=?),(select id from vendor where nama=?),? WHERE NOT EXISTS (SELECT 1 FROM produk WHERE nama = ? and id_merek=(select id from merek where nama=?) and id_vendor=(select id from vendor where nama=?));";
-    values = [nama_barang, merek, vendor, tipe, nama_barang, merek, vendor];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-      console.log("produk");
-    });
-    sql =
-      "INSERT INTO pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, jumlah, harga, lunas) SELECT (select id from proyek where id_second=?),?,(select id from karyawan where nama=?),(select id from produk where nama=? and id_merek=(select id from merek where nama=?) and id_vendor=(select id from vendor where nama=?) and tipe=?),?,?,?;";
-    values = [
-      id_second,
-      tanggal,
-      nama_karyawan,
-      nama_barang,
-      merek,
-      vendor,
-      tipe,
-      jumlah,
-      harga_satuan,
-      lunas,
-    ];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-      console.log("pengeluaranproyek");
-    });
+    if (isExpense) {
+      sql =
+        "INSERT INTO karyawan (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM karyawan WHERE nama = ?);";
+      values = [nama_karyawan, nama_karyawan];
+      connection.query(sql, values, (err, res) => {
+        if (err) reject(err);
+        console.log("Karyawan");
+      });
+      sql =
+        "INSERT INTO vendor (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM vendor WHERE nama = ?);";
+      values = [vendor, vendor];
+      connection.query(sql, values, (err, res) => {
+        if (err) reject(err);
+        console.log("vendor");
+      });
+      sql =
+        "INSERT INTO merek (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM merek WHERE nama = ?);";
+      values = [merek, merek];
+      connection.query(sql, values, (err, res) => {
+        if (err) reject(err);
+        console.log("merek");
+      });
+      sql =
+        "INSERT INTO produk (nama, id_merek, id_vendor, tipe) SELECT ?,(select id from merek where nama=?),(select id from vendor where nama=?),? WHERE NOT EXISTS (SELECT 1 FROM produk WHERE nama = ? and id_merek=(select id from merek where nama=?) and id_vendor=(select id from vendor where nama=?));";
+      values = [nama_barang, merek, vendor, tipe, nama_barang, merek, vendor];
+      connection.query(sql, values, (err, res) => {
+        if (err) reject(err);
+        console.log(err);
+        console.log("produk");
+      });
+      sql =
+        "INSERT INTO pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, jumlah, harga, lunas) SELECT (select id from proyek where id_second=?),?,(select id from karyawan where nama=?),(select id from produk where nama=? and id_merek=(select id from merek where nama=?) and id_vendor=(select id from vendor where nama=?) and tipe=?),?,?,?;";
+      values = [
+        id_second,
+        tanggal,
+        nama_karyawan,
+        nama_barang,
+        merek,
+        vendor,
+        tipe,
+        jumlah,
+        harga_satuan,
+        lunas,
+      ];
+      connection.query(sql, values, (err, res) => {
+        if (err) reject(err);
+        console.log(err);
+        console.log("pengeluaranproyek");
+      });
+    }
+    setTimeout(() => {
+      resolve({ msg: "Sukses" });
+    }, 100);
+  });
+};
 
-    resolve({ msg: "Sukses" });
+const importPembayaranProyek = ({ id_second, nominal, tt, tanggal }) => {
+  nominal = nominal ?? 0;
+  let sql =
+    "INSERT INTO metodepembayaran (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM metodepembayaran WHERE nama = ?);";
+  let values = [tt, tt];
+  return new Promise((resolve, reject) => {
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      console.log(err);
+    });
+    sql =
+      "insert into pembayaranproyek (id_proyek, nominal, id_metodepembayaran, tanggal) select (select id from proyek where id_second=?),?,(select id from metodepembayaran where nama=?),?";
+    values = [id_second, nominal, tt, tanggal];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      console.log(err);
+    });
+    setTimeout(() => {
+      resolve({ msg: "Sukses" });
+    }, 100);
+    // resolve({ msg: "Import excel pembayaran proyek berhasil" });
+  });
+};
+
+const importOperasionalKantor = ({ tanggal, transaksi, keterangan, biaya }) => {
+  let sql =
+    "INSERT INTO kategorioperasionalkantor (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM kategorioperasionalkantor WHERE nama = ?);";
+  let values = [transaksi, transaksi];
+  return new Promise((resolve, reject) => {
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      console.log(err);
+    });
+    sql =
+      "insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya) select ?,(select id from kategorioperasionalkantor where nama =?),?,?";
+    values = [tanggal, transaksi, keterangan, biaya];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      console.log(err);
+    });
+    setTimeout(() => {
+      resolve({ msg: "Sukses" });
+    }, 100);
+    // resolve({ msg: "Import excel pembayaran proyek berhasil" });
   });
 };
 
@@ -227,4 +282,8 @@ const destroy = ({ id }) => {
   });
 };
 
-module.exports = { importPengeluaranProyek };
+module.exports = {
+  importPengeluaranProyek,
+  importPembayaranProyek,
+  importOperasionalKantor,
+};
