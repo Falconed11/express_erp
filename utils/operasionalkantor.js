@@ -22,6 +22,7 @@ const list = ({
   if (id_kategori) values.push(id_kategori);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
+      if (err) console.log(err);
       if (!res) res = [];
       resolve(res);
     });

@@ -6,7 +6,7 @@ const list = ({ id, start, end }) => {
     id ? `and p.id=${id}` : ""
   } ${start ? `and p.tanggal>='${start}'` : ""} ${
     end ? `and p.tanggal<='${end}'` : ""
-  } order by p.tanggal desc`;
+  } order by p.tanggal desc limit 25`;
   const values = [];
   if (id) values.push(id);
   if (start) values.push(start);

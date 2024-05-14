@@ -6,7 +6,7 @@ const list = ({ id_proyek, monthyear, start, end }) => {
     id_proyek ? `and id_proyek=?` : ""
   } ${monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') =?` : ""} ${
     start ? `and pp.tanggal>=?` : ""
-  } ${end ? `and pp.tanggal<=?` : ""} order by tanggal desc`;
+  } ${end ? `and pp.tanggal<=?` : ""} order by pp.tanggal desc`;
   const values = [];
   if (id_proyek) values.push(id_proyek);
   if (monthyear) values.push(monthyear);
@@ -14,6 +14,7 @@ const list = ({ id_proyek, monthyear, start, end }) => {
   if (end) values.push(end);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
+      if (err) console.log(err);
       if (!res) res = [];
       resolve(res);
     });

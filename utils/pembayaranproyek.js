@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "pembayaranproyek";
 
 const list = ({ id_proyek, monthyear, start, end }) => {
-  const sql = `Select p.id id_proyek, p.nama, p.instansi, pp.* from ${table} pp left join proyek p on pp.id_proyek=p.id where 1=1 ${
+  const sql = `Select p.id id_proyek, p.nama, i.nama instansi, mp.nama metodepembayaran, pp.* from ${table} pp left join proyek p on pp.id_proyek=p.id left join metodepembayaran mp on pp.id_metodepembayaran=mp.id left join instansi i on p.id_instansi=i.id where 1=1 ${
     id_proyek ? `and id_proyek=?` : ""
   } ${monthyear ? `and DATE_FORMAT(tanggal, '%m-%Y')=?` : ""} ${
     start ? `and pp.tanggal>=?` : ""
@@ -14,6 +14,7 @@ const list = ({ id_proyek, monthyear, start, end }) => {
   if (end) values.push(end);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
+      if (err) console.log(err);
       if (!res) res = [];
       resolve(res);
     });

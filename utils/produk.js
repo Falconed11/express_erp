@@ -16,9 +16,9 @@ const table = "produk";
 // };
 
 const list = ({ kategori }) => {
-  const sql = `select * from ${table} ${
+  const sql = `select m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id ${
     kategori ? `where kategori = ?` : ""
-  } order by kategori, nama, merek`;
+  } order by kategori, nama, m.nama limit 25`;
   return new Promise((resolve, reject) => {
     connection.query(sql, [kategori], (err, res) => {
       if (err) reject(err);
