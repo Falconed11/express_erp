@@ -18,6 +18,7 @@ const storage = multer.diskStorage({
 });
 
 const proyek = require("./utils/proyek");
+const bank = require("./utils/bank");
 const dashboard = require("./utils/dashboard");
 const keranjangproyek = require("./utils/keranjangproyek");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
@@ -31,7 +32,7 @@ const karyawan = require("./utils/karyawan");
 const perusahaan = require("./utils/perusahaan");
 const pengeluaran = require("./utils/pengeluaran");
 const lembur = require("./utils/lembur");
-const distributor = require("./utils/distributor");
+const vendor = require("./utils/vendor");
 const klien = require("./utils/klien");
 const gudang = require("./utils/gudang");
 const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
@@ -620,27 +621,59 @@ app.delete("/api/lembur", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
-// distributor
-app.get("/api/distributor", async (req, res) => {
-  const list = distributor.list(req.query);
+// bank
+app.get("/api/bank", async (req, res) => {
+  const list = bank.list(req.query);
   res.json(await list);
 });
-app.post("/api/distributor", async (req, res) => {
-  const result = await distributor
+app.get("/api/totalbank", async (req, res) => {
+  const list = bank.total(req.query);
+  res.json(await list);
+});
+app.post("/api/bank", async (req, res) => {
+  const result = await bank
     .create(req.body)
-    .then((result) => res.json({ message: "distributor berhasil ditambahkan" }))
+    .then((result) => res.json({ message: "bank berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/distributor", async (req, res) => {
-  const result = await distributor
+app.put("/api/bank", async (req, res) => {
+  const result = await bank
     .update(req.body)
-    .then((result) => res.json({ message: "distributor berhasil diubah" }))
+    .then((result) => res.json({ message: "bank berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.delete("/api/distributor", async (req, res) => {
-  distributor
+app.delete("/api/bank", async (req, res) => {
+  bank
     .destroy(req.body)
-    .then((result) => res.json({ message: "distributor berhasil dihapus" }))
+    .then((result) => res.json({ message: "bank berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// vendor
+app.get("/api/vendor", async (req, res) => {
+  const list = vendor.list(req.query);
+  res.json(await list);
+});
+app.get("/api/hutangvendor", async (req, res) => {
+  const list = vendor.hutang(req.query);
+  res.json(await list);
+});
+app.post("/api/vendor", async (req, res) => {
+  const result = await vendor
+    .create(req.body)
+    .then((result) => res.json({ message: "vendor berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/vendor", async (req, res) => {
+  const result = await vendor
+    .update(req.body)
+    .then((result) => res.json({ message: "vendor berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/vendor", async (req, res) => {
+  vendor
+    .destroy(req.body)
+    .then((result) => res.json({ message: "vendor berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

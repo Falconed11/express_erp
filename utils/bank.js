@@ -1,11 +1,23 @@
 const connection = require("./db");
 
-const table = "distributor";
+const table = "bank";
 
 const list = () => {
-  const sql = `Select * From ${table}`;
+  const sql = `select * from ${table} limit 100`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
+      if (err) reject(err);
+      if (!res) res = [];
+      resolve(res);
+    });
+  });
+};
+
+const total = () => {
+  const sql = `select mp.id, mp.nama, sum(pp.nominal) total from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id order by mp.nama`;
+  return new Promise((resolve, reject) => {
+    connection.query(sql, (err, res) => {
+      if (err) reject(err);
       if (!res) res = [];
       resolve(res);
     });
@@ -42,4 +54,4 @@ const destroy = ({ id }) => {
   });
 };
 
-module.exports = { list, create, update, destroy };
+module.exports = { list, create, update, destroy, total };
