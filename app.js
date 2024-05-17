@@ -19,6 +19,7 @@ const storage = multer.diskStorage({
 
 const proyek = require("./utils/proyek");
 const bank = require("./utils/bank");
+const customer = require("./utils/customer");
 const dashboard = require("./utils/dashboard");
 const keranjangproyek = require("./utils/keranjangproyek");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
@@ -686,6 +687,36 @@ app.delete("/api/vendor", async (req, res) => {
   vendor
     .destroy(req.body)
     .then((result) => res.json({ message: "vendor berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// customer
+app.get("/api/customer", async (req, res) => {
+  const list = customer.list(req.query);
+  res.json(await list);
+});
+app.post("/api/customer", async (req, res) => {
+  const result = await customer
+    .create(req.body)
+    .then((result) => res.json({ message: "customer berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transfervendor", async (req, res) => {
+  const result = await customer
+    .transfer(req.body)
+    .then((result) => res.json({ message: "Transfer customer berhasil" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/customer", async (req, res) => {
+  const result = await customer
+    .update(req.body)
+    .then((result) => res.json({ message: "customer berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/customer", async (req, res) => {
+  customer
+    .destroy(req.body)
+    .then((result) => res.json({ message: "customer berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

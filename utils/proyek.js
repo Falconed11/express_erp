@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "proyek";
 
 const list = ({ id, start, end }) => {
-  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id where 1=1 ${
+  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id where 1=1 ${
     id ? `and p.id=${id}` : ""
   } ${start ? `and p.tanggal>='${start}'` : ""} ${
     end ? `and p.tanggal<='${end}'` : ""
