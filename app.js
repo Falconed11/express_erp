@@ -642,6 +642,12 @@ app.put("/api/bank", async (req, res) => {
     .then((result) => res.json({ message: "bank berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/transferbank", async (req, res) => {
+  const result = await bank
+    .transferBank(req.body)
+    .then((result) => res.json({ message: "bank berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.delete("/api/bank", async (req, res) => {
   bank
     .destroy(req.body)
@@ -662,6 +668,12 @@ app.post("/api/vendor", async (req, res) => {
   const result = await vendor
     .create(req.body)
     .then((result) => res.json({ message: "vendor berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transfervendor", async (req, res) => {
+  const result = await vendor
+    .transfer(req.body)
+    .then((result) => res.json({ message: "Transfer vendor berhasil" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/vendor", async (req, res) => {

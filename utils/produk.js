@@ -15,12 +15,14 @@ const table = "produk";
 //   });
 // };
 
-const list = ({ kategori }) => {
+const list = ({ kategori, limit }) => {
   const sql = `select m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id ${
     kategori ? `where kategori = ?` : ""
-  } order by kategori, nama, m.nama limit 25`;
+  } order by kategori, nama, m.nama ${limit ? "limit ?" : ""}`;
+  const values = [kategori];
+  if (limit) values.push(limit);
   return new Promise((resolve, reject) => {
-    connection.query(sql, [kategori], (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });

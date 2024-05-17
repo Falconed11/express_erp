@@ -1,9 +1,9 @@
 const connection = require("./db");
 
-const table = "bank";
+const table = "metodepembayaran";
 
 const list = () => {
-  const sql = `select * from ${table} limit 100`;
+  const sql = `select mp.id, mp.nama, t.t total from ${table} mp left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id order by mp.nama`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -24,18 +24,31 @@ const total = () => {
   });
 };
 
-const create = ({ nama, alamat }) => {
-  const sql = `insert into ${table} (nama, alamat) values ('${nama}','${alamat}')`;
+const transferBank = ({ src, dst }) => {
+  const sql =
+    "update pembayaranproyek set id_metodepembayaran=? where id_metodepembayaran=?";
+  const values = [dst, src];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
   });
 };
 
-const update = ({ id, nama, alamat }) => {
-  const sql = `update ${table} set nama='${nama}', alamat='${alamat}' where id=${id}`;
+const create = ({ nama }) => {
+  const sql = `insert into ${table} (nama) values (?)`;
+  const values = [nama];
+  return new Promise((resolve, reject) => {
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      resolve(res);
+    });
+  });
+};
+
+const update = ({ id, nama }) => {
+  const sql = `update ${table} set nama='${nama}' where id=${id}`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -54,4 +67,4 @@ const destroy = ({ id }) => {
   });
 };
 
-module.exports = { list, create, update, destroy, total };
+module.exports = { list, create, update, destroy, total, transferBank };
