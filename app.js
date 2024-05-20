@@ -100,10 +100,10 @@ app.get("/api/produk", async (req, res) => {
   const list = produk.list(req.query);
   res.json(await list);
 });
-app.get("/api/kategoriproduk", async (req, res) => {
-  const list = produk.listKategori(req.query);
-  res.json(await list);
-});
+// app.get("/api/kategoriproduk", async (req, res) => {
+//   const list = produk.listKategori(req.query);
+//   res.json(await list);
+// });
 app.post("/api/produk", async (req, res) => {
   const result = await produk
     .create(req.body)
@@ -701,7 +701,7 @@ app.post("/api/customer", async (req, res) => {
     .then((result) => res.json({ message: "customer berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/transfervendor", async (req, res) => {
+app.put("/api/transfercustomer", async (req, res) => {
   const result = await customer
     .transfer(req.body)
     .then((result) => res.json({ message: "Transfer customer berhasil" }))
@@ -843,6 +843,12 @@ app.post("/api/kategoriproduk", async (req, res) => {
     )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/transferkategoriproduk", async (req, res) => {
+  const result = await kategoriproduk
+    .transfer(req.body)
+    .then((result) => res.json({ message: "kategoriproduk berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.put("/api/kategoriproduk", async (req, res) => {
   const result = await kategoriproduk
     .update(req.body)
@@ -895,6 +901,12 @@ app.post("/api/merek", async (req, res) => {
   const result = await merek
     .create(req.body)
     .then((result) => res.json({ message: "merek berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transfermerek", async (req, res) => {
+  const result = await merek
+    .transfer(req.body)
+    .then((result) => res.json({ message: "merek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/merek", async (req, res) => {
