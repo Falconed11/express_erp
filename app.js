@@ -658,8 +658,11 @@ app.delete("/api/bank", async (req, res) => {
 
 // vendor
 app.get("/api/vendor", async (req, res) => {
-  const list = vendor.list(req.query);
-  res.json(await list);
+  const list = vendor
+    .list(req.query)
+    .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
+  // res.json(await list);
 });
 app.get("/api/hutangvendor", async (req, res) => {
   const list = vendor.hutang(req.query);

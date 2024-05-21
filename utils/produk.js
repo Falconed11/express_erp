@@ -17,7 +17,7 @@ const table = "produk";
 
 const list = ({ kategori, limit }) => {
   const sql = `select m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id ${
-    kategori ? `where kategori = ?` : ""
+    kategori ? `where id_kategori = ?` : ""
   } order by kategori, nama, m.nama ${limit ? "limit ?" : ""}`;
   const values = [kategori];
   if (limit) values.push(limit);

@@ -6,12 +6,8 @@ const list = () => {
   const sql = `Select * From ${table} order by nama`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
-      console.log(res);
-      console.log("tes");
       if (err) reject(err);
       // if (!res) res = [];
-      console.log(res);
-      console.log("tes");
       resolve(res);
     });
   });
