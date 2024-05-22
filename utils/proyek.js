@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "proyek";
 
 const list = ({ id, start, end }) => {
-  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id where 1=1 ${
+  const sql = `Select p.*, kp.nama kategoriproyek, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join kategoriproyek kp on p.id_kategoriproyek=kp.id where 1=1 ${
     id ? `and p.id=${id}` : ""
   } ${start ? `and p.tanggal>='${start}'` : ""} ${
     end ? `and p.tanggal<='${end}'` : ""
@@ -23,6 +23,7 @@ const create = ({
   id,
   id_perusahaan,
   swasta,
+  id_kategoriproyek,
   nama,
   klien,
   instansi,
@@ -42,7 +43,7 @@ const create = ({
       if (res.length > 0) {
         id_kustom = res[0].id_kustom + 1;
       }
-      sql = `insert into ${table} (id_second, id_kustom, id_perusahaan, swasta, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ${
+      sql = `insert into ${table} (id_second, id_kustom, id_perusahaan, swasta, id_kategoriproyek, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ${
         karyawan ? `(select id from karyawan where nama = ?)` : "?"
       }, ?, ?)`;
       values = [
@@ -50,6 +51,7 @@ const create = ({
         id_kustom,
         id_perusahaan,
         swasta,
+        id_kategoriproyek,
         nama,
         klien,
         instansi,
@@ -71,6 +73,7 @@ const update = ({
   id_second,
   id_perusahaan,
   swasta,
+  id_kategoriproyek,
   nama,
   klien,
   instansi,
@@ -80,11 +83,12 @@ const update = ({
   tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_second=?, id_perusahaan=?, swasta=?, nama=?, klien=?, instansi=?, kota=?, id_karyawan=?, id_statusproyek=?, tanggal=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_second=?, id_perusahaan=?, swasta=?, id_kategoriproyek=?, nama=?, klien=?, instansi=?, kota=?, id_karyawan=?, id_statusproyek=?, tanggal=?, keterangan=? where id=?`;
   const values = [
     id_second,
     id_perusahaan,
     swasta,
+    id_kategoriproyek,
     nama,
     klien,
     instansi,

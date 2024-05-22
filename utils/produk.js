@@ -15,12 +15,18 @@ const table = "produk";
 //   });
 // };
 
-const list = ({ kategori, limit }) => {
-  const sql = `select m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id ${
-    kategori ? `where id_kategori = ?` : ""
-  } order by kategori, nama, m.nama ${limit ? "limit ?" : ""}`;
-  const values = [kategori];
+const list = ({ kategori, limit, nama }) => {
+  if (nama) nama = "%" + nama + "%";
+  const sql = `select m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id where 1=1 ${
+    kategori ? `and id_kategori = ?` : ""
+  } ${nama ? "and p.nama like ?" : ""} order by kategori, nama, m.nama ${
+    limit ? "limit ?" : ""
+  }`;
+  const values = [];
+  if (kategori) values.push(kategori);
+  if (nama) values.push(nama);
   if (limit) values.push(limit);
+  console.log(values, sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

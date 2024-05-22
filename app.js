@@ -21,6 +21,7 @@ const proyek = require("./utils/proyek");
 const bank = require("./utils/bank");
 const customer = require("./utils/customer");
 const dashboard = require("./utils/dashboard");
+const kategoriproyek = require("./utils/kategoriproyek");
 const keranjangproyek = require("./utils/keranjangproyek");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const operasionalkantor = require("./utils/operasionalkantor");
@@ -67,96 +68,6 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// dashboard
-app.get("/api/sumpenawaran", async (req, res) => {
-  const list = dashboard.sumPenawaran(req.query);
-  res.json(await list);
-});
-app.post("/api/proyek", async (req, res) => {
-  const result = await proyek
-    .create(req.body)
-    .then((result) =>
-      res.json({
-        message: "Proyek berhasil ditambahkan",
-      })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/proyek", async (req, res) => {
-  const result = await proyek
-    .update(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/proyek", async (req, res) => {
-  proyek
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// produk
-app.get("/api/produk", async (req, res) => {
-  const list = produk.list(req.query);
-  res.json(await list);
-});
-// app.get("/api/kategoriproduk", async (req, res) => {
-//   const list = produk.listKategori(req.query);
-//   res.json(await list);
-// });
-app.post("/api/produk", async (req, res) => {
-  const result = await produk
-    .create(req.body)
-    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/produk", async (req, res) => {
-  const result = await produk
-    .update(req.body)
-    .then((result) => res.json({ message: "Data berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/produk", async (req, res) => {
-  produk
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Data berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// stok
-app.get("/api/stok", async (req, res) => {
-  const list = stok.list(req.query);
-  res.json(await list);
-});
-app.post("/api/stok", async (req, res) => {
-  const result = await stok
-    .create(req.body)
-    .then((result) => res.json({ message: "Stok berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/stok", async (req, res) => {
-  const result = await stok
-    .update(req.body)
-    .then((result) => res.json({ message: "Stok berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/stok", async (req, res) => {
-  stok
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Stok berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// laporan
-app.get("/api/totaloperasional", async (req, res) => {
-  const list = laporan.totalOperasional(req.query);
-  res.json(await list);
-});
-app.get("/api/bulananproyek", async (req, res) => {
-  const list = laporan.bulananProyek(req.query);
-  res.json(await list);
-});
-
 // alat
 app.post("/api/importpengeluaranproyek", async (req, res) => {
   const result = await alat
@@ -192,9 +103,39 @@ app.post("/api/importoperasionalkantor", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
-// proyek
-app.get("/api/proyek", async (req, res) => {
-  const list = proyek.list(req.query);
+// customer
+app.get("/api/customer", async (req, res) => {
+  const list = customer.list(req.query);
+  res.json(await list);
+});
+app.post("/api/customer", async (req, res) => {
+  const result = await customer
+    .create(req.body)
+    .then((result) => res.json({ message: "customer berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transfercustomer", async (req, res) => {
+  const result = await customer
+    .transfer(req.body)
+    .then((result) => res.json({ message: "Transfer customer berhasil" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/customer", async (req, res) => {
+  const result = await customer
+    .update(req.body)
+    .then((result) => res.json({ message: "customer berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/customer", async (req, res) => {
+  customer
+    .destroy(req.body)
+    .then((result) => res.json({ message: "customer berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// dashboard
+app.get("/api/sumpenawaran", async (req, res) => {
+  const list = dashboard.sumPenawaran(req.query);
   res.json(await list);
 });
 app.post("/api/proyek", async (req, res) => {
@@ -219,10 +160,36 @@ app.delete("/api/proyek", async (req, res) => {
     .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/updateversiproyek", async (req, res) => {
-  const result = await proyek
-    .updateVersion(req.body)
-    .then((result) => res.json({ message: "Versi proyek berhasil diubah" }))
+
+// kategoriproyek
+app.get("/api/kategoriproyek", async (req, res) => {
+  const list = kategoriproyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/kategoriproyek", async (req, res) => {
+  const result = await kategoriproyek
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "kategoriproyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transfercustomer", async (req, res) => {
+  const result = await kategoriproyek
+    .transfer(req.body)
+    .then((result) => res.json({ message: "Transfer kategoriproyek berhasil" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kategoriproyek", async (req, res) => {
+  const result = await kategoriproyek
+    .update(req.body)
+    .then((result) => res.json({ message: "kategoriproyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/kategoriproyek", async (req, res) => {
+  kategoriproyek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "kategoriproyek berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -257,6 +224,170 @@ app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "Produk berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// laporan
+app.get("/api/totaloperasional", async (req, res) => {
+  const list = laporan.totalOperasional(req.query);
+  res.json(await list);
+});
+app.get("/api/bulananproyek", async (req, res) => {
+  const list = laporan.bulananProyek(req.query);
+  res.json(await list);
+});
+
+// nota
+app.get("/api/nota", async (req, res) => {
+  const list = nota.list(req.query);
+  res.json(await list);
+});
+app.post("/api/nota", async (req, res) => {
+  const result = await nota
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Nota berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/nota", async (req, res) => {
+  const result = await nota
+    .update(req.body)
+    .then((result) => res.json({ message: "Nota berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/nota", async (req, res) => {
+  nota
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Nota berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// pembayaranproyek
+app.get("/api/pembayaranproyek", async (req, res) => {
+  const list = pembayaranproyek.list(req.query);
+  res.json(await list);
+});
+app.get("/api/totalpembayaranproyek", async (req, res) => {
+  const list = pembayaranproyek.total(req.query);
+  res.json(await list);
+});
+app.post("/api/pembayaranproyek", async (req, res) => {
+  const result = await pembayaranproyek
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Pembayaran Proyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/pembayaranproyek", async (req, res) => {
+  const result = await pembayaranproyek
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Pembayaran Proyek berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/pembayaranproyek", async (req, res) => {
+  pembayaranproyek
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Pembayaran Proyek berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// pengeluaranproyek
+app.get("/api/pengeluaranproyek", async (req, res) => {
+  const list = pengeluaranproyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/pengeluaranproyek", async (req, res) => {
+  const result = await pengeluaranproyek
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Pengeluaran Proyek berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/pengeluaranproyek", async (req, res) => {
+  const result = await pengeluaranproyek
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Pengeluaran Proyek berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/pengeluaranproyek", async (req, res) => {
+  pengeluaranproyek
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Pengeluaran Proyek berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// produk
+app.get("/api/produk", async (req, res) => {
+  const list = produk.list(req.query);
+  res.json(await list);
+});
+// app.get("/api/kategoriproduk", async (req, res) => {
+//   const list = produk.listKategori(req.query);
+//   res.json(await list);
+// });
+app.post("/api/produk", async (req, res) => {
+  const result = await produk
+    .create(req.body)
+    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/produk", async (req, res) => {
+  const result = await produk
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/produk", async (req, res) => {
+  produk
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// proyek
+app.get("/api/proyek", async (req, res) => {
+  const list = proyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/proyek", async (req, res) => {
+  const result = await proyek
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Proyek berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/proyek", async (req, res) => {
+  const result = await proyek
+    .update(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/proyek", async (req, res) => {
+  proyek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Proyek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/updateversiproyek", async (req, res) => {
+  const result = await proyek
+    .updateVersion(req.body)
+    .then((result) => res.json({ message: "Versi proyek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -300,113 +431,27 @@ app.delete("/api/rekapitulasiproyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
-// jenisproyek
-app.post("/api/jenisproyek", async (req, res) => {
-  const result = await rekapitulasiproyek
-    .createJenisProyek(req.body)
-    .then((result) =>
-      res.json({ message: "Rekapitulasi Proyek berhasil ditambahkan" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/jenisproyek", async (req, res) => {
-  const result = await rekapitulasiproyek
-    .updateJenisProyek(req.body)
-    .then((result) =>
-      res.json({ message: "Rekapitulasi Proyek berhasil diubah" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// pengeluaranproyek
-app.get("/api/pengeluaranproyek", async (req, res) => {
-  const list = pengeluaranproyek.list(req.query);
+// stok
+app.get("/api/stok", async (req, res) => {
+  const list = stok.list(req.query);
   res.json(await list);
 });
-app.post("/api/pengeluaranproyek", async (req, res) => {
-  const result = await pengeluaranproyek
+app.post("/api/stok", async (req, res) => {
+  const result = await stok
     .create(req.body)
-    .then((result) =>
-      res.json({ message: "Pengeluaran Proyek berhasil ditambahkan" })
-    )
+    .then((result) => res.json({ message: "Stok berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/pengeluaranproyek", async (req, res) => {
-  const result = await pengeluaranproyek
+app.put("/api/stok", async (req, res) => {
+  const result = await stok
     .update(req.body)
-    .then((result) =>
-      res.json({ message: "Pengeluaran Proyek berhasil diubah" })
-    )
+    .then((result) => res.json({ message: "Stok berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.delete("/api/pengeluaranproyek", async (req, res) => {
-  pengeluaranproyek
+app.delete("/api/stok", async (req, res) => {
+  stok
     .destroy(req.body)
-    .then((result) =>
-      res.json({ message: "Pengeluaran Proyek berhasil dihapus" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// pembayaranproyek
-app.get("/api/pembayaranproyek", async (req, res) => {
-  const list = pembayaranproyek.list(req.query);
-  res.json(await list);
-});
-app.get("/api/totalpembayaranproyek", async (req, res) => {
-  const list = pembayaranproyek.total(req.query);
-  res.json(await list);
-});
-app.post("/api/pembayaranproyek", async (req, res) => {
-  const result = await pembayaranproyek
-    .create(req.body)
-    .then((result) =>
-      res.json({ message: "Pembayaran Proyek berhasil ditambahkan" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/pembayaranproyek", async (req, res) => {
-  const result = await pembayaranproyek
-    .update(req.body)
-    .then((result) =>
-      res.json({ message: "Pembayaran Proyek berhasil diubah" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/pembayaranproyek", async (req, res) => {
-  pembayaranproyek
-    .destroy(req.body)
-    .then((result) =>
-      res.json({ message: "Pembayaran Proyek berhasil dihapus" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// nota
-app.get("/api/nota", async (req, res) => {
-  const list = nota.list(req.query);
-  res.json(await list);
-});
-app.post("/api/nota", async (req, res) => {
-  const result = await nota
-    .create(req.body)
-    .then((result) =>
-      res.json({
-        message: "Nota berhasil ditambahkan",
-      })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/nota", async (req, res) => {
-  const result = await nota
-    .update(req.body)
-    .then((result) => res.json({ message: "Nota berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/nota", async (req, res) => {
-  nota
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Nota berhasil dihapus" }))
+    .then((result) => res.json({ message: "Stok berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -690,36 +735,6 @@ app.delete("/api/vendor", async (req, res) => {
   vendor
     .destroy(req.body)
     .then((result) => res.json({ message: "vendor berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// customer
-app.get("/api/customer", async (req, res) => {
-  const list = customer.list(req.query);
-  res.json(await list);
-});
-app.post("/api/customer", async (req, res) => {
-  const result = await customer
-    .create(req.body)
-    .then((result) => res.json({ message: "customer berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/transfercustomer", async (req, res) => {
-  const result = await customer
-    .transfer(req.body)
-    .then((result) => res.json({ message: "Transfer customer berhasil" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/customer", async (req, res) => {
-  const result = await customer
-    .update(req.body)
-    .then((result) => res.json({ message: "customer berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/customer", async (req, res) => {
-  customer
-    .destroy(req.body)
-    .then((result) => res.json({ message: "customer berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

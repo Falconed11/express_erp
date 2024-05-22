@@ -42,7 +42,7 @@ const create = ({ id_proyek, versi, diskon, pajak }) => {
   });
 };
 
-const createJenisProyek = ({ id_proyek, versi, jenis_proyek }) => {
+const createkategoriProyek = ({ id_proyek, versi, jenis_proyek }) => {
   const audio = jenis_proyek.includes("audio") ? 1 : 0;
   const cctv = jenis_proyek.includes("cctv") ? 1 : 0;
   const multimedia = jenis_proyek.includes("multimedia") ? 1 : 0;
@@ -79,7 +79,7 @@ const update = ({ id, diskon, pajak }) => {
   });
 };
 
-const updateJenisProyek = ({ id, jenis_proyek }) => {
+const updatekategoriProyek = ({ id, jenis_proyek }) => {
   const audio = jenis_proyek.includes("audio") ? 1 : 0;
   const cctv = jenis_proyek.includes("cctv") ? 1 : 0;
   const multimedia = jenis_proyek.includes("multimedia") ? 1 : 0;
@@ -107,9 +107,9 @@ module.exports = {
   list,
   listVersion,
   create,
-  createJenisProyek,
+  createkategoriProyek,
   createNewVersion,
   update,
-  updateJenisProyek,
+  updatekategoriProyek,
   destroy,
 };
