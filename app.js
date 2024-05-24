@@ -236,6 +236,10 @@ app.get("/api/bulananproyek", async (req, res) => {
   const list = laporan.bulananProyek(req.query);
   res.json(await list);
 });
+app.get("/api/omset", async (req, res) => {
+  const list = laporan.omset(req.query);
+  res.json(await list);
+});
 
 // nota
 app.get("/api/nota", async (req, res) => {

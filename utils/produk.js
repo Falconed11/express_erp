@@ -17,7 +17,7 @@ const table = "produk";
 
 const list = ({ kategori, limit, nama }) => {
   if (nama) nama = "%" + nama + "%";
-  const sql = `select m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id where 1=1 ${
+  const sql = `select kp.nama kategoriproduk, m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id left join kategoriproduk kp on p.id_kategori = kp.id where 1=1 ${
     kategori ? `and id_kategori = ?` : ""
   } ${nama ? "and p.nama like ?" : ""} order by kategori, nama, m.nama ${
     limit ? "limit ?" : ""
@@ -65,29 +65,29 @@ const listKategori = () => {
 // };
 
 const create = ({
-  kategori,
+  id_kategori,
   id_kustom,
   nama,
-  merek,
+  id_merek,
   tipe,
-  vendor,
+  id_vendor,
   stok,
   satuan,
   hargamodal,
   hargajual,
   keterangan,
 }) => {
-  const sql = `insert into ${table} (kategori, id_kustom, nama, merek, tipe, vendor, stok, satuan, hargamodal, hargajual, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, id_vendor, stok, satuan, hargamodal, hargajual, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
   return new Promise((resolve, reject) => {
     connection.query(
       sql,
       [
-        kategori,
+        id_kategori,
         id_kustom,
         nama,
-        merek,
+        id_merek,
         tipe,
-        vendor,
+        id_vendor,
         stok,
         satuan,
         hargamodal,
@@ -125,28 +125,28 @@ const create = ({
 const update = ({
   id,
   id_kustom,
-  kategori,
+  id_kategori,
   nama,
-  merek,
+  id_merek,
   tipe,
-  vendor,
+  id_vendor,
   stok,
   satuan,
   hargamodal,
   hargajual,
   keterangan,
 }) => {
-  const sql = `update ${table} set kategori=?, id_kustom=?, nama=?, merek=?, tipe=?, vendor=?, stok=?, satuan=?, hargamodal=?, hargajual=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_kategori=?, id_kustom=?, nama=?, id_merek=?, tipe=?, id_vendor=?, stok=?, satuan=?, hargamodal=?, hargajual=?, keterangan=? where id=?`;
   return new Promise((resolve, reject) => {
     connection.query(
       sql,
       [
-        kategori,
+        id_kategori,
         id_kustom,
         nama,
-        merek,
+        id_merek,
         tipe,
-        vendor,
+        id_vendor,
         stok,
         satuan,
         hargamodal,
