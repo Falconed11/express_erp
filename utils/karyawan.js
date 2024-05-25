@@ -3,7 +3,7 @@ const connection = require("./db");
 const table = "karyawan";
 
 const list = () => {
-  const sql = `Select * From ${table}`;
+  const sql = `Select * From ${table} order by nama`;
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];

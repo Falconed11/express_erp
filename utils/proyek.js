@@ -22,6 +22,7 @@ const list = ({ id, start, end }) => {
 const create = ({
   id,
   id_perusahaan,
+  id_instansi,
   swasta,
   id_kategoriproyek,
   nama,
@@ -43,11 +44,12 @@ const create = ({
       if (res.length > 0) {
         id_kustom = res[0].id_kustom + 1;
       }
-      sql = `insert into ${table} (id_second, id_kustom, id_perusahaan, swasta, id_kategoriproyek, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ${
+      sql = `insert into ${table} (id_second, id_instansi, id_kustom, id_perusahaan, swasta, id_kategoriproyek, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${
         karyawan ? `(select id from karyawan where nama = ?)` : "?"
       }, ?, ?)`;
       values = [
         id,
+        id_instansi,
         id_kustom,
         id_perusahaan,
         swasta,
@@ -70,6 +72,7 @@ const create = ({
 
 const update = ({
   id,
+  id_instansi,
   id_second,
   id_perusahaan,
   swasta,
@@ -83,9 +86,10 @@ const update = ({
   tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_second=?, id_perusahaan=?, swasta=?, id_kategoriproyek=?, nama=?, klien=?, instansi=?, kota=?, id_karyawan=?, id_statusproyek=?, tanggal=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_second=?, id_instansi=?, id_perusahaan=?, swasta=?, id_kategoriproyek=?, nama=?, klien=?, instansi=?, kota=?, id_karyawan=?, id_statusproyek=?, tanggal=?, keterangan=? where id=?`;
   const values = [
     id_second,
+    id_instansi,
     id_perusahaan,
     swasta,
     id_kategoriproyek,
