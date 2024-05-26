@@ -40,17 +40,17 @@ const create = ({
   id_proyek,
   idproyek,
   nominal,
-  carabayar,
+  id_metodepembayaran,
   tanggal,
   keterangan,
 }) => {
-  const sql = `insert into ${table} (id_proyek, nominal, carabayar, tanggal, keterangan) values (${
+  const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, tanggal, keterangan) values (${
     idproyek ? `(select id from proyek where id_second=?)` : `?`
   }, ?, ?, ?, ?)`;
   const values = [
     idproyek ?? id_proyek,
     nominal,
-    carabayar,
+    id_metodepembayaran,
     tanggal,
     keterangan ?? "",
   ];
@@ -62,9 +62,23 @@ const create = ({
   });
 };
 
-const update = ({ id, id_proyek, nominal, carabayar, tanggal, keterangan }) => {
-  const sql = `update ${table} set id_proyek = ?, nominal = ?, carabayar = ?, tanggal = ?, keterangan = ? where id=?`;
-  const values = [id_proyek, nominal, carabayar, tanggal, keterangan, id];
+const update = ({
+  id,
+  id_proyek,
+  nominal,
+  id_metodepembayaran,
+  tanggal,
+  keterangan,
+}) => {
+  const sql = `update ${table} set id_proyek = ?, nominal = ?, id_metodepembayaran = ?, tanggal = ?, keterangan = ? where id=?`;
+  const values = [
+    id_proyek,
+    nominal,
+    id_metodepembayaran,
+    tanggal,
+    keterangan,
+    id,
+  ];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

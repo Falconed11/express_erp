@@ -363,8 +363,10 @@ app.delete("/api/produk", async (req, res) => {
 
 // proyek
 app.get("/api/proyek", async (req, res) => {
-  const list = proyek.list(req.query);
-  res.json(await list);
+  const list = proyek
+    .list(req.query)
+    .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.post("/api/proyek", async (req, res) => {
   const result = await proyek

@@ -5,7 +5,7 @@ const table = "instansi";
 const list = ({ limit }) => {
   const pembayaran = `select id_instansi id, sum(nominal) pembayaran from pembayaranproyek pp left join proyek p on pp.id_proyek=p.id group by id_instansi`;
   const produksi = `select id_instansi id, sum(jumlah*harga) produksi, count(*) jumlah_proyek from pengeluaranproyek pp left join proyek p on pp.id_proyek=p.id group by id`;
-  const sql = `select i.kota, i.id, i.nama, i.alamat, coalesce((pm.pembayaran-p.produksi),0) provit, coalesce(jumlah_proyek,0) jumlah_proyek from ${table} i left join (${pembayaran}) pm on i.id=pm.id left join (${produksi}) p on i.id=p.id order by nama ${
+  const sql = `select i.swasta, i.kota, i.id, i.nama, i.alamat, coalesce((pm.pembayaran-p.produksi),0) provit, coalesce(jumlah_proyek,0) jumlah_proyek from ${table} i left join (${pembayaran}) pm on i.id=pm.id left join (${produksi}) p on i.id=p.id order by nama ${
     limit ? "limit ?" : ""
   }`;
   const values = [];

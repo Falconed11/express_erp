@@ -1,6 +1,6 @@
 const connection = require("./db");
 const sumPenawaran = ({ startdate, enddate, swasta, versi }) => {
-  const sql = `Select count(*) total from proyek where tanggal>='${startdate}' and tanggal<='${enddate}' ${
+  const sql = `Select count(*) total from proyek p left join instansi i on p.id_instansi=i.id where tanggal>='${startdate}' and tanggal<='${enddate}' ${
     swasta ? `and swasta=${swasta}` : ""
   } ${versi ? `and versi=${versi}` : ""}`;
   return new Promise((resolve, reject) => {
