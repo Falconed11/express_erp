@@ -39,8 +39,8 @@ const importPengeluaranProyek = ({
       }
     });
     sql =
-      "INSERT INTO instansi (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);";
-    values = [nama, nama];
+      "INSERT INTO instansi (nama, swasta) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);";
+    values = [nama, swasta, nama];
     connection.query(sql, values, (err, res) => {
       if (err) {
         console.log(`instansi ${err}`);
@@ -48,15 +48,13 @@ const importPengeluaranProyek = ({
       }
     });
     sql =
-      "INSERT INTO proyek (id_second, id_kustom, swasta, nama, tanggal, id_instansi, id_kategoriproyek, id_statusproyek, versi, nilai, keterangan) SELECT ?,?,?,?,?,(select id from instansi where nama = ?),(select id from kategoriproyek where nama = ?),'1','1',?,? WHERE NOT EXISTS (SELECT 1 FROM proyek WHERE id_second = ?);";
+      "INSERT INTO proyek (id_second, id_kustom, nama, tanggal, id_instansi, id_statusproyek, versi, nilai, keterangan) SELECT ?,?,?,?,(select id from instansi where nama = ?),'1','1',?,? WHERE NOT EXISTS (SELECT 1 FROM proyek WHERE id_second = ?);";
     values = [
       id_second,
       id_kustom,
-      swasta,
       jenis_proyek,
       tanggal,
       nama,
-      jenis_proyek,
       nilai,
       keterangan,
       id_second,

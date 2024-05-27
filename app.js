@@ -195,8 +195,10 @@ app.delete("/api/kategoriproyek", async (req, res) => {
 
 // keranjangproyek
 app.get("/api/keranjangproyek", async (req, res) => {
-  const list = keranjangproyek.list(req.query);
-  res.json(await list);
+  const list = keranjangproyek
+    .list(req.query)
+    .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.get("/api/versikeranjangproyek", async (req, res) => {
   const list = keranjangproyek.listVersion(req.query);
@@ -365,6 +367,12 @@ app.delete("/api/produk", async (req, res) => {
 app.get("/api/proyek", async (req, res) => {
   const list = proyek
     .list(req.query)
+    .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.get("/api/exportpenawaran", async (req, res) => {
+  const list = proyek
+    .exportPenawaran(req.query)
     .then((result) => res.json(result))
     .catch((e) => res.status(400).json({ message: e.message }));
 });

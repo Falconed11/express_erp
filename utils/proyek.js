@@ -117,8 +117,8 @@ const updateVersion = ({ id, versi }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from pengeluaranproyek where id_proyek = ?; delete from pembayaranproyek where id_proyek = ?;delete from ${table} where id = ?;`;
-  const values = [id, id, id];
+  const sql = `delete from keranjangproyek where id_proyek = ?; delete from pengeluaranproyek where id_proyek = ?; delete from pembayaranproyek where id_proyek = ?;delete from ${table} where id = ?;`;
+  const values = [id, id, id, id];
   return new Promise((resolve, reject) => {
     connectionmq.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -127,4 +127,22 @@ const destroy = ({ id }) => {
   });
 };
 
-module.exports = { list, create, update, updateVersion, destroy };
+const exportPenawaran = ({ id }) => {
+  const sql = `select p.nama namaproyek, p.tanggal tanggalproyek, pr.nama namaproduk, pr.hargamodal, pr.hargajual, pr.tanggal tanggalproduk, i.nama namainstansi, v.nama namavendor, kp.versi, kp.jumlah, kp.harga, kp.hargakustom, kp.instalasi, k.nama namakaryawan, kpr.nama namakategoriproduk from keranjangproyek kp left join proyek p on kp.id_proyek=p.id left join produk pr on kp.id_produk = pr.id left join merek m on pr.id_merek=m.id left join vendor v on pr.id_vendor=v.id left join instansi i on p.id_instansi=i.id left join karyawan k on p.id_karyawan=k.id left join kategoriproduk kpr on pr.id_kategori=kpr.id where id_proyek = ?`;
+  const values = [id];
+  return new Promise((resolve, reject) => {
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      resolve(res);
+    });
+  });
+};
+
+module.exports = {
+  list,
+  create,
+  update,
+  updateVersion,
+  destroy,
+  exportPenawaran,
+};
