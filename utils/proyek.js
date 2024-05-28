@@ -128,7 +128,7 @@ const destroy = ({ id }) => {
 };
 
 const exportPenawaran = ({ id, start, end }) => {
-  const sql = `select p.id id_proyek, p.nama namaproyek, p.tanggal tanggalproyek, pr.nama namaproduk, pr.hargamodal, pr.hargajual, pr.tanggal tanggalproduk, i.nama namainstansi, m.nama namamerek, v.nama namavendor, kp.versi, kp.jumlah, kp.harga, kp.hargakustom, kp.instalasi, k.nama namakaryawan, kpr.nama namakategoriproduk from keranjangproyek kp left join proyek p on kp.id_proyek=p.id left join produk pr on kp.id_produk = pr.id left join merek m on pr.id_merek=m.id left join vendor v on pr.id_vendor=v.id left join instansi i on p.id_instansi=i.id left join karyawan k on p.id_karyawan=k.id left join kategoriproduk kpr on pr.id_kategori=kpr.id where 1=1 ${
+  const sql = `select p.id id_proyek, p.nama namaproyek, p.id_Perusahaan idperusahaan, p.klien, p.tanggal tanggalproyek, pr.nama namaproduk, pr.hargamodal, pr.hargajual, pr.tanggal tanggalproduk, pr.tipe, pr.stok, pr.satuan, i.nama namainstansi, i.swasta, i.kota, i.alamat alamatinstansi, m.nama namamerek, v.nama namavendor, v.alamat alamatvendor, kp.versi, kp.jumlah, kp.harga, kp.hargakustom, kp.instalasi, k.nama namakaryawan, kpr.nama namakategoriproduk, rp.versi versirekapitulasiproyek, rp.diskon, rp.pajak, rp.audio, rp.cctv, rp.multimedia from keranjangproyek kp left join proyek p on kp.id_proyek=p.id left join produk pr on kp.id_produk = pr.id left join merek m on pr.id_merek=m.id left join vendor v on pr.id_vendor=v.id left join instansi i on p.id_instansi=i.id left join karyawan k on p.id_karyawan=k.id left join kategoriproduk kpr on pr.id_kategori=kpr.id left join rekapitulasiproyek rp on p.id=rp.id_proyek where 1=1 ${
     id ? "and id_proyek = ?" : ""
   } ${start ? "and p.tanggal>=?" : ""} ${end ? "and p.tanggal<=?" : ""}`;
   const values = [];
@@ -146,13 +146,23 @@ const exportPenawaran = ({ id, start, end }) => {
 const importPenawaran = ({
   id_proyek,
   namaproyek,
+  idperusahaan,
   tanggalproyek,
+  klien,
   namaproduk,
   hargamodal,
   hargajual,
   tanggalproduk,
+  tipe,
+  stok,
+  satuan,
   namainstansi,
+  swasta,
+  kota,
+  alamatinstansi,
+  namamerek,
   namavendor,
+  alamatvendor,
   versi,
   jumlah,
   harga,
@@ -160,20 +170,137 @@ const importPenawaran = ({
   instalasi,
   namakaryawan,
   namakategoriproduk,
+  versirekapitulasiproyek,
+  diskon,
+  pajak,
 }) => {
   return new Promise((resolve, reject) => {
     let table = "kategoriproduk";
-    let sql = `"INSERT INTO${table} (nama, inputcode) SELECT ?, export WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ?);"`;
-    let values = [namakategoriproduk];
+    let sql = `INSERT INTO ${table} (nama, inputcode) SELECT ?, 'export' WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ?);`;
+    let values = [namakategoriproduk, namakategoriproduk];
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
+      if (err) console.log(table);
     });
     table = "merek";
-    sql = `"INSERT INTO${table} (nama) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ?);"`;
-    values = [namakategoriproduk];
+    sql = `INSERT INTO ${table} (nama, inputcode) SELECT ?, 'export' WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ?);`;
+    values = [namamerek, namamerek];
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
+      if (err) console.log(table);
     });
+    table = "vendor";
+    sql = `INSERT INTO ${table} (nama, alamat, inputcode) SELECT ?,?, 'export' WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ? and alamat = ?);`;
+    values = [namavendor, alamatvendor, namavendor, alamatvendor];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    table = "produk";
+    sql = `select coalesce(id,0) into @id_kategoriproduk from kategoriproduk where nama=?;select id into @id_kategoriproduk from merek where nama=?;select id into @id_vendor from vendor where nama=? and alamat=?;INSERT INTO ${table} (nama, id_kategori, id_merek, id_vendor, tipe, stok, satuan, hargamodal, hargajual, tanggal, inputcode) SELECT ?,@id_kategoriproduk,@id_merek,@id_vendor,?,?,?,?,?,?, 'export' WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ? and id_kategori = @id_kategori and id_merek=@id_merek and id_vendor=@id_vendor and tanggal=? and hargamodal=? and hargajual=?);`;
+    values = [
+      namakategoriproduk,
+      namamerek,
+      namavendor,
+      alamatvendor,
+      namaproduk,
+      tipe,
+      stok,
+      satuan,
+      hargamodal,
+      hargajual,
+      tanggalproduk,
+      namaproduk,
+      tanggalproduk,
+      hargamodal,
+      hargajual,
+    ];
+    connectionmq.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    table = "instansi";
+    sql = `insert into ${table} (nama, alamat, swasta, kota, inputcode) select ?,?,?,?,'export' where not exists (select 1 from ${table} where nama=? and alamat=?)`;
+    values = [
+      namainstansi,
+      alamatinstansi,
+      swasta,
+      kota,
+      namainstansi,
+      alamatinstansi,
+    ];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    table = "karyawan";
+    sql = `insert into ${table} (nama, inputcode) select ?,'export' where not exists (select 1 from ${table} where nama=?)`;
+    values = [namakaryawan, namakaryawan];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    table = "proyek";
+    sql = `insert into ${table} (id_perusahaan, id_instansi, nama, klien, id_karyawan, tanggal, inputcode) select ?,(select id from instansi where nama=? and alamat=?),?,?,(select id from karyawan where nama=?),?,'export'`;
+    values = [
+      idperusahaan,
+      namainstansi,
+      alamatinstansi,
+      namaproyek,
+      klien,
+      namakaryawan,
+      tanggalproyek,
+    ];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    table = "keranjangproyek";
+    sql = `insert into ${table} (id_proyek, id_produk, versi, jumlah, harga, hargakustom, instalasi, inputcode) select (select id from proyek where id_perusahaan=? and id_instansi=(select id from instansi where nama=? and alamat=?) and nama=? and klien=? and id_karyawan=(select id from karyawan where nama=?) and tanggal=?),(select id from produk where nama=? and tanggal=?),?,?,?,?,?,'export'`;
+    values = [
+      idperusahaan,
+      namainstansi,
+      swasta,
+      kota,
+      alamatinstansi,
+      namaproyek,
+      klien,
+      namakaryawan,
+      tanggalproyek,
+      namaproduk,
+      tanggalproduk,
+      versi,
+      jumlah,
+      harga,
+      hargakustom,
+      instalasi,
+    ];
+    connection.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    table = "rekapitulasiproyek";
+    sql = `select id into @id_proyek from proyek where id_perusahaan=? and id_instansi=(select id from instansi where nama=? and alamat=?) and nama=? and klien=? and id_karyawan=(select id from karyawan where nama=?) and tanggal=?;insert into ${table} (id_proyek, versi, diskon, pajak, inputcode) select (@id_proyek),?,?,?,'export' where not exists (select 1 from ${table} where id_proyek=(@id_proyek) and versi=?`;
+    values = [
+      idperusahaan,
+      namainstansi,
+      alamatinstansi,
+      namaproyek,
+      klien,
+      namakaryawan,
+      tanggalproyek,
+      versirekapitulasiproyek,
+      diskon,
+      pajak,
+      versirekapitulasiproyek,
+    ];
+    connectionmq.query(sql, values, (err, res) => {
+      if (err) reject(err);
+      if (err) console.log(table);
+    });
+    setTimeout(() => {
+      resolve({ msg: "Sukses" });
+    }, 100);
   });
 };
 
@@ -184,4 +311,5 @@ module.exports = {
   updateVersion,
   destroy,
   exportPenawaran,
+  importPenawaran,
 };

@@ -386,6 +386,17 @@ app.post("/api/proyek", async (req, res) => {
     )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.post("/api/importpenawaran", async (req, res) => {
+  const result = await proyek
+    .importPenawaran(req.body)
+    .then((result) =>
+      res.json({
+        message: result.msg,
+        result: result,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.put("/api/proyek", async (req, res) => {
   const result = await proyek
     .update(req.body)
