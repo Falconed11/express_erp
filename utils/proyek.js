@@ -35,36 +35,37 @@ const create = ({
   tanggal,
   keterangan,
 }) => {
-  let sql = `select id_kustom from ${table} where DATE_FORMAT(tanggal, '%m %Y') = DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1`;
-  let values = [tanggal];
+  let sql = "";
+  let values = [];
+  // let sql = `select id_kustom from ${table} where DATE_FORMAT(tanggal, '%m %Y') = DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1`;
+  // let values = [tanggal];
   return new Promise((resolve, reject) => {
+    // connection.query(sql, values, (err, res) => {
+    //   if (err) reject(err);
+    //   let id_kustom = 1;
+    //   if (res.length > 0) {
+    //     id_kustom = res[0].id_kustom + 1;
+    //   }
+    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) select (select coalesce(id_penawaran + 1,1) from ${table} where DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1), ?, ?, ?, ?, ?, ?, ${
+      karyawan ? `(select id from karyawan where nama = ?)` : "?"
+    }, ?, ?`;
+    values = [
+      tanggal,
+      id_instansi,
+      id_perusahaan,
+      nama,
+      klien,
+      instansi,
+      kota,
+      karyawan ?? id_karyawan,
+      tanggal,
+      keterangan ?? "",
+    ];
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
-      let id_kustom = 1;
-      if (res.length > 0) {
-        id_kustom = res[0].id_kustom + 1;
-      }
-      sql = `insert into ${table} (id_second, id_instansi, id_kustom, id_perusahaan, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) values (?, ?, ?, ?, ?, ?, ?, ?, ${
-        karyawan ? `(select id from karyawan where nama = ?)` : "?"
-      }, ?, ?)`;
-      values = [
-        id,
-        id_instansi,
-        id_kustom,
-        id_perusahaan,
-        nama,
-        klien,
-        instansi,
-        kota,
-        karyawan ?? id_karyawan,
-        tanggal,
-        keterangan ?? "",
-      ];
-      connection.query(sql, values, (err, res) => {
-        if (err) reject(err);
-        resolve(res);
-      });
+      resolve(res);
     });
+    // });
   });
 };
 
@@ -105,9 +106,9 @@ const update = ({
   });
 };
 
-const updateVersion = ({ id, versi }) => {
-  const sql = `update ${table} set versi=? where id=?`;
-  const values = [versi, id];
+const updateVersion = ({ id, versi, tanggal }) => {
+  const sql = `update ${table} set versi=?, id_kustom=(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?) where id=?`;
+  const values = [versi, tanggal, id, id];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -197,7 +198,7 @@ const importPenawaran = ({
       if (err) console.log(table);
     });
     table = "produk";
-    sql = `select coalesce(id,0) into @id_kategoriproduk from kategoriproduk where nama=?;select id into @id_kategoriproduk from merek where nama=?;select id into @id_vendor from vendor where nama=? and alamat=?;INSERT INTO ${table} (nama, id_kategori, id_merek, id_vendor, tipe, stok, satuan, hargamodal, hargajual, tanggal, inputcode) SELECT ?,@id_kategoriproduk,@id_merek,@id_vendor,?,?,?,?,?,?, 'export' WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ? and id_kategori = @id_kategori and id_merek=@id_merek and id_vendor=@id_vendor and tanggal=? and hargamodal=? and hargajual=?);`;
+    sql = `select id into @id_kategoriproduk from kategoriproduk where nama=?;select id into @id_merek from merek where nama=?;select id into @id_vendor from vendor where nama=? and alamat=?;INSERT INTO ${table} (nama, id_kategori, id_merek, id_vendor, tipe, stok, satuan, hargamodal, hargajual, tanggal, inputcode) SELECT ?,@id_kategoriproduk,@id_merek,@id_vendor,?,?,?,?,?,?, 'export' WHERE NOT EXISTS (SELECT 1 FROM ${table} WHERE nama = ? and id_kategori = @id_kategoriproduk and id_merek=@id_merek and id_vendor=@id_vendor and tanggal=? and hargamodal=? and hargajual=?);`;
     values = [
       namakategoriproduk,
       namamerek,
@@ -241,8 +242,16 @@ const importPenawaran = ({
       if (err) console.log(table);
     });
     table = "proyek";
-    sql = `insert into ${table} (id_perusahaan, id_instansi, nama, klien, id_karyawan, tanggal, inputcode) select ?,(select id from instansi where nama=? and alamat=?),?,?,(select id from karyawan where nama=?),?,'export'`;
+    sql = `insert into ${table} (id_penawaran, id_perusahaan, id_instansi, nama, klien, id_karyawan, tanggal, inputcode) select (select coalesce(id_penawaran+1,1) from ${table} where DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1),?,(select id from instansi where nama=? and alamat=?),?,?,(select id from karyawan where nama=?),?,'export' where not exists (select 1 from ${table} where id_perusahaan=? and id_instansi=(select id from instansi where nama=? and alamat=?) and nama=? and klien=? and id_karyawan=(select id from karyawan where nama=?) and tanggal=?)`;
     values = [
+      tanggalproyek,
+      idperusahaan,
+      namainstansi,
+      alamatinstansi,
+      namaproyek,
+      klien,
+      namakaryawan,
+      tanggalproyek,
       idperusahaan,
       namainstansi,
       alamatinstansi,
@@ -260,8 +269,6 @@ const importPenawaran = ({
     values = [
       idperusahaan,
       namainstansi,
-      swasta,
-      kota,
       alamatinstansi,
       namaproyek,
       klien,
@@ -280,7 +287,8 @@ const importPenawaran = ({
       if (err) console.log(table);
     });
     table = "rekapitulasiproyek";
-    sql = `select id into @id_proyek from proyek where id_perusahaan=? and id_instansi=(select id from instansi where nama=? and alamat=?) and nama=? and klien=? and id_karyawan=(select id from karyawan where nama=?) and tanggal=?;insert into ${table} (id_proyek, versi, diskon, pajak, inputcode) select (@id_proyek),?,?,?,'export' where not exists (select 1 from ${table} where id_proyek=(@id_proyek) and versi=?`;
+    sql = `select id into @id_proyek from proyek where id_perusahaan=? and id_instansi=(select id from instansi where nama=? and alamat=?) and nama=? and klien=? and id_karyawan=(select id from karyawan where nama=?) and tanggal=? limit 1;
+    insert into ${table} (id_proyek, versi, diskon, pajak, inputcode) select @id_proyek,?,?,?,'export' where not exists (select 1 from ${table} where id_proyek=@id_proyek and versi=?);`;
     values = [
       idperusahaan,
       namainstansi,
@@ -296,7 +304,7 @@ const importPenawaran = ({
     ];
     connectionmq.query(sql, values, (err, res) => {
       if (err) reject(err);
-      if (err) console.log(table);
+      if (err) console.log("error" + table);
     });
     setTimeout(() => {
       resolve({ msg: "Sukses" });
