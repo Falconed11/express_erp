@@ -2,16 +2,26 @@ const connection = require("./db");
 const connectionmq = require("./dbmq");
 const table = "proyek";
 
-const list = ({ id, start, end }) => {
+const list = ({ id, start, end, sort }) => {
+  const validColumns = ["tanggal", "tanggal_penawaran"];
+
+  if (validColumns.includes(sort)) {
+  } else {
+    return new Promise((resolve, reject) => {
+      reject({ message: "Kolom tidak valid" });
+    });
+  }
+
   const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id where 1=1 ${
     id ? `and p.id=${id}` : ""
   } ${start ? `and p.tanggal>='${start}'` : ""} ${
     end ? `and p.tanggal<='${end}'` : ""
-  } order by p.tanggal desc limit 25`;
+  } order by p.${sort} desc limit 25`;
   const values = [];
   if (id) values.push(id);
   if (start) values.push(start);
   if (end) values.push(end);
+  console.log({ cek: sql });
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -27,8 +37,6 @@ const create = ({
   id_instansi,
   nama,
   klien,
-  instansi,
-  kota,
   id_karyawan,
   karyawan,
   id_statusproyek,
@@ -46,7 +54,7 @@ const create = ({
     //   if (res.length > 0) {
     //     id_kustom = res[0].id_kustom + 1;
     //   }
-    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, nama, klien, instansi, kota, id_karyawan, tanggal, keterangan) select (select coalesce(id_penawaran + 1,1) from ${table} where DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1), ?, ?, ?, ?, ?, ?, ${
+    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select (select coalesce(id_penawaran + 1,1) from ${table} where DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1), ?, ?, ?, ?, ?, ?, ${
       karyawan ? `(select id from karyawan where nama = ?)` : "?"
     }, ?, ?`;
     values = [
@@ -55,8 +63,6 @@ const create = ({
       id_perusahaan,
       nama,
       klien,
-      instansi,
-      kota,
       karyawan ?? id_karyawan,
       tanggal,
       keterangan ?? "",
@@ -76,22 +82,18 @@ const update = ({
   id_perusahaan,
   nama,
   klien,
-  instansi,
-  kota,
   id_karyawan,
   id_statusproyek,
   tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_second=?, id_instansi=?, id_perusahaan=?, nama=?, klien=?, instansi=?, kota=?, id_karyawan=?, id_statusproyek=?, tanggal=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_second=?, id_instansi=?, id_perusahaan=?, nama=?, klien=?, id_karyawan=?, id_statusproyek=?, tanggal_penawaran=?, keterangan=? where id=?`;
   const values = [
     id_second,
     id_instansi,
     id_perusahaan,
     nama,
     klien,
-    instansi,
-    kota,
     id_karyawan,
     id_statusproyek,
     tanggal,

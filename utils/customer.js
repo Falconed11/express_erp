@@ -52,9 +52,9 @@ const transfer = ({ currentId, targetId }) => {
   });
 };
 
-const create = ({ nama, alamat }) => {
-  const sql = `insert into ${table} (nama, alamat) values (?,?)`;
-  const values = [nama, alamat];
+const create = ({ nama, swasta, kota, alamat }) => {
+  const sql = `insert into ${table} (nama, swasta, kota, alamat) values (?,?,?)`;
+  const values = [nama, swasta, kota, alamat];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -63,9 +63,9 @@ const create = ({ nama, alamat }) => {
   });
 };
 
-const update = ({ id, nama, alamat }) => {
-  const sql = `update ${table} set nama=?, alamat=? where id=?`;
-  const values = [nama, alamat, id];
+const update = ({ id, nama, swasta, kota, alamat }) => {
+  const sql = `update ${table} set nama=?, swasta=?, kota=?, alamat=? where id=?`;
+  const values = [nama, swasta, kota, alamat, id];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
