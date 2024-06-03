@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "pengeluaranproyek";
 
 const list = ({ id_proyek, monthyear, start, end }) => {
-  const sql = `Select pr.id id_proyek, pr.nama namaproyek, pr.instansi, pp.id id_pengeluaranproyek, pp.tanggal tanggalpengeluaran, pp.jumlah, pp.harga hargapengeluaran, pp.status, pp.keterangan keteranganpp, k.nama namakaryawan, p.* From ${table} pp left join produk p on pp.id_produk = p.id left join karyawan k on pp.id_karyawan = k.id left join proyek pr on pp.id_proyek=pr.id where 1=1 ${
+  const sql = `Select pr.id id_proyek, pr.nama namaproyek, pr.id_instansi, pp.id id_pengeluaranproyek, pp.tanggal tanggalpengeluaran, pp.jumlah, pp.harga hargapengeluaran, pp.status, pp.keterangan keteranganpp, k.nama namakaryawan, p.* From ${table} pp left join produk p on pp.id_produk = p.id left join karyawan k on pp.id_karyawan = k.id left join proyek pr on pp.id_proyek=pr.id where 1=1 ${
     id_proyek ? `and id_proyek=?` : ""
   } ${monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') =?` : ""} ${
     start ? `and pp.tanggal>=?` : ""
@@ -46,7 +46,7 @@ const create = ({
     idproduk ?? id_produk ?? "",
     jumlah,
     harga ?? 0,
-    status ?? "",
+    status ?? 0,
     keterangan ?? "",
   ];
   return new Promise((resolve, reject) => {
@@ -59,7 +59,7 @@ const create = ({
 
 const update = ({ id, tanggal, jumlah, harga, status, keterangan }) => {
   const sql = `update ${table} set tanggal = ?, jumlah = ?, harga = ?, status = ?, keterangan = ? where id=?`;
-  const values = [tanggal, jumlah, harga, status, keterangan, id];
+  const values = [tanggal, jumlah, harga, status ?? 0, keterangan, id];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

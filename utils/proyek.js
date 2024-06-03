@@ -2,8 +2,7 @@ const connection = require("./db");
 const connectionmq = require("./dbmq");
 const table = "proyek";
 
-const sqlIdPenawaran =
-  "(select coalesce(id_penawaran + 1,1) from ${table} where DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1)";
+const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
 
 const list = ({ id, start, end, sort }) => {
   const validColumns = ["tanggal", "tanggal_penawaran"];
@@ -24,7 +23,6 @@ const list = ({ id, start, end, sort }) => {
   if (id) values.push(id);
   if (start) values.push(start);
   if (end) values.push(end);
-  console.log({ cek: sql });
   return new Promise((resolve, reject) => {
     connection.query(sql, (err, res) => {
       if (err) reject(err);
@@ -57,10 +55,11 @@ const create = ({
     //   if (res.length > 0) {
     //     id_kustom = res[0].id_kustom + 1;
     //   }
-    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ?, ${
+    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ${
       karyawan ? `(select id from karyawan where nama = ?)` : "?"
     }, ?, ?`;
     values = [
+      tanggal,
       tanggal,
       id_instansi,
       id_perusahaan,
@@ -112,8 +111,8 @@ const update = ({
 };
 
 const updateVersion = ({ id, versi, tanggal }) => {
-  const sql = `update ${table} set versi=?, id_kustom=(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?) where id=?`;
-  const values = [versi, tanggal, id, id];
+  const sql = `update ${table} set versi=?, id_kustom=(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?), tanggal=? where id=?`;
+  const values = [versi, tanggal, id, tanggal, id];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -123,8 +122,8 @@ const updateVersion = ({ id, versi, tanggal }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from keranjangproyek where id_proyek = ?; delete from pengeluaranproyek where id_proyek = ?; delete from pembayaranproyek where id_proyek = ?;delete from ${table} where id = ?;`;
-  const values = [id, id, id, id];
+  const sql = `delete from keranjangproyek where id_proyek = ?; delete from pengeluaranproyek where id_proyek = ?; delete from pembayaranproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
+  const values = [id, id, id, id, id];
   return new Promise((resolve, reject) => {
     connectionmq.query(sql, values, (err, res) => {
       if (err) reject(err);

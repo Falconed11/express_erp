@@ -26,7 +26,6 @@ const list = ({ kategori, limit, nama }) => {
   if (kategori) values.push(kategori);
   if (nama) values.push(nama);
   if (limit) values.push(limit);
-  console.log(values, sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
