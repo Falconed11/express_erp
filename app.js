@@ -17,37 +17,38 @@ const storage = multer.diskStorage({
   },
 });
 
-const proyek = require("./utils/proyek");
+const alat = require("./utils/alat");
 const bank = require("./utils/bank");
 const customer = require("./utils/customer");
 const dashboard = require("./utils/dashboard");
-const kategoriproyek = require("./utils/kategoriproyek");
-const keranjangproyek = require("./utils/keranjangproyek");
-const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
-const operasionalkantor = require("./utils/operasionalkantor");
+const gudang = require("./utils/gudang");
+const karyawan = require("./utils/karyawan");
 const kategorioperasionalkantor = require("./utils/kategorioperasionalkantor");
+const kategoriproduk = require("./utils/kategoriproduk");
+const kategoriproyek = require("./utils/kategoriproyek");
+const keranjangnota = require("./utils/keranjangnota");
+const keranjangproyek = require("./utils/keranjangproyek");
+const klien = require("./utils/klien");
+const kwitansi = require("./utils/kwitansi");
+const laporan = require("./utils/laporan");
+const lembur = require("./utils/lembur");
+const merek = require("./utils/merek");
+const nota = require("./utils/nota");
+const operasionalkantor = require("./utils/operasionalkantor");
+const pengeluaran = require("./utils/pengeluaran");
+const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
 const pengeluaranproyek = require("./utils/pengeluaranproyek");
 const pembayaranproyek = require("./utils/pembayaranproyek");
-const produk = require("./utils/produk");
-const stok = require("./utils/stok");
-const karyawan = require("./utils/karyawan");
 const perusahaan = require("./utils/perusahaan");
-const pengeluaran = require("./utils/pengeluaran");
-const lembur = require("./utils/lembur");
-const vendor = require("./utils/vendor");
-const klien = require("./utils/klien");
-const gudang = require("./utils/gudang");
-const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
-const user = require("./utils/user");
-const kategoriproduk = require("./utils/kategoriproduk");
-const subkategoriproduk = require("./utils/subkategoriproduk");
-const merek = require("./utils/merek");
+const produk = require("./utils/produk");
+const produkmasuk = require("./utils/produkmasuk");
+const proyek = require("./utils/proyek");
+const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const statusproyek = require("./utils/statusproyek");
-const nota = require("./utils/nota");
-const kwitansi = require("./utils/kwitansi");
-const keranjangnota = require("./utils/keranjangnota");
-const laporan = require("./utils/laporan");
-const alat = require("./utils/alat");
+const stok = require("./utils/stok");
+const subkategoriproduk = require("./utils/subkategoriproduk");
+const user = require("./utils/user");
+const vendor = require("./utils/vendor");
 
 // Parse JSON bodies
 app.use(bodyParser.json());
@@ -358,6 +359,30 @@ app.put("/api/produk", async (req, res) => {
 });
 app.delete("/api/produk", async (req, res) => {
   produk
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// produkmasuk
+app.get("/api/produkmasuk", async (req, res) => {
+  const list = produkmasuk.list(req.query);
+  res.json(await list);
+});
+app.post("/api/produkmasuk", async (req, res) => {
+  const result = await produkmasuk
+    .create(req.body)
+    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/produkmasuk", async (req, res) => {
+  const result = await produkmasuk
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/produkmasuk", async (req, res) => {
+  produkmasuk
     .destroy(req.body)
     .then((result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));

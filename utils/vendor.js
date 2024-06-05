@@ -19,8 +19,6 @@ const list = ({ limit, columnName, sortOrder }) => {
   const values = [];
   if (columnName) values.push(columnName);
   if (limit) values.push(+limit);
-  console.log(values);
-  console.log(sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
