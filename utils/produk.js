@@ -81,6 +81,8 @@ const create = ({
   lunas,
   keterangan,
 }) => {
+  hargamodal = hargamodal ?? 0;
+  hargajual = hargajual ?? 0;
   let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, id_vendor, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
   let values = [
     id_kategori,
@@ -100,22 +102,24 @@ const create = ({
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
     });
-    sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) select (select id from ${table} where nama=? and id_kustom=? and id_vendor=? and tanggal=?), ?, ?, ?, ?, ?, ?`;
-    values = [
-      nama,
-      id_kustom,
-      id_vendor,
-      tanggal,
-      stok,
-      hargamodal,
-      tanggal,
-      jatuhtempo ?? null,
-      lunas == "1" ? stok * hargamodal : terbayar,
-      id_vendor,
-    ];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-    });
+    if (stok > 0) {
+      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) select (select id from ${table} where nama=? and id_kustom=? and id_vendor=? and tanggal=?), ?, ?, ?, ?, ?, ?`;
+      values = [
+        nama,
+        id_kustom,
+        id_vendor,
+        tanggal,
+        stok,
+        hargamodal,
+        tanggal,
+        jatuhtempo ?? null,
+        lunas == "1" ? stok * hargamodal : terbayar,
+        id_vendor,
+      ];
+      connection.query(sql, values, (err, res) => {
+        if (err) reject(err);
+      });
+    }
     setTimeout(() => {
       resolve({ msg: "Sukses" });
     }, 100);
