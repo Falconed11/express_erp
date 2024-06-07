@@ -1,7 +1,7 @@
 const connection = require("./db");
 const pool = require("./dbpromise");
 
-const table = "produkmasuk";
+const table = "produkkeluar";
 
 const list = ({ id_produk }) => {
   const sql = `select pm.*, p.id_kustom, p.nama, p.tipe, p.satuan, p.stok, m.nama merek, v.nama vendor from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor where 1 ${

@@ -17,6 +17,8 @@ const storage = multer.diskStorage({
   },
 });
 
+const test = require("./utils/test");
+
 const alat = require("./utils/alat");
 const bank = require("./utils/bank");
 const customer = require("./utils/customer");
@@ -33,6 +35,7 @@ const kwitansi = require("./utils/kwitansi");
 const laporan = require("./utils/laporan");
 const lembur = require("./utils/lembur");
 const merek = require("./utils/merek");
+const metodepengeluaran = require("./utils/metodepengeluaran");
 const nota = require("./utils/nota");
 const operasionalkantor = require("./utils/operasionalkantor");
 const pengeluaran = require("./utils/pengeluaran");
@@ -67,6 +70,32 @@ app.use((req, res, next) => {
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
+});
+
+//tes
+app.get("/api/test", async (req, res) => {
+  const list = test
+    .test(req.query)
+    .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.post("/api/test", async (req, res) => {
+  const result = await test
+    .create(req.body)
+    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/test", async (req, res) => {
+  const result = await test
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/test", async (req, res) => {
+  test
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
 });
 
 // alat
@@ -642,6 +671,32 @@ app.delete("/api/karyawan", async (req, res) => {
   karyawan
     .destroy(req.body)
     .then((result) => res.json({ message: "karyawan berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+//metodepengeluaran
+app.get("/api/metodepengeluaran", async (req, res) => {
+  const list = metodepengeluaran
+    .list(req.query)
+    .then((result) => res.json(result))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.post("/api/metodepengeluaran", async (req, res) => {
+  const result = await metodepengeluaran
+    .create(req.body)
+    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/metodepengeluaran", async (req, res) => {
+  const result = await metodepengeluaran
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/metodepengeluaran", async (req, res) => {
+  metodepengeluaran
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

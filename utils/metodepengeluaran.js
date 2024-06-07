@@ -1,20 +1,23 @@
-const connection = require("./db");
 const pool = require("./dbpromise");
 
-const table = "produkmasuk";
+const table = "metodepengeluaran";
 
-const list = ({ id_produk }) => {
-  const sql = `select pm.*, p.id_kustom, p.nama, p.tipe, p.satuan, p.stok, m.nama merek, v.nama vendor from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor where 1 ${
-    id_produk ? `and id_produk = ?` : ""
-  } order by pm.tanggal desc`;
-  const values = [];
-  if (id_produk) values.push(id_produk);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+const list = async ({ metodepengeluaran }) => {
+  const connection = await pool.getConnection();
+  try {
+    const sql = `select nama from ${table} where 1 ${
+      metodepengeluaran ? "and nama = ?" : ""
+    }`;
+    const values = [];
+    if (metodepengeluaran) values.push(metodepengeluaran);
+    const [result] = await connection.execute(sql, values);
+    return result;
+  } catch (error) {
+    throw error;
+  } finally {
+    // Release the connection back to the pool
+    connection.release();
+  }
 };
 const create = async ({
   lunas,

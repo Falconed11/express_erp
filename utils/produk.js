@@ -1,4 +1,5 @@
 const connection = require("./db");
+const pool = require("./dbpromise");
 
 const table = "produk";
 
@@ -46,85 +47,66 @@ const listKategori = () => {
 };
 
 // const create = ({
-//   nama,
 //   id_kategori,
-//   id_subkategori,
+//   id_kustom,
+//   nama,
 //   id_merek,
 //   tipe,
-//   jumlah,
+//   id_vendor,
+//   stok,
 //   satuan,
+//   hargamodal,
+//   hargajual,
+//   tanggal,
+//   jatuhtempo,
+//   terbayar,
+//   lunas,
 //   keterangan,
 // }) => {
-//   const sql = `insert into ${table} (nama, id_kategori, id_subkategori, id_merek, tipe, jumlah, satuan, keterangan) values ('${nama}', '${id_kategori}', '${id_subkategori}', '${id_merek}', '${tipe}', '${jumlah}', '${satuan}', '${keterangan}')`;
+//   hargamodal = hargamodal ?? 0;
+//   hargajual = hargajual ?? 0;
+//   let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, id_vendor, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+//   let values = [
+//     id_kategori,
+//     id_kustom,
+//     nama,
+//     id_merek ?? 0,
+//     tipe,
+//     id_vendor ?? 0,
+//     stok,
+//     satuan,
+//     hargamodal,
+//     hargajual,
+//     tanggal,
+//     keterangan ?? "",
+//   ];
 //   return new Promise((resolve, reject) => {
-//     connection.query(sql, (err, res) => {
+//     connection.query(sql, values, (err, res) => {
 //       if (err) reject(err);
-//       resolve(res);
 //     });
+//     if (stok > 0) {
+//       sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) select (select id from ${table} where nama=? and id_kustom=? and id_vendor=? and tanggal=?), ?, ?, ?, ?, ?, ?`;
+//       values = [
+//         nama,
+//         id_kustom,
+//         id_vendor,
+//         tanggal,
+//         stok,
+//         hargamodal,
+//         tanggal,
+//         jatuhtempo ?? null,
+//         lunas == "1" ? stok * hargamodal : terbayar,
+//         id_vendor,
+//       ];
+//       connection.query(sql, values, (err, res) => {
+//         if (err) reject(err);
+//       });
+//     }
+//     setTimeout(() => {
+//       resolve({ msg: "Sukses" });
+//     }, 100);
 //   });
 // };
-
-const create = ({
-  id_kategori,
-  id_kustom,
-  nama,
-  id_merek,
-  tipe,
-  id_vendor,
-  stok,
-  satuan,
-  hargamodal,
-  hargajual,
-  tanggal,
-  jatuhtempo,
-  terbayar,
-  lunas,
-  keterangan,
-}) => {
-  hargamodal = hargamodal ?? 0;
-  hargajual = hargajual ?? 0;
-  let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, id_vendor, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
-  let values = [
-    id_kategori,
-    id_kustom,
-    nama,
-    id_merek ?? 0,
-    tipe,
-    id_vendor ?? 0,
-    stok,
-    satuan,
-    hargamodal,
-    hargajual,
-    tanggal,
-    keterangan ?? "",
-  ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-    });
-    if (stok > 0) {
-      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) select (select id from ${table} where nama=? and id_kustom=? and id_vendor=? and tanggal=?), ?, ?, ?, ?, ?, ?`;
-      values = [
-        nama,
-        id_kustom,
-        id_vendor,
-        tanggal,
-        stok,
-        hargamodal,
-        tanggal,
-        jatuhtempo ?? null,
-        lunas == "1" ? stok * hargamodal : terbayar,
-        id_vendor,
-      ];
-      connection.query(sql, values, (err, res) => {
-        if (err) reject(err);
-      });
-    }
-    setTimeout(() => {
-      resolve({ msg: "Sukses" });
-    }, 100);
-  });
-};
 
 // const update = ({
 //   id,
@@ -145,6 +127,79 @@ const create = ({
 //     });
 //   });
 // };
+
+const create = async ({
+  id_kategori,
+  id_kustom,
+  nama,
+  id_merek,
+  tipe,
+  id_vendor,
+  stok,
+  satuan,
+  hargamodal,
+  hargajual,
+  tanggal,
+  jatuhtempo,
+  terbayar,
+  lunas,
+  keterangan,
+}) => {
+  const connection = await pool.getConnection();
+
+  try {
+    // Start the transaction
+    await connection.beginTransaction();
+
+    let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, id_vendor, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    let values = [
+      id_kategori,
+      id_kustom,
+      nama,
+      id_merek ?? 0,
+      tipe,
+      id_vendor ?? 0,
+      stok,
+      satuan,
+      hargamodal,
+      hargajual,
+      tanggal,
+      keterangan ?? "",
+    ];
+    const [result1] = await connection.execute(sql, values);
+
+    if (stok && stok > 0) {
+      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) select (select id from ${table} where nama=? and id_kustom=? and id_vendor=? and tanggal=?), ?, ?, ?, ?, ?, ?`;
+      values = [
+        nama,
+        id_kustom,
+        id_vendor,
+        tanggal,
+        stok,
+        hargamodal,
+        tanggal,
+        jatuhtempo ?? null,
+        lunas == "1" ? stok * hargamodal : terbayar,
+        id_vendor,
+      ];
+      const [result2] = await connection.execute(sql, values);
+    }
+    // If no errors, commit the transaction
+    await connection.commit();
+    console.log("Transaction committed successfully.");
+
+    return { message: "Sukses" };
+  } catch (error) {
+    // If any error occurs, rollback the transaction
+    await connection.rollback();
+    console.error("Transaction rolled back due to error:", error);
+
+    throw error;
+  } finally {
+    // Release the connection back to the pool
+    connection.release();
+  }
+};
 
 const update = ({
   id,
