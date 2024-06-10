@@ -1,57 +1,105 @@
-const connection = require("./db");
 const pool = require("./dbpromise");
 
 const table = "produkkeluar";
 
-const list = ({ id_produk }) => {
-  const sql = `select pm.*, p.id_kustom, p.nama, p.tipe, p.satuan, p.stok, m.nama merek, v.nama vendor from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor where 1 ${
-    id_produk ? `and id_produk = ?` : ""
-  } order by pm.tanggal desc`;
-  const values = [];
-  if (id_produk) values.push(id_produk);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+const list = async ({ id_produk }) => {
+  const connection = await pool.getConnection();
+  try {
+    let sql = `select p.nama produk, p.tipe tipe, p.stok, p.satuan, m.nama merek, v.nama vendor, pk.* from ${table} pk left join produk p on p.id=pk.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=p.id_vendor where 1 ${
+      id_produk ? `and pk.id_produk=?` : ""
+    }`;
+    let values = [];
+    if (id_produk) values.push(id_produk);
+    const [result] = await connection.execute(sql, values);
+    return result;
+  } catch (error) {
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 const create = async ({
-  lunas,
   id_produk,
-  id_vendor,
+  sn,
+  metodepengeluaran,
+  serialnumbers,
   jumlah,
   harga,
-  terbayar,
   tanggal,
-  jatuhtempo,
+  keterangan,
 }) => {
   jumlah = jumlah ?? 0;
-  if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
+  if (sn == 0) if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
   harga = harga ?? 0;
-  terbayar = terbayar ?? 0;
-  jatuhtempo = jatuhtempo ?? null;
+
   const connection = await pool.getConnection();
 
   try {
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql = `insert into ${table} (id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo) values (?,?,?,?,?,?,?)`;
-    let values = [
-      id_produk,
-      id_vendor,
-      jumlah,
-      harga,
-      lunas == "1" ? jumlah * harga : terbayar,
-      tanggal,
-      lunas == "0" ? jatuhtempo : null,
-    ];
-    const [result1] = await connection.execute(sql, values);
+    if (sn == 1) {
+      for (let i = 0; i < serialnumbers.length; i++) {
+        let sql = `select id from produkmasuk where jumlah > keluar order by harga desc limit 1`;
+        let values = [];
+        let [value] = await connection.execute(sql, values);
+        const produkmasuk = value[0];
+        sql = `update produkmasuk set keluar = keluar + 1 where id = ${produkmasuk.id}`;
+        values = [];
+        [result] = await connection.execute(sql, values);
+        sql = `update produk set stok = stok - 1 where id = ?`;
+        values = [id_produk];
+        [result] = await connection.execute(sql, values);
+        sql = `insert into ${table} (id_produk, id_produkmasuk, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan) values (?,?,?,?,'1',?,?,?)`;
+        values = [
+          id_produk,
+          produkmasuk.id,
+          metodepengeluaran,
+          serialnumbers[i].value,
+          harga,
+          tanggal,
+          keterangan,
+        ];
+        [result] = await connection.execute(sql, values);
+      }
+    } else {
+      let sisa = jumlah;
+      while (sisa > 0) {
+        let sql = `select id, (jumlah - keluar) stok from produkmasuk where jumlah > keluar order by harga desc limit 1`;
+        let values = [];
+        console.log("1");
+        let [result] = await connection.execute(sql, values);
+        const produkmasuk = result[0];
+        const stok = produkmasuk.stok;
+        const keluar = sisa >= stok ? stok : sisa;
+        sisa -= keluar;
+        const idProdukMasuk = produkmasuk.id;
 
-    sql = `update produk set stok = stok + ? where id=?;`;
-    values = [jumlah, id_produk];
-    const [result2] = await connection.execute(sql, values);
+        sql = `update produkmasuk set keluar = keluar + ? where id = ${idProdukMasuk}`;
+        values = [keluar];
+        console.log("2");
+        [result] = await connection.execute(sql, values);
+
+        sql = `update produk set stok = stok - ? where id = ?`;
+        values = [keluar, id_produk];
+        console.log("3");
+        [result] = await connection.execute(sql, values);
+
+        sql = `insert into ${table} (metodepengeluaran, id_produk, id_produkmasuk, jumlah, harga, tanggal, keterangan) values (?,?,?,?,?,?,?)`;
+        values = [
+          metodepengeluaran,
+          id_produk,
+          idProdukMasuk,
+          keluar,
+          harga,
+          tanggal,
+          keterangan,
+        ];
+        console.log(values);
+        [result] = await connection.execute(sql, values);
+        console.log("4");
+      }
+    }
 
     // If no errors, commit the transaction
     await connection.commit();
@@ -126,7 +174,7 @@ const update = async ({
     connection.release();
   }
 };
-const destroy = async ({ id, id_produk, jumlah }) => {
+const destroy = async ({ id, id_produk, id_produkmasuk, jumlah }) => {
   const connection = await pool.getConnection();
 
   try {
@@ -137,9 +185,13 @@ const destroy = async ({ id, id_produk, jumlah }) => {
     let values = [id];
     const [result1] = await connection.execute(sql, values);
 
-    sql = `update produk set stok=stok - ? where id = ?`;
-    values = [jumlah, id_produk];
+    sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
+    values = [jumlah, id_produkmasuk];
     const [result2] = await connection.execute(sql, values);
+
+    sql = `update produk set stok=stok + ? where id = ?`;
+    values = [jumlah, id_produk];
+    const [result3] = await connection.execute(sql, values);
 
     // If no errors, commit the transaction
     await connection.commit();

@@ -45,6 +45,7 @@ const pembayaranproyek = require("./utils/pembayaranproyek");
 const perusahaan = require("./utils/perusahaan");
 const produk = require("./utils/produk");
 const produkmasuk = require("./utils/produkmasuk");
+const produkkeluar = require("./utils/produkkeluar");
 const proyek = require("./utils/proyek");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const statusproyek = require("./utils/statusproyek");
@@ -412,6 +413,30 @@ app.put("/api/produkmasuk", async (req, res) => {
 });
 app.delete("/api/produkmasuk", async (req, res) => {
   produkmasuk
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// produkkeluar
+app.get("/api/produkkeluar", async (req, res) => {
+  const list = produkkeluar.list(req.query);
+  res.json(await list);
+});
+app.post("/api/produkkeluar", async (req, res) => {
+  const result = await produkkeluar
+    .create(req.body)
+    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/produkkeluar", async (req, res) => {
+  const result = await produkkeluar
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/produkkeluar", async (req, res) => {
+  produkkeluar
     .destroy(req.body)
     .then((result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
