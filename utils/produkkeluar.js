@@ -27,11 +27,37 @@ const create = async ({
   harga,
   tanggal,
   keterangan,
+
+  isSelected,
+  idproyek,
+  id_proyek,
+  karyawan,
+  id_karyawan,
+  idproduk,
+  status,
 }) => {
-  console.log({ jumlah });
+  console.log({
+    id_produk,
+    sn,
+    metodepengeluaran,
+    serialnumbers,
+    jumlah,
+    harga,
+    tanggal,
+    keterangan,
+
+    isSelected,
+    idproyek,
+    id_proyek,
+    karyawan,
+    id_karyawan,
+    idproduk,
+    status,
+  });
   jumlah = jumlah ?? 0;
   if (sn == 0) if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
   harga = harga ?? 0;
+  keterangan = keterangan ?? "";
 
   const connection = await pool.getConnection();
 
@@ -66,17 +92,15 @@ const create = async ({
     } else {
       let sisa = jumlah;
       while (sisa > 0) {
-        let sql = `select id, (jumlah - keluar) stok from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
+        let sql = `select id, (jumlah - keluar) stok, harga from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
         let values = [id_produk];
         let [result] = await connection.execute(sql, values);
         const produkmasuk = result[0];
+        console.log(produkmasuk);
         const stok = produkmasuk.stok;
-        console.log({ stok });
         const keluar = sisa >= stok ? stok : sisa;
         sisa -= keluar;
         const idProdukMasuk = produkmasuk.id;
-
-        console.log({ keluar });
 
         sql = `update produkmasuk set keluar = keluar + ? where id = ${idProdukMasuk}`;
         values = [keluar];
@@ -86,17 +110,34 @@ const create = async ({
         values = [keluar, id_produk];
         [result] = await connection.execute(sql, values);
 
-        sql = `insert into ${table} (metodepengeluaran, id_produk, id_produkmasuk, jumlah, harga, tanggal, keterangan) values (?,?,?,?,?,?,?)`;
+        sql = `insert into ${table} (metodepengeluaran, id_produk, id_produkmasuk, jumlah, harga, tanggal, keterangan) values (?,?,?,${keluar},?,?,?)`;
         values = [
-          metodepengeluaran,
+          metodepengeluaran ?? "proyek",
           id_produk,
           idProdukMasuk,
-          keluar,
-          harga,
+          isSelected == true ? produkmasuk.harga : harga ?? 0,
           tanggal,
           keterangan,
         ];
+        console.log(values);
         [result] = await connection.execute(sql, values);
+
+        if (isSelected == true) {
+          sql = `insert into pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, jumlah, harga, status, keterangan) values (${
+            idproyek ? `(select id from proyek where id_second=?)` : `?`
+          }, ?, ${karyawan ? `(select id from karyawan where nama=?)` : `?`}, ${
+            idproduk ? `(select id from produk where id_kustom=?)` : `?`
+          }, ${result.insertId}, ${keluar}, ?, 1, ?)`;
+          const values = [
+            idproyek ?? id_proyek,
+            tanggal,
+            karyawan ?? id_karyawan,
+            idproduk ?? id_produk ?? "",
+            produkmasuk.harga,
+            keterangan ?? "",
+          ];
+          [result] = await connection.execute(sql, values);
+        }
       }
     }
 

@@ -7,7 +7,7 @@ const list = async ({ metodepengeluaran }) => {
   try {
     const sql = `select nama from ${table} where 1 ${
       metodepengeluaran ? "and nama = ?" : ""
-    }`;
+    } and nama != 'proyek'`;
     const values = [];
     if (metodepengeluaran) values.push(metodepengeluaran);
     const [result] = await connection.execute(sql, values);
