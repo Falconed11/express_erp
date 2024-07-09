@@ -2,7 +2,7 @@ const connection = require("./db");
 const table = "pengeluaranproyek";
 
 const list = ({ id_proyek, monthyear, start, end }) => {
-  const sql = `Select pr.id id_proyek, pr.nama namaproyek, pr.id_instansi, pp.id id_pengeluaranproyek, pp.tanggal tanggalpengeluaran, pp.jumlah, pp.harga hargapengeluaran, pp.status, pp.keterangan keteranganpp, k.nama namakaryawan, p.* From ${table} pp left join produk p on pp.id_produk = p.id left join karyawan k on pp.id_karyawan = k.id left join proyek pr on pp.id_proyek=pr.id where 1=1 ${
+  const sql = `Select pk.id_produkmasuk, pp.id_produkkeluar, pr.id id_proyek, pr.nama namaproyek, pr.id_instansi, pp.id id_pengeluaranproyek, pp.tanggal tanggalpengeluaran, pp.jumlah, pp.harga hargapengeluaran, pp.status, pp.keterangan keteranganpp, k.nama namakaryawan, p.*, m.nama merek From ${table} pp left join produk p on pp.id_produk = p.id left join karyawan k on pp.id_karyawan = k.id left join proyek pr on pp.id_proyek=pr.id left join merek m on m.id=p.id_merek left join vendor v on v.id=p.id_vendor left join produkkeluar pk on pk.id=pp.id_produkkeluar where 1=1 ${
     id_proyek ? `and id_proyek=?` : ""
   } ${monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') =?` : ""} ${
     start ? `and pp.tanggal>=?` : ""

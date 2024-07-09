@@ -36,24 +36,6 @@ const create = async ({
   idproduk,
   status,
 }) => {
-  console.log({
-    id_produk,
-    sn,
-    metodepengeluaran,
-    serialnumbers,
-    jumlah,
-    harga,
-    tanggal,
-    keterangan,
-
-    isSelected,
-    idproyek,
-    id_proyek,
-    karyawan,
-    id_karyawan,
-    idproduk,
-    status,
-  });
   jumlah = jumlah ?? 0;
   if (sn == 0) if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
   harga = harga ?? 0;
@@ -96,7 +78,6 @@ const create = async ({
         let values = [id_produk];
         let [result] = await connection.execute(sql, values);
         const produkmasuk = result[0];
-        console.log(produkmasuk);
         const stok = produkmasuk.stok;
         const keluar = sisa >= stok ? stok : sisa;
         sisa -= keluar;
@@ -119,7 +100,6 @@ const create = async ({
           tanggal,
           keterangan,
         ];
-        console.log(values);
         [result] = await connection.execute(sql, values);
 
         if (isSelected == true) {
@@ -188,7 +168,13 @@ const update = async ({ id, sn, harga, metodepengeluaran, tanggal }) => {
     connection.release();
   }
 };
-const destroy = async ({ id, id_produk, id_produkmasuk, jumlah }) => {
+const destroy = async ({
+  id,
+  id_produk,
+  id_produkmasuk,
+  jumlah,
+  metodepengeluaran,
+}) => {
   const connection = await pool.getConnection();
 
   try {
@@ -198,6 +184,12 @@ const destroy = async ({ id, id_produk, id_produkmasuk, jumlah }) => {
     let sql = `delete from ${table} where id = ?`;
     let values = [id];
     const [result1] = await connection.execute(sql, values);
+
+    if (metodepengeluaran == "proyek") {
+      sql = `delete from pengeluaranproyek where id_produkkeluar = ?`;
+      values = [id];
+      const [result4] = await connection.execute(sql, values);
+    }
 
     sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
     values = [jumlah, id_produkmasuk];
