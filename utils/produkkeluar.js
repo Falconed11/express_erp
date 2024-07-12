@@ -74,7 +74,7 @@ const create = async ({
     } else {
       let sisa = jumlah;
       while (sisa > 0) {
-        let sql = `select id, (jumlah - keluar) stok, harga from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
+        let sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
         let values = [id_produk];
         let [result] = await connection.execute(sql, values);
         const produkmasuk = result[0];
@@ -103,11 +103,11 @@ const create = async ({
         [result] = await connection.execute(sql, values);
 
         if (isSelected == true) {
-          sql = `insert into pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, jumlah, harga, status, keterangan) values (${
+          sql = `insert into pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, id_vendor, jumlah, harga, status, keterangan) values (${
             idproyek ? `(select id from proyek where id_second=?)` : `?`
           }, ?, ${karyawan ? `(select id from karyawan where nama=?)` : `?`}, ${
             idproduk ? `(select id from produk where id_kustom=?)` : `?`
-          }, ${result.insertId}, ${keluar}, ?, 1, ?)`;
+          }, ${result.insertId}, ${produkmasuk.id_vendor}, ${keluar}, ?, 1, ?)`;
           const values = [
             idproyek ?? id_proyek,
             tanggal,
