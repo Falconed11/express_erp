@@ -151,14 +151,13 @@ const create = async ({
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, id_vendor, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
     let values = [
       id_kategori,
       id_kustom,
       nama,
       id_merek ?? 0,
       tipe,
-      id_vendor ?? 0,
       stok,
       satuan,
       hargamodal,
@@ -168,13 +167,9 @@ const create = async ({
     ];
     const [result1] = await connection.execute(sql, values);
 
-    if (stok && stok > 0) {
-      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) select (select id from ${table} where nama=? and id_kustom=? and id_vendor=? and tanggal=?), ?, ?, ?, ?, ?, ?`;
+    if (id_vendor && stok && stok > 0) {
+      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (${result1.insertId}, ?, ?, ?, ?, ?, ?)`;
       values = [
-        nama,
-        id_kustom,
-        id_vendor,
-        tanggal,
         stok,
         hargamodal,
         tanggal,
