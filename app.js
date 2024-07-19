@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
 const test = require("./utils/test");
 
 const alat = require("./utils/alat");
+const alat2 = require("./utils/alat.2.0.0");
 const bank = require("./utils/bank");
 const customer = require("./utils/customer");
 const dashboard = require("./utils/dashboard");
@@ -101,7 +102,7 @@ app.delete("/api/test", async (req, res) => {
 
 // alat
 app.post("/api/importpengeluaranproyek", async (req, res) => {
-  const result = await alat
+  const result = await alat2
     .importPengeluaranProyek(req.body)
     .then((result) =>
       res.json({

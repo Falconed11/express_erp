@@ -167,7 +167,7 @@ const create = async ({
     ];
     const [result1] = await connection.execute(sql, values);
 
-    if (id_vendor && stok && stok > 0) {
+    if (stok > 0) {
       sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (${result1.insertId}, ?, ?, ?, ?, ?, ?)`;
       values = [
         stok,
@@ -203,14 +203,12 @@ const update = ({
   nama,
   id_merek,
   tipe,
-  id_vendor,
-  stok,
   satuan,
   hargamodal,
   hargajual,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_kategori=?, id_kustom=?, nama=?, id_merek=?, tipe=?, id_vendor=?, stok=?, satuan=?, hargamodal=?, hargajual=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_kategori=?, id_kustom=?, nama=?, id_merek=?, tipe=?, satuan=?, hargamodal=?, hargajual=?, keterangan=? where id=?`;
   return new Promise((resolve, reject) => {
     connection.query(
       sql,
@@ -220,8 +218,6 @@ const update = ({
         nama,
         id_merek,
         tipe,
-        id_vendor,
-        stok,
         satuan,
         hargamodal,
         hargajual,
