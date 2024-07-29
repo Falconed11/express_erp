@@ -56,9 +56,9 @@ const user = require("./utils/user");
 const vendor = require("./utils/vendor");
 
 // Parse JSON bodies
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "50mb" }));
 // Parse URL-encoded bodies (e.g., form data)
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 app.use(multer({ storage }).single("file"));
 
@@ -106,7 +106,7 @@ app.post("/api/importpengeluaranproyek", async (req, res) => {
     .importPengeluaranProyek(req.body)
     .then((result) =>
       res.json({
-        message: result.msg,
+        message: result?.msg ?? "no msg",
         result: result,
       })
     )
