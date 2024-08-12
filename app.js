@@ -127,12 +127,13 @@ app.post("/api/importpembayaranproyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.post("/api/importoperasionalkantor", async (req, res) => {
-  const result = await alat
+  const result = await alat3
     .importOperasionalKantor(req.body)
     .then((result) =>
       res.json({
-        message: result.msg,
-        result: result,
+        message: result?.msg ?? "no msg",
+        result,
+        err: result.err ?? null,
       })
     )
     .catch((e) => res.status(400).json({ message: e.message }));

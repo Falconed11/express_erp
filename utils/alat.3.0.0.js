@@ -194,25 +194,41 @@ const importPembayaranProyek = async (json) => {
   return runTransaction(connection, insertRow, json);
 };
 
-const importOperasionalKantor = ({ tanggal, transaksi, keterangan, biaya }) => {
-  let sql = `INSERT INTO kategorioperasionalkantor (nama, inputcode) SELECT ?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM kategorioperasionalkantor WHERE nama = ?);`;
-  let values = [transaksi, transaksi];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-    });
-    sql = `insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya, inputcode) select ?,(select id from kategorioperasionalkantor where nama =?),?,?,'${inputcode}'`;
-    values = [tanggal, transaksi, keterangan, biaya];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-    });
-    setTimeout(() => {
-      resolve({ msg: "Sukses" });
-    }, 100);
-    // resolve({ msg: "Import excel pembayaran proyek berhasil" });
-  });
+const importOperasionalKantor = async (json) => {
+  const inputcode = "ok23";
+  const connection = await pool.getConnection();
+  const insertRow = async (row) => {
+    let { tanggal, transaksi, keterangan, biaya } = row;
+    tanggal = tanggal ?? "";
+    transaksi = transaksi ?? "";
+    keterangan = keterangan ?? "";
+    biaya = biaya ?? "";
+
+    let sql = "";
+    let values = [];
+    let result;
+    const finalresult = [];
+
+    try {
+      sql = `INSERT INTO kategorioperasionalkantor (nama, inputcode) SELECT ?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM kategorioperasionalkantor WHERE nama = ?);`;
+      values = [transaksi, transaksi];
+      [result] = await connection.query(sql, values);
+      console.log(1);
+
+      sql = `insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya, inputcode) select ?,(select id from kategorioperasionalkantor where nama =?),?,?,'${inputcode}'`;
+      values = [tanggal, transaksi, keterangan, biaya];
+      [result] = await connection.query(sql, values);
+      console.log(2);
+
+      finalresult.push(`Sukses`);
+    } catch (error) {
+      finalresult.push(error);
+      console.log(error);
+      throw error;
+    }
+    return finalresult;
+  };
+  return runTransaction(connection, insertRow, json);
 };
 
 module.exports = {
