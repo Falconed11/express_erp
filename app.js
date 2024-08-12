@@ -21,6 +21,7 @@ const test = require("./utils/test");
 
 const alat = require("./utils/alat");
 const alat2 = require("./utils/alat.2.0.0");
+const alat3 = require("./utils/alat.3.0.0");
 const bank = require("./utils/bank");
 const customer = require("./utils/customer");
 const dashboard = require("./utils/dashboard");
@@ -102,23 +103,25 @@ app.delete("/api/test", async (req, res) => {
 
 // alat
 app.post("/api/importpengeluaranproyek", async (req, res) => {
-  const result = await alat2
+  const result = alat3
     .importPengeluaranProyek(req.body)
     .then((result) =>
       res.json({
         message: result?.msg ?? "no msg",
-        result: result,
+        result,
+        err: result.err ?? null,
       })
     )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.post("/api/importpembayaranproyek", async (req, res) => {
-  const result = await alat
+  const result = await alat3
     .importPembayaranProyek(req.body)
     .then((result) =>
       res.json({
-        message: result.msg,
-        result: result,
+        message: result?.msg ?? "no msg",
+        result,
+        err: result.err ?? null,
       })
     )
     .catch((e) => res.status(400).json({ message: e.message }));
