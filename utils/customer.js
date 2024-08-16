@@ -53,7 +53,7 @@ const transfer = ({ currentId, targetId }) => {
 };
 
 const create = ({ nama, swasta, kota, alamat }) => {
-  const sql = `insert into ${table} (nama, swasta, kota, alamat) values (?,?,?)`;
+  const sql = `insert into ${table} (nama, swasta, kota, alamat) values (?,?,?,?)`;
   const values = [nama, swasta, kota, alamat];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {

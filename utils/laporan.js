@@ -32,7 +32,7 @@ const bulananProyek = ({ endDate, startDate }) => {
 const omset = ({ start, end }) => {
   const biayaProduksi = `select id_proyek, sum(jumlah*harga) biayaproduksi from pengeluaranproyek group by id_proyek`;
   const omset = `select id_proyek, sum(nominal) omset from pembayaranproyek group by id_proyek`;
-  const sql = `select p.tanggal, p.id, id_second, p.nama, i.nama customer, swasta, bp.biayaproduksi, o.omset from proyek p left join (${biayaProduksi}) bp on p.id=bp.id_proyek left join (${omset}) o on p.id=o.id_proyek left join instansi i on p.id_instansi=i.id where 1=1 ${
+  const sql = `select p.versi, p.tanggal, p.id, id_second, p.nama, i.nama customer, swasta, bp.biayaproduksi, o.omset from proyek p left join (${biayaProduksi}) bp on p.id=bp.id_proyek left join (${omset}) o on p.id=o.id_proyek left join instansi i on p.id_instansi=i.id where 1=1 ${
     start && end ? "and tanggal>=? and tanggal <=?" : ""
   } order by id_second`;
   const values = [start, end];
