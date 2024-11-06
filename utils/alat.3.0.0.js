@@ -164,6 +164,8 @@ const importPengeluaranProyek = async (json) => {
 };
 
 const importPembayaranProyek = async (json) => {
+  console.log(json.customInputCode);
+  inputcode = json.customInputCode ?? inputcode;
   const connection = await pool.getConnection();
   const insertRow = async (row) => {
     let { id_second, nominal, carabayar, tanggal, keterangan } = row;
@@ -197,7 +199,7 @@ const importPembayaranProyek = async (json) => {
     }
     return finalresult;
   };
-  return runTransaction(connection, insertRow, json);
+  return runTransaction(connection, insertRow, json.json);
 };
 
 const importOperasionalKantor = async (json) => {
