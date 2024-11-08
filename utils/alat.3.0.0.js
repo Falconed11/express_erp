@@ -203,7 +203,7 @@ const importPembayaranProyek = async (json) => {
 };
 
 const importOperasionalKantor = async (json) => {
-  const inputcode = "ok23";
+  inputcode = json.customInputCode ?? inputcode;
   const connection = await pool.getConnection();
   const insertRow = async (row) => {
     let { tanggal, transaksi, keterangan, biaya } = row;
@@ -236,7 +236,7 @@ const importOperasionalKantor = async (json) => {
     }
     return finalresult;
   };
-  return runTransaction(connection, insertRow, json);
+  return runTransaction(connection, insertRow, json.json);
 };
 
 module.exports = {
