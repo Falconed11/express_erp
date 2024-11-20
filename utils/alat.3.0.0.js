@@ -295,18 +295,20 @@ const importProduk = async (json) => {
       const selectedId = result[0]?.id;
       console.log(result.length);
 
-      const col = "";
-      const val = "";
+      const isExist = result.length > 0;
+
+      let col = "";
+      let val = "";
 
       if (kategori) {
-        col = "id_kategori, ";
-        val = "select id from kategoriproduk where nama=?";
+        col = isExist ? "id_kategori = ?," : "id_kategori,";
+        val = "(select id from kategoriproduk where nama=?),";
+      } else {
+        col = val = "0,";
       }
 
-      if (result.length <= 0) {
-        sql = `INSERT INTO produk (id_kustom, nama, id_merek, ${
-          kategori ? "id_kategori," : ""
-        } id_kategori, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),(select id from kategoriproduk where nama=?),?,?,?,?,?,?,?`;
+      if (!isExist) {
+        sql = `INSERT INTO produk (id_kustom, nama, id_merek, id_kategori, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),${val}?,?,?,?,?,?,?`;
         values = [
           id,
           nama,
@@ -320,11 +322,25 @@ const importProduk = async (json) => {
           keterangan,
           inputcode,
         ];
+        if (!kategori) {
+          values.splice(3, 1);
+        }
         [result] = await connection.query(sql, values);
         // console.log(6);
       } else {
-        sql = `UPDATE produk SET hargamodal = ?, hargajual = ?, tanggal = ?, keterangan = ?, inputcode = ? WHERE id = ?;`;
-        values = [modal, jual, tanggal, keterangan, inputcode, selectedId];
+        sql = `UPDATE produk SET hargamodal = ?, ${col} hargajual = ?, tanggal = ?, keterangan = ?, inputcode = ? WHERE id = ?;`;
+        values = [
+          modal,
+          kategori ?? 0,
+          jual,
+          tanggal,
+          keterangan,
+          inputcode,
+          selectedId,
+        ];
+        if (!kategori) {
+          values.splice(1, 1);
+        }
         [result] = await connection.query(sql, values);
         // console.log(6);
       }
