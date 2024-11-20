@@ -253,6 +253,7 @@ const importProduk = async (json) => {
       modal,
       jual,
       tanggal,
+      kategori,
       keterangan,
       customInputCode,
     } = row;
@@ -264,6 +265,7 @@ const importProduk = async (json) => {
     modal = modal ?? "";
     jual = jual ?? "";
     tanggal = tanggal ?? "";
+    kategori = kategori ?? "";
     keterangan = keterangan ?? "";
     inputcode = customInputCode ?? inputcode;
 
@@ -280,18 +282,36 @@ const importProduk = async (json) => {
       [result] = await connection.query(sql, values);
       // console.log(5);
 
+      if (kategori != "") {
+        sql = `INSERT INTO kategoriproduk (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM kategoriproduk WHERE nama = ?);`;
+        values = [kategori, inputcode, kategori];
+        [result] = await connection.query(sql, values);
+        // console.log(5);
+      }
+
       sql = `select id from produk where id_kustom = ?`;
       values = [id];
       [result] = await connection.query(sql, values);
       const selectedId = result[0]?.id;
       console.log(result.length);
 
+      const col = "";
+      const val = "";
+
+      if (kategori) {
+        col = "id_kategori, ";
+        val = "select id from kategoriproduk where nama=?";
+      }
+
       if (result.length <= 0) {
-        sql = `INSERT INTO produk (id_kustom, nama, id_merek, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),?,?,?,?,?,?,?`;
+        sql = `INSERT INTO produk (id_kustom, nama, id_merek, ${
+          kategori ? "id_kategori," : ""
+        } id_kategori, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),(select id from kategoriproduk where nama=?),?,?,?,?,?,?,?`;
         values = [
           id,
           nama,
           merek,
+          kategori,
           tipe,
           modal,
           jual,
