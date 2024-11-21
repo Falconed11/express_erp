@@ -304,14 +304,14 @@ const importProduk = async (json) => {
         col = isExist ? "id_kategori = ?," : "id_kategori,";
         val = "(select id from kategoriproduk where nama=?),";
       } else {
-        col = val = "0,";
+        val = "0,";
       }
 
       if (!isExist) {
         sql = `INSERT INTO produk (id_kustom, nama, id_merek, id_kategori, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),${val}?,?,?,?,?,?,?`;
         values = [
           id,
-          nama, 
+          nama,
           merek,
           kategori,
           tipe,
@@ -328,7 +328,7 @@ const importProduk = async (json) => {
         [result] = await connection.query(sql, values);
         // console.log(6);
       } else {
-        sql = `UPDATE produk SET hargamodal = ?, ${col} hargajual = ?, tanggal = ?, keterangan = ?, inputcode = ? WHERE id = ?;`;
+        sql = `UPDATE produk SET hargamodal = ?, id_kategori = ${val}, hargajual = ?, tanggal = ?, keterangan = ?, inputcode = ? WHERE id = ?;`;
         values = [
           modal,
           kategori ?? 0,
