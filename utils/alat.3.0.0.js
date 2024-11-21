@@ -265,7 +265,7 @@ const importProduk = async (json) => {
     modal = modal ?? "";
     jual = jual ?? "";
     tanggal = tanggal ?? "";
-    kategori = kategori ?? "";
+    kategori = kategori ?? 0;
     keterangan = keterangan ?? "";
     inputcode = customInputCode ?? inputcode;
 
@@ -282,7 +282,7 @@ const importProduk = async (json) => {
       [result] = await connection.query(sql, values);
       // console.log(5);
 
-      if (kategori != "") {
+      if (kategori) {
         sql = `INSERT INTO kategoriproduk (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM kategoriproduk WHERE nama = ?);`;
         values = [kategori, inputcode, kategori];
         [result] = await connection.query(sql, values);
@@ -311,7 +311,7 @@ const importProduk = async (json) => {
         sql = `INSERT INTO produk (id_kustom, nama, id_merek, id_kategori, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),${val}?,?,?,?,?,?,?`;
         values = [
           id,
-          nama,
+          nama, 
           merek,
           kategori,
           tipe,
