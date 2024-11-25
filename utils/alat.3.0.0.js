@@ -297,15 +297,12 @@ const importProduk = async (json) => {
 
       const isExist = result.length > 0;
 
-      let col = "";
-      let val = "";
+      let col = "id_kategori,";
+      let val = "?,";
 
-      if (kategori) {
-        col = isExist ? "id_kategori = ?," : "id_kategori,";
-        val = "(select id from kategoriproduk where nama=?),";
-      } else {
-        val = "0,";
-      }
+      if (kategori) val = "(select id from kategoriproduk where nama=?),";
+
+      if (isExist) col = "id_kategori = ?,";
 
       if (!isExist) {
         sql = `INSERT INTO produk (id_kustom, nama, id_merek, id_kategori, tipe, hargamodal, hargajual, tanggal, satuan, keterangan, inputcode) SELECT ?,?,(select id from merek where nama=?),${val}?,?,?,?,?,?,?`;
@@ -322,25 +319,23 @@ const importProduk = async (json) => {
           keterangan,
           inputcode,
         ];
-        if (!kategori) {
-          values.splice(3, 1);
-        }
         [result] = await connection.query(sql, values);
         // console.log(6);
       } else {
-        sql = `UPDATE produk SET hargamodal = ?, id_kategori = ${val}, hargajual = ?, tanggal = ?, keterangan = ?, inputcode = ? WHERE id = ?;`;
+        sql = `UPDATE produk SET hargamodal = ?, id_kategori = ${val} hargajual = ?, tanggal = ?, nama=?, id_merek=(select id from merek where nama=?), tipe=?, satuan=?, keterangan = ?, inputcode = ? WHERE id = ?;`;
         values = [
           modal,
-          kategori ?? 0,
+          kategori,
           jual,
           tanggal,
+          nama,
+          merek,
+          tipe,
+          satuan,
           keterangan,
           inputcode,
           selectedId,
         ];
-        if (!kategori) {
-          values.splice(1, 1);
-        }
         [result] = await connection.query(sql, values);
         // console.log(6);
       }
