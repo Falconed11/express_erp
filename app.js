@@ -53,6 +53,7 @@ const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const statusproyek = require("./utils/statusproyek");
 const stok = require("./utils/stok");
 const subkategoriproduk = require("./utils/subkategoriproduk");
+const subproyek = require("./utils/subproyek");
 const user = require("./utils/user");
 const vendor = require("./utils/vendor");
 
@@ -960,6 +961,30 @@ app.delete("/api/pengeluaranperusahaan", async (req, res) => {
     .then((result) =>
       res.json({ message: "pengeluaranperusahaan berhasil dihapus" })
     )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// subproyek
+app.get("/api/subproyek", async (req, res) => {
+  const list = subproyek.list(req.query);
+  res.json(await list);
+});
+app.post("/api/subproyek", async (req, res) => {
+  const result = await subproyek
+    .create(req.body)
+    .then((result) => res.json({ message: "subproyek berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/subproyek", async (req, res) => {
+  const result = await subproyek
+    .update(req.body)
+    .then((result) => res.json({ message: "subproyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/subproyek", async (req, res) => {
+  subproyek
+    .destroy(req.body)
+    .then((result) => res.json({ message: "subproyek berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
