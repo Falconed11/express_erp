@@ -2,7 +2,7 @@ const connection = require("./db");
 
 const table = "vendor";
 
-const list = ({ limit, columnName, sortOrder }) => {
+const list = ({ id, limit, columnName, sortOrder }) => {
   validColumns = ["nama"];
 
   // if (!Number.isInteger(limit) || limit <= 0) {
@@ -14,9 +14,12 @@ const list = ({ limit, columnName, sortOrder }) => {
     }
   sortOrder = sortOrder ? "desc" : "asc";
   const sql = `select * from vendor ${
-    columnName ? `order by ?? ${sortOrder}` : ""
+    columnName
+      ? `where 1=1 ${id ? `and id=?` : ""} order by ?? ${sortOrder}`
+      : ""
   } ${limit ? "limit 0, ?" : ""}`;
   const values = [];
+  if (id) values.push(id);
   if (columnName) values.push(columnName);
   if (limit) values.push(+limit);
   return new Promise((resolve, reject) => {
