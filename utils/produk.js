@@ -22,7 +22,7 @@ const list = ({ id, kategori, limit, nama }) => {
     id ? "and p.id=?" : ""
   } ${kategori ? `and id_kategori = ?` : ""} ${
     nama ? "and p.nama like ?" : ""
-  } order by kategori, nama, m.nama ${limit ? "limit ?" : ""}`;
+  } order by kategoriproduk, nama, m.nama ${limit ? "limit ?" : ""}`;
   const values = [];
   if (id) values.push(id);
   if (kategori) values.push(kategori);
