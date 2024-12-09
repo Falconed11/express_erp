@@ -8,7 +8,7 @@ const list = ({ id_proyek, id_metodepembayaran, monthyear, start, end }) => {
     start ? `and pp.tanggal>=?` : ""
   } ${end ? `and pp.tanggal<=?` : ""} ${
     id_metodepembayaran ? "and id_metodepembayaran=?" : ""
-  } order by pp.tanggal`;
+  } order by pp.tanggal desc`;
   const values = [];
   if (id_proyek) values.push(id_proyek);
   if (monthyear) values.push(monthyear);

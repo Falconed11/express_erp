@@ -2,17 +2,20 @@ const connection = require("./db");
 
 const table = "instansi";
 
-const list = ({ limit }) => {
+const list = ({ id, limit }) => {
   const pembayaran = `select id_instansi id, sum(nominal) pembayaran from pembayaranproyek pp left join proyek p on pp.id_proyek=p.id group by id_instansi`;
   const produksi = `select id_instansi id, sum(jumlah*harga) produksi, count(*) jumlah_proyek from pengeluaranproyek pp left join proyek p on pp.id_proyek=p.id group by id`;
-  const sql = `select i.swasta, i.kota, i.id, i.nama, i.alamat, coalesce((pm.pembayaran-p.produksi),0) provit, coalesce(jumlah_proyek,0) jumlah_proyek from ${table} i left join (${pembayaran}) pm on i.id=pm.id left join (${produksi}) p on i.id=p.id order by nama ${
-    limit ? "limit ?" : ""
-  }`;
+  const jumlah_proyek = `select id_instansi id, count(*) jumlah_proyek from proyek group by id_instansi`;
+  const sql = `select i.swasta, i.kota, i.id, i.nama, i.alamat, coalesce((pm.pembayaran-p.produksi),0) provit, coalesce(jp.jumlah_proyek,0) jumlah_proyek from ${table} i left join (${pembayaran}) pm on i.id=pm.id left join (${produksi}) p on i.id=p.id left join (${jumlah_proyek}) jp on i.id = jp.id where 1=1 ${
+    id ? "and i.id=?" : ""
+  } order by nama ${limit ? "limit ?" : ""}`;
   const values = [];
+  if (id) values.push(id);
   if (limit) values.push(limit);
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
+      console.log(err);
       if (!res) res = [];
       resolve(res);
     });

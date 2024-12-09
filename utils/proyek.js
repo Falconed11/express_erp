@@ -4,7 +4,7 @@ const table = "proyek";
 
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
 
-const list = ({ id, start, end, sort }) => {
+const list = ({ id, id_instansi, start, end, sort }) => {
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort)
     if (validColumns.includes(sort)) {
@@ -15,16 +15,17 @@ const list = ({ id, start, end, sort }) => {
     }
 
   const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id where 1=1 ${
-    id ? `and p.id=${id}` : ""
-  } ${start ? `and p.${sort}>='${start}'` : ""} ${
-    end ? `and p.${sort}<='${end}'` : ""
-  } ${sort ? `order by p.${sort} desc` : ""} limit 25`;
+    id ? `and p.id=?` : ""
+  } ${id_instansi ? "and id_instansi=?" : ""} ${
+    start ? `and p.${sort}>=?` : ""
+  } ${end ? `and p.${sort}<=?` : ""} ${sort ? `order by p.${sort} desc` : ""}`;
   const values = [];
   if (id) values.push(id);
+  if (id_instansi) values.push(id_instansi);
   if (start) values.push(start);
   if (end) values.push(end);
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       if (!res) res = [];
       resolve(res);

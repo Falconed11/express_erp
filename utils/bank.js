@@ -2,10 +2,14 @@ const connection = require("./db");
 
 const table = "metodepembayaran";
 
-const list = () => {
-  const sql = `select mp.id, mp.nama, t.t total from ${table} mp left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id order by mp.nama`;
+const list = ({ id }) => {
+  const sql = `select mp.id, mp.nama, t.t total from ${table} mp left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id where 1=1 ${
+    id ? "and mp.id=?" : ""
+  } order by mp.nama`;
+  const values = [];
+  if (id) values.push(id);
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       if (!res) res = [];
       resolve(res);
