@@ -85,7 +85,7 @@ const importPengeluaranProyek = async (json) => {
     const finalresult = [];
 
     try {
-      sql = `INSERT INTO instansi (nama, swasta, inputcode) SELECT ?, ?,? WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);`;
+      sql = `INSERT INTO instansi (nama, swasta, inputcode) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);`;
       values = [nama, swasta, inputcode, nama];
       [result] = await connection.query(sql, values);
       // console.log(1);

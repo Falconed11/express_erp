@@ -27,7 +27,7 @@ const create = async ({
   jatuhtempo,
 }) => {
   jumlah = jumlah ?? 0;
-  if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
+  if (jumlah <= 0) throw new Error("Jumlah tidak boleh 0!");
   harga = harga ?? 0;
   terbayar = terbayar ?? 0;
   jatuhtempo = jatuhtempo ?? null;
@@ -133,8 +133,17 @@ const destroy = async ({ id, id_produk, jumlah }) => {
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql = `delete from ${table} where id = ?`;
-    let values = [id];
+    let sql, values;
+
+    sql = `select * from produkmasuk where id = ?`;
+    values = [id];
+    const [test] = await connection.execute(sql, values);
+    console.log(test.length);
+
+    if (test.length == 0) throw new Error("Produk masuk telah terhapus.");
+
+    sql = `delete from ${table} where id = ?`;
+    values = [id];
     const [result1] = await connection.execute(sql, values);
 
     sql = `update produk set stok=stok - ? where id = ?`;
