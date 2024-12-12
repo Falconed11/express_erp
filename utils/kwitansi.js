@@ -3,7 +3,7 @@ const table = "kwitansi";
 const list = ({ id, start, end }) => {
   const sql = `Select k.*, b.nama nama_karyawan from ${table} k left join karyawan b on k.id_karyawan = b.id where 1=1 ${
     id ? `and id=?` : ""
-  } ${start ? "and n.tanggal>=?" : ""} ${end ? `and n.tanggal<=?` : ""}`;
+  } ${start ? "and k.tanggal>=?" : ""} ${end ? `and k.tanggal<=?` : ""}`;
   const values = [];
   if (id) values.push(id);
   if (start) values.push(start);
