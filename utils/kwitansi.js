@@ -1,11 +1,15 @@
 const connection = require("./db");
 const table = "kwitansi";
-const list = ({ id }) => {
-  const sql = `Select k.*, b.nama nama_karyawan from ${table} k left join karyawan b on k.id_karyawan = b.id ${
-    id ? `where id=${id}` : ""
-  }`;
+const list = ({ id, start, end }) => {
+  const sql = `Select k.*, b.nama nama_karyawan from ${table} k left join karyawan b on k.id_karyawan = b.id where 1=1 ${
+    id ? `and id=?` : ""
+  } ${start ? "and n.tanggal>=?" : ""} ${end ? `and n.tanggal<=?` : ""}`;
+  const values = [];
+  if (id) values.push(id);
+  if (start) values.push(start);
+  if (end) values.push(end);
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (!res) res = [];
       resolve(res);
     });
