@@ -41,6 +41,8 @@ const create = async ({
   harga = harga ?? 0;
   keterangan = keterangan ?? "";
 
+  id_karyawan = id_karyawan ?? 0;
+
   const connection = await pool.getConnection();
 
   try {
@@ -181,8 +183,16 @@ const destroy = async ({
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql = `delete from ${table} where id = ?`;
-    let values = [id];
+    let sql, values;
+
+    sql = `select * from ${table} where id = ?`;
+    values = [id];
+    const [test] = await connection.execute(sql, values);
+
+    if (test.length == 0) throw new Error("Produk masuk telah terhapus.");
+
+    sql = `delete from ${table} where id = ?`;
+    values = [id];
     const [result1] = await connection.execute(sql, values);
 
     if (metodepengeluaran == "proyek") {

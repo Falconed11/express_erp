@@ -57,6 +57,7 @@ const create = ({
   ];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
+      console.log(err);
       if (err) reject(err);
       resolve(res);
     });

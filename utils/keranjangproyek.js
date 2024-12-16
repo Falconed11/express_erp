@@ -74,6 +74,10 @@ const create = ({
   instalasi,
   versi,
 }) => {
+  if (!id_produk.length)
+    return new Promise((resolve, reject) =>
+      reject({ message: `Produk Belum Dipilih` })
+    );
   if (!jumlah)
     return new Promise((resolve, reject) =>
       reject({ message: `Jumlah Belum Diisi` })

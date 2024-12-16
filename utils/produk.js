@@ -146,7 +146,7 @@ const create = async ({
   keterangan,
 }) => {
   const connection = await pool.getConnection();
-
+  console.log(nama ? true : false);
   try {
     // Start the transaction
     await connection.beginTransaction();
@@ -155,7 +155,7 @@ const create = async ({
     let values = [
       id_kategori,
       id_kustom,
-      nama,
+      nama ? nama : tipe,
       id_merek ?? 0,
       tipe,
       stok,
