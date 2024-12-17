@@ -300,7 +300,7 @@ const importProduk = async (json) => {
       let col = "id_kategori,";
       let val = "?,";
 
-      if (kategori) val = "(select id from kategoriproduk where nama=?),";
+      if (kategori) val = "(select id from kategoriproduk where nama=?)";
 
       if (isExist) col = "id_kategori = ?,";
 
@@ -322,7 +322,7 @@ const importProduk = async (json) => {
         [result] = await connection.query(sql, values);
         // console.log(6);
       } else {
-        sql = `UPDATE produk SET hargamodal = ?, id_kategori = ${val} hargajual = ?, tanggal = ?, nama=?, id_merek=(select id from merek where nama=?), tipe=?, satuan=?, keterangan = ?, inputcode = ? WHERE id = ?;`;
+        sql = `UPDATE produk SET hargamodal = ?, id_kategori = ${val}, hargajual = ?, tanggal = ?, nama=?, id_merek=(select id from merek where nama=?), tipe=?, satuan=?, keterangan = ?, inputcode = ? WHERE id = ?;`;
         values = [
           modal,
           kategori,
