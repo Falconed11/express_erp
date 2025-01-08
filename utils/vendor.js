@@ -13,10 +13,8 @@ const list = ({ id, limit, columnName, sortOrder }) => {
       return Promise.reject(new Error("Invalid Column Name"));
     }
   sortOrder = sortOrder ? "desc" : "asc";
-  const sql = `select * from vendor ${
-    columnName
-      ? `where 1=1 ${id ? `and id=?` : ""} order by ?? ${sortOrder}`
-      : ""
+  const sql = `select * from vendor where 1=1 ${id ? `and id=?` : ""} ${
+    columnName ? ` order by ?? ${sortOrder}` : ""
   } ${limit ? "limit 0, ?" : ""}`;
   const values = [];
   if (id) values.push(id);
