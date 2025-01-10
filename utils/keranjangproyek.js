@@ -23,7 +23,7 @@ const table = "keranjangproyek";
 //   });
 // };
 const list = ({ id_proyek, instalasi, versi }) => {
-  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.harga, kp.hargakustom, m.nama nmerek, v.nama nvendor, p.nama, p.stok, p.tipe, p.hargamodal From ${table} kp left join subproyek sp on kp.id_subproyek = sp.id left join produk p on kp.id_produk = p.id left join kategoriproduk kpr on p.id_kategori=kpr.id left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id where 1=1 ${
+  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.harga, kp.hargakustom, m.nama nmerek, v.nama nvendor, p.nama, p.stok, p.tipe, p.hargamodal, p.satuan From ${table} kp left join subproyek sp on kp.id_subproyek = sp.id left join produk p on kp.id_produk = p.id left join kategoriproduk kpr on p.id_kategori=kpr.id left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id where 1=1 ${
     id_proyek ? `and kp.id_proyek=?` : ""
   } ${instalasi ? `and instalasi = ?` : ""} and versi=?`;
   const values = [];
