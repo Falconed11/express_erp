@@ -147,6 +147,7 @@ const create = async ({
   lunas,
   keterangan,
 }) => {
+  terbayar = terbayar ? terbayar : 0;
   const connection = await pool.getConnection();
   console.log(nama ? true : false);
   try {
