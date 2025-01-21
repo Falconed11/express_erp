@@ -14,11 +14,16 @@ const list = ({ id, id_instansi, start, end, sort }) => {
       });
     }
 
-  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id where 1=1 ${
+  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.pengeluaranproyek From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join (SELECT id_proyek, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek where 1=1 ${
     id ? `and p.id=?` : ""
   } ${id_instansi ? "and id_instansi=?" : ""} ${
     start ? `and p.${sort}>=?` : ""
-  } ${end ? `and p.${sort}<=?` : ""} ${sort ? `order by p.${sort} desc` : ""}`;
+  } ${end ? `and p.${sort}<=?` : ""} order by 
+    CASE 
+      WHEN versi <=0 and pengeluaranproyek>0
+      THEN 1
+      ELSE 2 
+    END ${sort ? `,p.${sort} desc` : ""}`;
   const values = [];
   if (id) values.push(id);
   if (id_instansi) values.push(id_instansi);
