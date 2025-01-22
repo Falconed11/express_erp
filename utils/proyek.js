@@ -4,7 +4,8 @@ const table = "proyek";
 
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
 
-const list = ({ id, id_instansi, start, end, sort }) => {
+const list = ({ id, id_instansi, start, end, sort, countProgressNoOffer }) => {
+  console.log(countProgressNoOffer);
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort)
     if (validColumns.includes(sort)) {
@@ -18,7 +19,9 @@ const list = ({ id, id_instansi, start, end, sort }) => {
     id ? `and p.id=?` : ""
   } ${id_instansi ? "and id_instansi=?" : ""} ${
     start ? `and p.${sort}>=?` : ""
-  } ${end ? `and p.${sort}<=?` : ""} order by 
+  } ${end ? `and p.${sort}<=?` : ""} ${
+    countProgressNoOffer ? "and versi<=0 and pengeluaranproyek>0" : ""
+  } order by 
     CASE 
       WHEN versi <=0 and pengeluaranproyek>0
       THEN 1
