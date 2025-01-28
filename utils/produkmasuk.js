@@ -3,10 +3,10 @@ const pool = require("./dbpromise");
 
 const table = "produkmasuk";
 
-const list = ({ id_produk }) => {
-  const sql = `select pm.*, p.id_kustom, p.nama, p.tipe, p.satuan, p.stok, m.nama merek, v.nama vendor from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor where 1 ${
+const list = ({ id_produk, laporan }) => {
+  const sql = `select pm.*, pm.jumlah*pm.harga-pm.terbayar hutang, pm.jumlah-pm.keluar sisa, (pm.jumlah-pm.keluar)*pm.harga sisamodal, p.id_kustom, p.nama, p.tipe, p.satuan, p.stok, m.nama merek, v.nama vendor, kp.nama kategoriproduk from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor left join kategoriproduk kp on kp.id=p.id_kategori where 1 ${
     id_produk ? `and id_produk = ?` : ""
-  } order by pm.tanggal desc`;
+  } order by ${laporan ? `kategoriproduk, nama,` : ""} pm.tanggal desc`;
   const values = [];
   if (id_produk) values.push(id_produk);
   return new Promise((resolve, reject) => {
