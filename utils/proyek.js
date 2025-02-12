@@ -22,7 +22,7 @@ const list = ({
       });
     }
 
-  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.pengeluaranproyek, kp.totalpenawaran From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join (SELECT id_proyek, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek left join (select id_proyek, sum(jumlah*harga) totalpenawaran from keranjangproyek group by id_proyek) kp on kp.id_proyek=p.id where 1=1 ${
+  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join (SELECT id_proyek, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id where 1=1 ${
     id ? `and p.id=?` : ""
   } ${id_instansi ? "and id_instansi=?" : ""} ${
     start ? `and p.${sort}>=?` : ""
@@ -35,7 +35,13 @@ const list = ({
       WHEN versi <=0 and pengeluaranproyek>0
       THEN 1
       ELSE 2 
-    END ${sort ? `,p.${sort} desc` : ""}`;
+    END ${
+      sort
+        ? `,p.${sort} desc, p.${
+            sort == "tanggal" ? "tanggal_penawaran" : "tanggal"
+          } desc`
+        : ""
+    }`;
   const values = [];
   if (id) values.push(id);
   if (id_instansi) values.push(id_instansi);
