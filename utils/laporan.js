@@ -29,6 +29,35 @@ const bulananProyek = ({ endDate, startDate }) => {
   });
 };
 
+const penawaran = ({ start, end }) => {
+  const totalPenawaran = `select id_proyek, sum(jumlah*harga) totalpenawaran from keranjangproyek group by id_proyek`;
+  const penawaranKaryawan = `select 
+    p.id_karyawan, 
+    COUNT(p.id) jumlahpenawaran, 
+    SUM(tp.totalpenawaran) nilaipenawaran, 
+    SUM(CASE WHEN p.versi > 0 THEN tp.totalpenawaran ELSE 0 END) nilaipenawarandeal, 
+    SUM(p.versi > 0) jumlahpenawarandeal, 
+    SUM(CASE WHEN p.versi = 0 THEN tp.totalpenawaran ELSE 0 END) nilaipenawaranwaiting, 
+    SUM(p.versi = 0) jumlahpenawaranwaiting, 
+    SUM(CASE WHEN p.versi < 0 THEN tp.totalpenawaran ELSE 0 END) nilaipenawaranreject, 
+    SUM(p.versi < 0) jumlahpenawaranreject 
+FROM proyek p 
+LEFT JOIN (${totalPenawaran}) tp ON tp.id_proyek = p.id 
+WHERE 1 
+  ${start ? "AND tanggal_penawaran >= ?" : ""} 
+  ${end ? "AND tanggal_penawaran <= ?" : ""} 
+GROUP BY p.id_karyawan`;
+  const sql = `SELECT k.id, k.nama, pk.* FROM karyawan k LEFT JOIN (${penawaranKaryawan}) pk ON pk.id_karyawan = k.id`;
+  const values = [start, end].filter((v) => v !== undefined);
+  return new Promise((resolve, reject) => {
+    connection.query(sql, values, (err, res) => {
+      console.log("Error : " + err);
+      if (err) reject(err);
+      resolve(res);
+    });
+  });
+};
+
 const omset = ({ start, end }) => {
   const biayaProduksi = `select id_proyek, sum(jumlah*harga) biayaproduksi from pengeluaranproyek group by id_proyek`;
   const omset = `select id_proyek, sum(nominal) omset from pembayaranproyek group by id_proyek`;
@@ -44,4 +73,4 @@ const omset = ({ start, end }) => {
   });
 };
 
-module.exports = { totalOperasional, bulananProyek, omset };
+module.exports = { totalOperasional, bulananProyek, omset, penawaran };
