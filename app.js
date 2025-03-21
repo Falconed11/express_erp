@@ -271,6 +271,14 @@ app.put("/api/keranjangproyek", async (req, res) => {
     .then((result) => res.json({ message: "Produk berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/keranjangproyekupdatehargamargin", async (req, res) => {
+  const result = await keranjangproyek
+    .updateHargaJualMargin(req.body)
+    .then((result) =>
+      res.json({ message: "Update harga jual margin berhasil" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.delete("/api/keranjangproyek", async (req, res) => {
   keranjangproyek
     .destroy(req.body)
