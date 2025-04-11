@@ -1,4 +1,6 @@
+const db = require("./db.2.0.0");
 const pool = require("./dbpromise");
+const pool2 = db.pool;
 
 const table = "produkkeluar";
 
@@ -170,6 +172,7 @@ const update = async ({ id, sn, harga, metodepengeluaran, tanggal }) => {
     connection.release();
   }
 };
+// const update2 = async () => {};
 const destroy = async ({
   id,
   id_produk,
@@ -183,31 +186,14 @@ const destroy = async ({
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql, values;
-
-    sql = `select * from ${table} where id = ?`;
-    values = [id];
-    const [test] = await connection.execute(sql, values);
-
-    if (test.length == 0) throw new Error("Produk masuk telah terhapus.");
-
-    sql = `delete from ${table} where id = ?`;
-    values = [id];
-    const [result1] = await connection.execute(sql, values);
-
-    if (metodepengeluaran == "proyek") {
-      sql = `delete from pengeluaranproyek where id_produkkeluar = ?`;
-      values = [id];
-      const [result4] = await connection.execute(sql, values);
-    }
-
-    sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
-    values = [jumlah, id_produkmasuk];
-    const [result2] = await connection.execute(sql, values);
-
-    sql = `update produk set stok=stok + ? where id = ?`;
-    values = [jumlah, id_produk];
-    const [result3] = await connection.execute(sql, values);
+    await queryDelete({
+      connection,
+      id,
+      id_produk,
+      id_produkmasuk,
+      jumlah,
+      metodepengeluaran,
+    });
 
     // If no errors, commit the transaction
     await connection.commit();
@@ -224,6 +210,40 @@ const destroy = async ({
     // Release the connection back to the pool
     connection.release();
   }
+};
+
+const queryDelete = async ({
+  connection,
+  id,
+  jumlah,
+  id_produkmasuk,
+  id_produk,
+  metodepengeluaran,
+}) => {
+  let [sql, values] = ["", ""];
+  sql = `select * from ${table} where id = ?`;
+  values = [id];
+  const [test] = await connection.execute(sql, values);
+
+  if (test.length == 0) throw new Error("Produk masuk telah terhapus.");
+
+  sql = `delete from ${table} where id = ?`;
+  values = [id];
+  const [result1] = await connection.execute(sql, values);
+
+  if (metodepengeluaran == "proyek") {
+    sql = `delete from pengeluaranproyek where id_produkkeluar = ?`;
+    values = [id];
+    const [result4] = await connection.execute(sql, values);
+  }
+
+  sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
+  values = [jumlah, id_produkmasuk];
+  const [result2] = await connection.execute(sql, values);
+
+  sql = `update produk set stok=stok + ? where id = ?`;
+  values = [jumlah, id_produk];
+  const [result3] = await connection.execute(sql, values);
 };
 
 module.exports = { list, create, update, destroy };
