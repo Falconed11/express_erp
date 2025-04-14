@@ -86,6 +86,15 @@ const update = async ({
   harga,
   metodepengeluaran,
   tanggal,
+
+  jumlah,
+  keterangan,
+  isSelected,
+  idproyek,
+  id_proyek,
+  karyawan,
+  id_karyawan,
+  idproduk,
 }) => {
   if (!harga) harga = 0;
   const connection = await pool2.getConnection();
@@ -106,7 +115,23 @@ const update = async ({
         id_produk,
         metodepengeluaran,
       });
-      // await queryCreate();
+      await queryCreate(
+        connection,
+        id_produk,
+        sn,
+        metodepengeluaran,
+        serialnumbers,
+        jumlah,
+        harga,
+        tanggal,
+        keterangan,
+        isSelected,
+        idproyek,
+        id_proyek,
+        karyawan,
+        id_karyawan,
+        idproduk
+      );
     }
 
     // sql = `update produk set stok=stok + ? where id = ?`;
