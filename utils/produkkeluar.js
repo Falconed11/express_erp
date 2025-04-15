@@ -89,7 +89,7 @@ const update = async ({
 
   jumlah,
   keterangan,
-  isSelected,
+  // isSelected,
   idproyek,
   id_proyek,
   karyawan,
@@ -107,6 +107,7 @@ const update = async ({
       values = [sn, harga, metodepengeluaran, tanggal, id];
       const [result1] = await connection.execute(sql, values);
     } else {
+      const isSelected = true;
       await queryDelete({
         connection,
         id,
@@ -115,23 +116,23 @@ const update = async ({
         id_produk,
         metodepengeluaran,
       });
-      await queryCreate(
+      await queryCreate({
         connection,
         id_produk,
-        sn,
-        metodepengeluaran,
-        serialnumbers,
+        // sn,
+        // metodepengeluaran,
+        // serialnumbers,
         jumlah,
         harga,
         tanggal,
         keterangan,
         isSelected,
-        idproyek,
+        // idproyek,
         id_proyek,
-        karyawan,
+        // karyawan,
         id_karyawan,
-        idproduk
-      );
+        // idproduk
+      });
     }
 
     // sql = `update produk set stok=stok + ? where id = ?`;
@@ -220,6 +221,15 @@ const queryCreate = async ({
   id_karyawan = id_karyawan ?? 0;
   // Start the transaction
 
+  let sql, values, result;
+  sql = "select stok, satuan from produk where id=?";
+  values = [id_produk];
+  [result] = await connection.execute(sql, values);
+  const produk = result[0];
+  const stok = produk.stok;
+  const satuan = produk.satuan;
+  if (jumlah > stok)
+    throw new Error(`Stok tidak mencukupi. Maks. ${stok} ${satuan}.`);
   if (sn == 1) {
     for (let i = 0; i < serialnumbers.length; i++) {
       let sql = `select id from produkmasuk where jumlah > keluar and id_produk = ? order by harga desc limit 1`;
@@ -247,9 +257,9 @@ const queryCreate = async ({
   } else {
     let sisa = jumlah;
     while (sisa > 0) {
-      let sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
-      let values = [id_produk];
-      let [result] = await connection.execute(sql, values);
+      sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
+      values = [id_produk];
+      [result] = await connection.execute(sql, values);
       const produkmasuk = result[0];
       const stok = produkmasuk.stok;
       const keluar = sisa >= stok ? stok : sisa;
