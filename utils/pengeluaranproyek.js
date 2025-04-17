@@ -10,8 +10,8 @@ const list = ({ id_proyek, monthyear, start, end, id_vendor, id_kategori }) => {
   left join vendor v on v.id=pp.id_vendor 
   left join produkkeluar pk on pk.id=pp.id_produkkeluar 
   left join instansi i on pr.id_instansi=i.id 
-  left join kategoriproduk kp on p.id_kategori = kp.id 
-  where 1=1 ${id_proyek ? `and id_proyek=?` : ""} ${
+  left join kategoriproduk kp on p.id_kategori = kp.id  
+  where 1=1 ${id_proyek ? `and pr.id=?` : ""} ${
     monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') =?` : ""
   } ${start ? `and pp.tanggal>=?` : ""} ${end ? `and pp.tanggal<=?` : ""} ${
     id_vendor ? `and pp.id_vendor=?` : ""
