@@ -236,8 +236,8 @@ const queryCreate = async ({
       let values = [id_produk];
       let [value] = await connection.execute(sql, values);
       const produkmasuk = value[0];
-      sql = `update produkmasuk set keluar = keluar + 1 where id = ${produkmasuk.id}`;
-      values = [];
+      sql = `update produkmasuk set keluar = keluar + 1 where id = ?`;
+      values = [produkmasuk.id];
       [result] = await connection.execute(sql, values);
       sql = `update produk set stok = stok - 1 where id = ?`;
       values = [id_produk];
@@ -259,6 +259,7 @@ const queryCreate = async ({
     while (sisa > 0) {
       sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
       values = [id_produk];
+      console.log(values);
       [result] = await connection.execute(sql, values);
       const produkmasuk = result[0];
       const stok = produkmasuk.stok;
@@ -266,12 +267,14 @@ const queryCreate = async ({
       sisa -= keluar;
       const idProdukMasuk = produkmasuk.id;
 
-      sql = `update produkmasuk set keluar = keluar + ? where id = ${idProdukMasuk}`;
-      values = [keluar];
+      sql = `update produkmasuk set keluar = keluar + ? where id = ?`;
+      values = [keluar, idProdukMasuk];
+      console.log(values);
       [result] = await connection.execute(sql, values);
 
       sql = `update produk set stok = stok - ? where id = ?`;
       values = [keluar, id_produk];
+      console.log(values);
       [result] = await connection.execute(sql, values);
 
       sql = `insert into ${table} (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, jumlah, harga, tanggal, keterangan) values (?,?,?,?,${keluar},?,?,?)`;
@@ -279,11 +282,12 @@ const queryCreate = async ({
         metodepengeluaran ?? "proyek",
         id_produk,
         idProdukMasuk,
-        id_proyek,
+        id_proyek || null,
         isSelected == true ? produkmasuk.harga : harga ?? 0,
         tanggal,
         keterangan,
       ];
+      console.log(values);
       [result] = await connection.execute(sql, values);
 
       if (isSelected == true) {
@@ -300,6 +304,7 @@ const queryCreate = async ({
           produkmasuk.harga,
           keterangan ?? "",
         ];
+        console.log(values);
         [result] = await connection.execute(sql, values);
       }
     }
