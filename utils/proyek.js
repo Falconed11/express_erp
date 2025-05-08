@@ -23,7 +23,7 @@ const list = ({
     }
   console.log(id_karyawan);
 
-  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join (SELECT id_proyek, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id where 1=1 ${
+  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join (SELECT id_proyek, sum(jumlah) jumlahbarangkeluar, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id where 1=1 ${
     id ? `and p.id=?` : ""
   } ${id_instansi ? "and id_instansi=?" : ""} ${
     start ? `and p.${sort}>=?` : ""
@@ -33,7 +33,7 @@ const list = ({
     countProgressNoOffer ? "and versi<=0 and pengeluaranproyek>0" : ""
   } order by 
     CASE 
-      WHEN versi <=0 and pengeluaranproyek>0
+      WHEN versi <=0 and jumlahbarangkeluar>0
       THEN 1
       ELSE 2 
     END ${
@@ -148,7 +148,7 @@ const updateVersion = ({ id, versi, tanggal }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from keranjangproyek where id_proyek = ?; delete from pengeluaranproyek where id_proyek = ?; delete from pembayaranproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
+  const sql = `delete from keranjangproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
   const values = [id, id, id, id, id];
   return new Promise((resolve, reject) => {
     connectionmq.query(sql, values, (err, res) => {
