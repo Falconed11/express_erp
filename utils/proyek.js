@@ -1,5 +1,7 @@
 const connection = require("./db");
 const connectionmq = require("./dbmq");
+const db = require("./db.2.0.0");
+const pool = db.pool;
 const table = "proyek";
 
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
@@ -40,7 +42,7 @@ const list = ({
       sort
         ? `,p.${sort} desc, p.${
             sort == "tanggal" ? "tanggal_penawaran" : "tanggal"
-          } desc`
+          } desc, i.nama`
         : ""
     }`;
   const values = [];
@@ -147,15 +149,53 @@ const updateVersion = ({ id, versi, tanggal }) => {
   });
 };
 
-const destroy = ({ id }) => {
-  const sql = `delete from keranjangproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
-  const values = [id, id, id, id, id];
-  return new Promise((resolve, reject) => {
-    connectionmq.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+// const destroy = ({ id }) => {
+//   const sql = `delete from keranjangproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
+//   const values = [id, id, id,];
+//   return new Promise((resolve, reject) => {
+//     connectionmq.query(sql, values, (err, res) => {
+//       if (err) reject(err);
+//       resolve(res);
+//     });
+//   });
+// };
+
+const destroy = async ({ id }) => {
+  const connection = await pool.getConnection();
+
+  try {
+    // Start the transaction
+    await connection.beginTransaction();
+
+    let sql, values, result;
+
+    sql = `delete from keranjangproyek where id_proyek = ?`;
+    values = [id];
+    [result] = await connection.execute(sql, values);
+
+    sql = `delete from rekapitulasiproyek where id_proyek = ?`;
+    values = [id];
+    [result] = await connection.execute(sql, values);
+
+    sql = `delete from ${table} where id = ?`;
+    values = [id];
+    [result] = await connection.execute(sql, values);
+
+    // If no errors, commit the transaction
+    await connection.commit();
+    console.log("Transaction committed successfully.");
+
+    return { message: "Sukses" };
+  } catch (error) {
+    // If any error occurs, rollback the transaction
+    await connection.rollback();
+    console.error("Transaction rolled back due to error:", error);
+
+    throw error;
+  } finally {
+    // Release the connection back to the pool
+    connection.release();
+  }
 };
 
 const exportPenawaran = ({ id, start, end }) => {
