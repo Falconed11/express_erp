@@ -4,9 +4,11 @@ const pool = require("./dbpromise");
 const table = "produkmasuk";
 
 const list = ({ id_produk, laporan }) => {
-  const sql = `select pm.*, pm.jumlah*pm.harga-pm.terbayar hutang, pm.jumlah-pm.keluar sisa, (pm.jumlah-pm.keluar)*pm.harga sisamodal, p.id_kustom, p.nama, p.tipe, p.satuan, p.stok, m.nama merek, v.nama vendor, kp.nama kategoriproduk from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor left join kategoriproduk kp on kp.id=p.id_kategori where 1 ${
+  const sql = `select pm.*, pm.jumlah*pm.harga-pm.terbayar hutang, pm.jumlah-pm.keluar sisa, (pm.jumlah-pm.keluar)*pm.harga sisamodal, p.id_kustom, p.nama, p.tipe, p.satuan, p.hargamodal, p.stok, m.nama merek, v.nama vendor, kp.nama kategoriproduk from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor left join kategoriproduk kp on kp.id=p.id_kategori where 1 ${
     id_produk ? `and id_produk = ?` : ""
-  } order by ${laporan ? `kategoriproduk, nama,` : ""} pm.tanggal desc`;
+  } ${laporan ? "and (pm.jumlah-pm.keluar) > 0" : ""} order by ${
+    laporan ? `kategoriproduk, nama,` : ""
+  } pm.tanggal desc`;
   const values = [];
   if (id_produk) values.push(id_produk);
   return new Promise((resolve, reject) => {
@@ -28,6 +30,7 @@ const create = async ({
 }) => {
   jumlah = jumlah ?? 0;
   if (jumlah <= 0) throw new Error("Jumlah tidak boleh 0!");
+  if (!id_vendor) throw new Error("Vendor belum dipilih!");
   harga = harga ?? 0;
   terbayar = terbayar ?? 0;
   jatuhtempo = jatuhtempo ?? null;
