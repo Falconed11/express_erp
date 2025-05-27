@@ -38,7 +38,6 @@ const runTransaction = async (connection, insertRow, json) => {
 };
 
 const importPengeluaranProyek = async (json) => {
-  console.log(json.customInputCode);
   inputcode = json.customInputCode ?? inputcode;
   const connection = await pool.getConnection();
   const insertRow = async (row) => {

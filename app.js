@@ -37,6 +37,7 @@ const kwitansi = require("./utils/kwitansi");
 const laporan = require("./utils/laporan");
 const lembur = require("./utils/lembur");
 const merek = require("./utils/merek");
+const metodepembayaran = require("./utils/metodepembayaran");
 const metodepengeluaran = require("./utils/metodepengeluaran");
 const nota = require("./utils/nota");
 const operasionalkantor = require("./utils/operasionalkantor");
@@ -142,6 +143,56 @@ app.post("/api/importoperasionalkantor", async (req, res) => {
 app.post("/api/importproduk", async (req, res) => {
   const result = await alat3
     .importProduk(req.body)
+    .then((result) =>
+      res.json({
+        message: result?.msg ?? "no msg",
+        result,
+        err: result.err ?? null,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// bank
+app.get("/api/bank", async (req, res) => {
+  const result = bank
+    .list(req.query)
+    .then((result) =>
+      res.json({
+        message: result?.msg || "no msg",
+        result,
+        err: result.err || null,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.post("/api/bank", async (req, res) => {
+  const result = await bank
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: result?.msg ?? "no msg",
+        result,
+        err: result.err ?? null,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/bank", async (req, res) => {
+  const result = await bank
+    .update(req.body)
+    .then((result) =>
+      res.json({
+        message: result?.msg ?? "no msg",
+        result,
+        err: result.err ?? null,
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/bank", async (req, res) => {
+  const result = await bank
+    .destroy(req.body)
     .then((result) =>
       res.json({
         message: result?.msg ?? "no msg",
@@ -302,6 +353,44 @@ app.get("/api/omset", async (req, res) => {
 app.get("/api/laporanpenawaran", async (req, res) => {
   const list = laporan.penawaran(req.query);
   res.json(await list);
+});
+
+// metodepembayaran
+app.get("/api/metodepembayaran", async (req, res) => {
+  const list = metodepembayaran.list(req.query);
+  res.json(await list);
+});
+app.get("/api/totalbank", async (req, res) => {
+  const list = metodepembayaran.total(req.query);
+  res.json(await list);
+});
+app.post("/api/metodepembayaran", async (req, res) => {
+  const result = await metodepembayaran
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "metodepembayaran berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/metodepembayaran", async (req, res) => {
+  const result = await metodepembayaran
+    .update(req.body)
+    .then((result) => res.json({ message: "metodepembayaran berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transferbank", async (req, res) => {
+  const result = await metodepembayaran
+    .transferBank(req.body)
+    .then((result) => res.json({ message: "metodepembayaran berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/metodepembayaran", async (req, res) => {
+  metodepembayaran
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "metodepembayaran berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
 });
 
 // nota
@@ -824,40 +913,6 @@ app.delete("/api/lembur", async (req, res) => {
   lembur
     .destroy(req.body)
     .then((result) => res.json({ message: "lembur berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// bank
-app.get("/api/bank", async (req, res) => {
-  const list = bank.list(req.query);
-  res.json(await list);
-});
-app.get("/api/totalbank", async (req, res) => {
-  const list = bank.total(req.query);
-  res.json(await list);
-});
-app.post("/api/bank", async (req, res) => {
-  const result = await bank
-    .create(req.body)
-    .then((result) => res.json({ message: "bank berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/bank", async (req, res) => {
-  const result = await bank
-    .update(req.body)
-    .then((result) => res.json({ message: "bank berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/transferbank", async (req, res) => {
-  const result = await bank
-    .transferBank(req.body)
-    .then((result) => res.json({ message: "bank berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/bank", async (req, res) => {
-  bank
-    .destroy(req.body)
-    .then((result) => res.json({ message: "bank berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

@@ -1,74 +1,63 @@
-const connection = require("./db");
+const db = require("./db.2.0.0");
+const pool = db.pool;
 
-const table = "metodepembayaran";
+const table = "bank";
 
-const list = ({ id }) => {
-  const sql = `select mp.id, mp.nama, t.t total from ${table} mp left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id where 1=1 ${
-    id ? "and mp.id=?" : ""
-  } order by mp.nama`;
-  const values = [];
-  if (id) values.push(id);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+const list = async ({ id }) => {
+  const connection = await pool.getConnection();
+  try {
+    let sql = `select * from ${table} where 1${id ? " and id=?" : ""}`;
+    let values = [];
+    if (id) values.push(id);
+    const [result] = await connection.execute(sql, values);
+    return result;
+  } catch (error) {
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-const total = () => {
-  const sql = `select mp.id, mp.nama, sum(pp.nominal) total from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id order by mp.nama`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (err) reject(err);
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+const create = async ({ nama }) => {
+  const connection = await pool.getConnection();
+  try {
+    let sql = `insert into ${table} (nama) values (?)`;
+    let values = [nama];
+    const [result] = await connection.execute(sql, values);
+    return result;
+  } catch (error) {
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-const transferBank = ({ src, dst }) => {
-  const sql =
-    "update pembayaranproyek set id_metodepembayaran=? where id_metodepembayaran=?";
-  const values = [dst, src];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+const update = async ({ id, nama }) => {
+  const connection = await pool.getConnection();
+  try {
+    let sql = `update ${table} set nama=? where id=?`;
+    let values = [nama, id];
+    const [result] = await connection.execute(sql, values);
+    return result;
+  } catch (error) {
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-const create = ({ nama }) => {
-  const sql = `insert into ${table} (nama) values (?)`;
-  const values = [nama];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+const destroy = async ({ id }) => {
+  const connection = await pool.getConnection();
+  try {
+    let sql = `delete from ${table} where id=?`;
+    let values = [id];
+    const [result] = await connection.execute(sql, values);
+    return result;
+  } catch (error) {
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
-const update = ({ id, nama }) => {
-  const sql = `update ${table} set nama='${nama}' where id=${id}`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
-};
-
-const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
-};
-
-module.exports = { list, create, update, destroy, total, transferBank };
+module.exports = { list, create, update, destroy };
