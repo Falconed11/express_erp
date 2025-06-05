@@ -3,9 +3,11 @@ const connection = require("./db");
 const table = "metodepembayaran";
 
 const list = ({ id }) => {
-  const sql = `select mp.id, mp.nama, t.t total from ${table} mp left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id where 1=1 ${
-    id ? "and mp.id=?" : ""
-  } order by mp.nama`;
+  const sql = `select b.nama namabank, mp.id, mp.*, t.t total from ${table} mp 
+  left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on 
+    pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id 
+  left join bank b on b.id=mp.id_bank 
+  where 1=1 ${id ? "and mp.id=?" : ""} order by mp.nama`;
   const values = [];
   if (id) values.push(id);
   return new Promise((resolve, reject) => {
@@ -40,9 +42,9 @@ const transferBank = ({ src, dst }) => {
   });
 };
 
-const create = ({ nama }) => {
-  const sql = `insert into ${table} (nama) values (?)`;
-  const values = [nama];
+const create = ({ nama, id_bank, norekening, atasnama }) => {
+  const sql = `insert into ${table} (nama,id_bank,norekening,atasnama) values (?,?,?,?)`;
+  const values = [nama, id_bank, norekening, atasnama];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -51,10 +53,11 @@ const create = ({ nama }) => {
   });
 };
 
-const update = ({ id, nama }) => {
-  const sql = `update ${table} set nama='${nama}' where id=${id}`;
+const update = ({ id, nama, id_bank, norekening, atasnama }) => {
+  const sql = `update ${table} set nama=?, id_bank=?, norekening=?, atasnama=? where id=?`;
+  const values = [nama, id_bank, norekening, atasnama, id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });
@@ -62,9 +65,10 @@ const update = ({ id, nama }) => {
 };
 
 const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ${id}`;
+  const sql = `delete from ${table} where id = ?`;
+  const values = [id];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (err) reject(err);
       resolve(res);
     });

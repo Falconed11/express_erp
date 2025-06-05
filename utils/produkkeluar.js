@@ -7,7 +7,12 @@ const table = "produkkeluar";
 const list = async ({ id_produk }) => {
   const connection = await pool.getConnection();
   try {
-    let sql = `select p.nama produk, p.tipe tipe, p.stok, p.satuan, m.nama merek, v.nama vendor, pk.*, pr.id id_proyek, pr.nama nama_proyek, i.nama nama_instansi from ${table} pk left join produk p on p.id=pk.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=p.id_vendor left join proyek pr on pr.id=pk.id_proyek left join instansi i on i.id=pr.id_instansi where 1 ${
+    let sql = `select p.nama produk, p.tipe tipe, p.stok, p.satuan, m.nama merek, v.nama vendor, pk.*, pr.id id_proyek, pr.nama nama_proyek, i.nama nama_instansi from ${table} pk 
+    left join produk p on p.id=pk.id_produk 
+    left join merek m on m.id=p.id_merek 
+    left join vendor v on v.id=p.id_vendor 
+    left join proyek pr on pr.id=pk.id_proyek 
+    left join instansi i on i.id=pr.id_instansi where 1 ${
       id_produk ? `and pk.id_produk=?` : ""
     }`;
     let values = [];
