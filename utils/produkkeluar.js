@@ -1,6 +1,5 @@
 const db = require("./db.2.0.0");
-const pool = require("./dbpromise");
-const pool2 = db.pool;
+const pool = db.pool;
 
 const table = "produkkeluar";
 
@@ -25,6 +24,7 @@ const list = async ({ id_produk }) => {
     connection.release();
   }
 };
+
 const create = async ({
   id_produk,
   sn,
@@ -102,7 +102,7 @@ const update = async ({
   idproduk,
 }) => {
   if (!harga) harga = 0;
-  const connection = await pool2.getConnection();
+  const connection = await pool.getConnection();
   try {
     // Start the transaction
     await connection.beginTransaction();

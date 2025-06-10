@@ -1,5 +1,5 @@
 // transaction.js
-const pool = require("./dbpromise");
+const pool = require("./db.2.0.0");
 
 async function test({ id }) {
   const connection = await pool.getConnection();
@@ -67,9 +67,7 @@ async function testTransaction() {
   }
 }
 
-function coba(){
-  
-}
+function coba() {}
 
 // module.exports = runTransaction;
 module.exports = { test, testTransaction };

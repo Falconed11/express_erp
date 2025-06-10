@@ -1,4 +1,4 @@
-const pool = require("./dbpromise");
+const pool = require("./db.2.0.0");
 
 const table = "metodepengeluaran";
 

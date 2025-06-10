@@ -343,10 +343,6 @@ app.get("/api/totaloperasional", async (req, res) => {
   const list = laporan.totalOperasional(req.query);
   res.json(await list);
 });
-app.get("/api/bulananproyek", async (req, res) => {
-  const list = laporan.bulananProyek(req.query);
-  res.json(await list);
-});
 app.get("/api/omset", async (req, res) => {
   const list = laporan.omset(req.query);
   res.json(await list);
@@ -581,17 +577,6 @@ app.post("/api/proyek", async (req, res) => {
     .then((result) =>
       res.json({
         message: "Proyek berhasil ditambahkan",
-      })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.post("/api/importpenawaran", async (req, res) => {
-  const result = await proyek
-    .importPenawaran(req.body)
-    .then((result) =>
-      res.json({
-        message: result.msg,
-        result: result,
       })
     )
     .catch((e) => res.status(400).json({ message: e.message }));
