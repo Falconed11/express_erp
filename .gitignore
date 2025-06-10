@@ -1,0 +1,11 @@
+nota/*
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Logs
+npm-debug.log*
