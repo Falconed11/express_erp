@@ -1,5 +1,5 @@
 const connection = require("./db");
-const pool = require("./db.2.0.0");
+const { pool } = require("./db.2.0.0");
 
 const table = "produkmasuk";
 

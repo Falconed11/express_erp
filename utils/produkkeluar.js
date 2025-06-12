@@ -24,7 +24,6 @@ const list = async ({ id_produk }) => {
     connection.release();
   }
 };
-
 const create = async ({
   id_produk,
   sn,
@@ -315,7 +314,6 @@ const queryCreate = async ({
     }
   }
 };
-
 const queryDelete = async ({
   connection,
   id,

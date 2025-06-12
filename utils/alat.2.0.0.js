@@ -1,4 +1,5 @@
-const pool = require("./db.2.0.0");
+const db = require("./db.2.0.0");
+const pool = db.pool;
 
 const inputcode = "data2023-2";
 
