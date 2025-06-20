@@ -17,13 +17,15 @@ const table = "produk";
 //   });
 // };
 
-const list = ({ id, kategori, limit, nama }) => {
+const list = ({ id, kategori, limit, nama, isReadyStock }) => {
   if (nama) nama = "%" + nama + "%";
   const sql = `select kp.nama kategoriproduk, m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id left join kategoriproduk kp on p.id_kategori = kp.id where 1 ${
     id ? "and p.id=?" : ""
   } ${kategori ? `and id_kategori = ?` : ""} ${
     nama ? "and p.nama like ?" : ""
-  } and p.tanggal >= '2025-01-01' order by p.tanggal desc, kategoriproduk, nama, m.nama ${
+  } and p.tanggal >= '2025-01-01' ${
+    isReadyStock ? "and stok>0" : ""
+  } order by p.tanggal desc, kategoriproduk, nama, m.nama ${
     limit ? "limit ?" : ""
   }`;
   const values = [];

@@ -159,9 +159,9 @@ const update = ({
   });
 };
 
-const updateHargaJualMargin = ({ id_proyek, provitmarginpersen }) => {
-  const sql = `UPDATE keranjangproyek SET harga = ceil(hargamodal/(1-(?/100))/100)*100 WHERE id_proyek = ?`;
-  const values = [provitmarginpersen, id_proyek];
+const updateHargaJualByPersenProvit = ({ id_proyek, persenprovit }) => {
+  const sql = `UPDATE keranjangproyek SET harga = ceil(hargamodal*(1-?/100)) WHERE id_proyek = ?`;
+  const values = [persenprovit, id_proyek];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       console.log(err);
@@ -188,6 +188,6 @@ module.exports = {
   create,
   createNewVersion,
   update,
-  updateHargaJualMargin,
+  updateHargaJualByPersenProvit,
   destroy,
 };
