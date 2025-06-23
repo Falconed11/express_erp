@@ -323,7 +323,7 @@ app.put("/api/keranjangproyek", async (req, res) => {
     .then((result) => res.json({ message: "Produk berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/keranjangproyekupdatehargabyprovitpersen", async (req, res) => {
+app.put("/api/keranjangproyekupdatehargabypersenprovit", async (req, res) => {
   const result = await keranjangproyek
     .updateHargaJualByPersenProvit(req.body)
     .then((result) => res.json({ message: "Update harga jual berhasil" }))
