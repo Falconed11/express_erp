@@ -6,8 +6,9 @@ const table = "produkkeluar";
 const list = async ({ id_produk }) => {
   const connection = await pool.getConnection();
   try {
-    let sql = `select p.nama produk, p.tipe tipe, p.stok, p.satuan, m.nama merek, v.nama vendor, pk.*, pr.id id_proyek, pr.nama nama_proyek, i.nama nama_instansi from ${table} pk 
+    let sql = `select p.nama produk, p.tipe tipe, p.stok, p.satuan, pm.harga hargaprodukmasuk, m.nama merek, v.nama vendor, pk.*, pr.id id_proyek, pr.nama nama_proyek, i.nama nama_instansi from ${table} pk 
     left join produk p on p.id=pk.id_produk 
+    left join produkmasuk pm on pm.id=pk.id_produkmasuk 
     left join merek m on m.id=p.id_merek 
     left join vendor v on v.id=p.id_vendor 
     left join proyek pr on pr.id=pk.id_proyek 
