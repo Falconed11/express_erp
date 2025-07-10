@@ -33,6 +33,7 @@ const kategoriproduk = require("./utils/kategoriproduk");
 const kategoriproyek = require("./utils/kategoriproyek");
 const keranjangnota = require("./utils/keranjangnota");
 const keranjangproyek = require("./utils/keranjangproyek");
+const keteranganpenawaran = require("./utils/keteranganpenawaran");
 const klien = require("./utils/klien");
 const kwitansi = require("./utils/kwitansi");
 const laporan = require("./utils/laporan");
@@ -51,6 +52,7 @@ const produk = require("./utils/produk");
 const produkmasuk = require("./utils/produkmasuk");
 const produkkeluar = require("./utils/produkkeluar");
 const proyek = require("./utils/proyek");
+const proyek_keteranganpenawaran = require("./utils/proyek_keteranganpenawaran");
 const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
 const statusproyek = require("./utils/statusproyek");
 const stok = require("./utils/stok");
@@ -336,6 +338,34 @@ app.delete("/api/keranjangproyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
+// keteranganpenawaran
+app.get("/api/keteranganpenawaran", async (req, res) => {
+  try {
+    const list = await keteranganpenawaran.list(req.query);
+    res.json(list);
+  } catch (e) {
+    res.status(400).json(e);
+  }
+});
+app.post("/api/keteranganpenawaran", async (req, res) => {
+  const result = await keteranganpenawaran
+    .create(req.body)
+    .then((result) => res.json({ message: "Data berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/keteranganpenawaran", async (req, res) => {
+  const result = await keteranganpenawaran
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/keteranganpenawaran", async (req, res) => {
+  keteranganpenawaran
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
 // laporan
 app.get("/api/totaloperasional", async (req, res) => {
   const list = laporan.totalOperasional(req.query);
@@ -595,6 +625,34 @@ app.put("/api/updateversiproyek", async (req, res) => {
   const result = await proyek
     .updateVersion(req.body)
     .then((result) => res.json({ message: "Versi proyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// proyek_keteranganpenawaran
+app.get("/api/proyek_keteranganpenawaran", async (req, res) => {
+  try {
+    const list = await proyek_keteranganpenawaran.list(req.query);
+    res.json(list);
+  } catch (e) {
+    res.status(400).json(e);
+  }
+});
+app.post("/api/proyek_keteranganpenawaran", async (req, res) => {
+  const result = await proyek_keteranganpenawaran
+    .create(req.body)
+    .then((result) => res.json({ message: "Data berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/proyek_keteranganpenawaran", async (req, res) => {
+  const result = await proyek_keteranganpenawaran
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/proyek_keteranganpenawaran", async (req, res) => {
+  proyek_keteranganpenawaran
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
