@@ -27,6 +27,7 @@ const update = async ({ keterangan, id }) => {
 };
 
 const destroy = async ({ id }) => {
+  console.log(id);
   const sql = `delete from ${table} where id =?`;
   const values = [id];
   const [rows] = await pool.execute(sql, values);
