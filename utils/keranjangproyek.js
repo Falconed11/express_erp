@@ -1,29 +1,8 @@
 const connection = require("./db");
 const table = "keranjangproyek";
 
-// const list = ({ id_proyek }) => {
-//   const qcol = id_proyek
-//     ? `k.harga as hargajual, k.id as id_keranjangproyek, k.jumlah as jumlah, s.id as id_stok, s.jumlah as stok, s.harga as hargabeli, p.nama, p.satuan, p.tipe, kp.nama as kategori, sk.nama as subkategori, m.nama as merek`
-//     : "*";
-//   const qid_proyek = id_proyek ? `id_proyek = ${id_proyek}` : "";
-//   const qleft_join = id_proyek
-//     ? `left join stok s on k.id_stok = s.id
-//     left join produk p on s.id_produk = p.id
-//     left join kategoriproduk kp on p.id_kategori = kp.id
-//     left join subkategoriproduk sk on p.id_subkategori = sk.id
-//     left join merek m on p.id_merek = m.id`
-//     : "";
-//   const where = id_proyek ? "where" : "";
-//   const sql = `Select ${qcol} From ${table} k ${qleft_join} ${where} ${qid_proyek}`;
-//   return new Promise((resolve, reject) => {
-//     connection.query(sql, (err, res) => {
-//       if (!res) res = [];
-//       resolve(res);
-//     });
-//   });
-// };
 const list = ({ id_proyek, instalasi, versi }) => {
-  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.keterangan, m.nama nmerek, v.nama nvendor, p.nama, p.stok, p.tipe, p.hargamodal, p.satuan From ${table} kp 
+  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.nama, p.stok, p.tipe, p.hargamodal, p.satuan From ${table} kp 
   left join subproyek sp on kp.id_subproyek = sp.id 
   left join produk p on kp.id_produk = p.id 
   left join kategoriproduk kpr on p.id_kategori=kpr.id 
@@ -58,16 +37,6 @@ const listVersion = ({ id_proyek }) => {
     });
   });
 };
-
-// const create = ({ id_stok, id_proyek, jumlah, harga }) => {
-//   const sql = `insert into ${table} (id_stok, id_proyek, jumlah, harga) values ('${id_stok}', '${id_proyek}', '${jumlah}', '${harga}')`;
-//   return new Promise((resolve, reject) => {
-//     connection.query(sql, (err, res) => {
-//       if (err) reject(err);
-//       resolve(res);
-//     });
-//   });
-// };
 
 const create = ({
   id_produk,
@@ -120,22 +89,6 @@ const createNewVersion = ({ id_proyek, versi }) => {
     });
   });
 };
-
-// const update = ({ id, id_stok, id_proyek, jumlah, harga }) => {
-//   const sql = `update ${table} set ${id_proyek ? `id_stok=${id_stok},` : ""} ${
-//     id_proyek ? `id_proyek=${id_proyek},` : ""
-//   } ${jumlah ? `jumlah=${jumlah},` : ""} ${
-//     harga ? `harga=${harga}` : ""
-//   } where id=${id}`;
-//   console.log(sql);
-//   return new Promise((resolve, reject) => {
-//     connection.query(sql, (err, res) => {
-//       if (err) reject(err);
-//       resolve(res);
-//     });
-//   });
-// };
-
 const update = ({
   id,
   id_subproyek,
@@ -144,18 +97,54 @@ const update = ({
   harga,
   hargakustom,
   keterangan,
+  showmerek,
+  showtipe,
 }) => {
-  console.log("Harga Kustom: " + hargakustom);
-  const sql = `update ${table} set id_subproyek=?, jumlah = ?, hargamodal=?, harga = ?, hargakustom = ?, keterangan = ? where id=?`;
-  const values = [
-    id_subproyek,
-    jumlah,
-    hargamodal,
-    harga,
-    hargakustom == "" ? null : hargakustom,
-    keterangan,
-    id,
-  ];
+  const isExist = (v) => v != null;
+  const fields = [];
+  const values = [];
+
+  if (isExist(id_subproyek)) {
+    fields.push("id_subproyek = ?");
+    values.push(id_subproyek);
+  }
+  if (isExist(jumlah)) {
+    fields.push("jumlah = ?");
+    values.push(jumlah);
+  }
+  if (isExist(hargamodal)) {
+    fields.push("hargamodal = ?");
+    values.push(hargamodal);
+  }
+  if (isExist(harga)) {
+    fields.push("harga = ?");
+    values.push(harga);
+  }
+  if (isExist(hargakustom)) {
+    fields.push("hargakustom = ?");
+    values.push(hargakustom === "" ? null : hargakustom);
+  }
+  if (isExist(keterangan)) {
+    fields.push("keterangan = ?");
+    values.push(keterangan);
+  }
+  if (isExist(showmerek)) {
+    fields.push("showmerek = ?");
+    values.push(showmerek);
+  }
+  if (isExist(showtipe)) {
+    fields.push("showtipe = ?");
+    values.push(showtipe);
+  }
+  console.log({ fields, values });
+  // ⛔ No fields to update
+  if (fields.length === 0) {
+    return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
+  }
+  // Where clause
+  values.push(id);
+  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+  console.log(sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
