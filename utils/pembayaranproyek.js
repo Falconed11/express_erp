@@ -1,17 +1,25 @@
 const connection = require("./db");
 const table = "pembayaranproyek";
 
-const list = ({ id_proyek, id_metodepembayaran, monthyear, start, end }) => {
-  const sql = `Select p.id id_proyek, p.nama, i.nama instansi, mp.nama metodepembayaran, pp.* from ${table} pp 
+const list = ({
+  id_proyek,
+  id_metodepembayaran,
+  monthyear,
+  start,
+  end,
+  asc,
+}) => {
+  const sql = `Select p.id id_proyek, p.nama, i.nama instansi, mp.nama metodepembayaran, mp.norekening, mp.atasnama, b.nama nama_bank, pp.* from ${table} pp 
   left join proyek p on pp.id_proyek=p.id 
   left join metodepembayaran mp on pp.id_metodepembayaran=mp.id 
+  left join bank b on mp.id_bank = b.id 
   left join instansi i on p.id_instansi=i.id where 1=1 ${
     id_proyek ? `and id_proyek=?` : ""
   } ${monthyear ? `and DATE_FORMAT(tanggal, '%m-%Y')=?` : ""} ${
     start ? `and pp.tanggal>=?` : ""
   } ${end ? `and pp.tanggal<=?` : ""} ${
     id_metodepembayaran ? "and id_metodepembayaran=?" : ""
-  } order by pp.tanggal desc`;
+  } order by pp.tanggal ${asc ? "asc" : "desc"}`;
   const values = [];
   if (id_proyek) values.push(id_proyek);
   if (monthyear) values.push(monthyear);
