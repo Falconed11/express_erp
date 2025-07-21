@@ -24,11 +24,17 @@ const list = ({
     }
   console.log(id_karyawan);
 
-  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p left join statusproyek sp on p.id_statusproyek = sp.id left join karyawan k on p.id_karyawan = k.id left join perusahaan pr on p.id_perusahaan = pr.id left join instansi i on p.id_instansi=i.id left join (SELECT id_proyek, sum(jumlah) jumlahbarangkeluar, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id where 1=1 ${
-    id ? `and p.id=?` : ""
-  } ${id_instansi ? "and id_instansi=?" : ""} ${
-    start ? `and p.${sort}>=?` : ""
-  } ${end ? `and p.${sort}<=?` : ""} ${
+  const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p 
+  left join statusproyek sp on p.id_statusproyek = sp.id 
+  left join karyawan k on p.id_karyawan = k.id 
+  left join perusahaan pr on p.id_perusahaan = pr.id 
+  left join instansi i on p.id_instansi=i.id 
+  left join (SELECT id_proyek, sum(jumlah) jumlahbarangkeluar, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek 
+  left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp 
+  left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id 
+  where 1=1 ${id ? `and p.id=?` : ""} ${
+    id_instansi ? "and id_instansi=?" : ""
+  } ${start ? `and p.${sort}>=?` : ""} ${end ? `and p.${sort}<=?` : ""} ${
     id_karyawan ? `and id_karyawan=?` : ""
   } ${
     countProgressNoOffer ? "and versi<=0 and pengeluaranproyek>0" : ""
@@ -70,6 +76,7 @@ const create = ({
   id_statusproyek,
   tanggal,
   keterangan,
+  id_po,
 }) => {
   let sql = "";
   let values = [];
@@ -82,7 +89,7 @@ const create = ({
     //   if (res.length > 0) {
     //     id_kustom = res[0].id_kustom + 1;
     //   }
-    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ${
+    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ${
       karyawan ? `(select id from karyawan where nama = ?)` : "?"
     }, ?, ?`;
     values = [
@@ -90,6 +97,7 @@ const create = ({
       tanggal,
       id_instansi,
       id_perusahaan,
+      id_po,
       nama,
       klien,
       karyawan ?? id_karyawan,
@@ -115,12 +123,14 @@ const update = ({
   id_statusproyek,
   tanggal,
   keterangan,
+  id_po,
 }) => {
-  const sql = `update ${table} set id_second=?, id_instansi=?, id_perusahaan=?, nama=?, klien=?, id_karyawan=?, id_statusproyek=?, tanggal_penawaran=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_second=?, id_instansi=?, id_perusahaan=?, id_po=?, nama=?, klien=?, id_karyawan=?, id_statusproyek=?, tanggal_penawaran=?, keterangan=? where id=?`;
   const values = [
     id_second,
     id_instansi,
     id_perusahaan,
+    id_po,
     nama,
     klien,
     id_karyawan,
