@@ -138,13 +138,11 @@ const update = ({
   }
   console.log({ fields, values });
   // ⛔ No fields to update
-  if (fields.length === 0) {
+  if (fields.length === 0)
     return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
-  }
   // Where clause
   values.push(id);
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-  console.log(sql);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

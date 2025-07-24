@@ -31,9 +31,9 @@ const listVersion = ({ id_proyek }) => {
   });
 };
 
-const create = ({ id_proyek, versi, diskon, pajak }) => {
-  const sql = `insert into ${table} (id_proyek, versi, diskon, pajak) values ( ?, ?, ?, ?)`;
-  const values = [id_proyek, versi, diskon, pajak];
+const create = ({ id_proyek, versi, diskon, diskoninstalasi, pajak }) => {
+  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak) values ( ?, ?, ?, ?, ?)`;
+  const values = [id_proyek, versi, diskon, diskoninstalasi, pajak];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -68,9 +68,26 @@ const createNewVersion = ({ id_proyek, versi }) => {
   });
 };
 
-const update = ({ id, diskon, pajak }) => {
-  const sql = `update ${table} set diskon = ?, pajak = ? where id=?`;
-  const values = [diskon, pajak, id];
+const update = ({ id, diskon, diskoninstalasi, pajak }) => {
+  const fields = [];
+  const values = [];
+  const isExist = (v) => v != null;
+  if (isExist(diskon)) {
+    fields.push("diskon=?");
+    values.push(diskon);
+  }
+  if (isExist(diskoninstalasi)) {
+    fields.push("diskoninstalasi=?");
+    values.push(diskoninstalasi);
+  }
+  if (isExist(pajak)) {
+    fields.push("pajak=?");
+    values.push(pajak);
+  }
+  if (fields.length === 0)
+    return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
+  values.push(id);
+  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
