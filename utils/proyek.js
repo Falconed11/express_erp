@@ -89,7 +89,7 @@ const create = ({
     //   if (res.length > 0) {
     //     id_kustom = res[0].id_kustom + 1;
     //   }
-    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ${
+    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
       karyawan ? `(select id from karyawan where nama = ?)` : "?"
     }, ?, ?`;
     values = [
