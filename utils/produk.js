@@ -212,9 +212,10 @@ const update = ({
   satuan,
   hargamodal,
   hargajual,
+  tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_kategori=?, id_kustom=?, nama=?, id_merek=?, tipe=?, satuan=?, hargamodal=?, hargajual=?, keterangan=? where id=?`;
+  const sql = `update ${table} set id_kategori=?, id_kustom=?, nama=?, id_merek=?, tipe=?, satuan=?, hargamodal=?, hargajual=?, tanggal=?, keterangan=? where id=?`;
   return new Promise((resolve, reject) => {
     connection.query(
       sql,
@@ -227,6 +228,7 @@ const update = ({
         satuan,
         hargamodal,
         hargajual,
+        tanggal,
         keterangan,
         id,
       ],
