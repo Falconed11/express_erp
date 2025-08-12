@@ -22,7 +22,6 @@ const list = ({
         reject({ message: "Kolom tidak valid" });
       });
     }
-  console.log(id_karyawan);
 
   const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p 
   left join statusproyek sp on p.id_statusproyek = sp.id 

@@ -1,4 +1,5 @@
 const connection = require("./db");
+const { pool } = require("./db.2.0.0");
 const table = "pembayaranproyek";
 
 const list = ({
@@ -76,29 +77,84 @@ const create = ({
   });
 };
 
-const update = ({
+const getNextPaymentId = async (year, conn) => {
+  const [rows] = await conn.query(
+    `SELECT last_seq FROM kwitansi_sequences WHERE year = ? FOR UPDATE`,
+    [year]
+  );
+  let nextSeq;
+  if (rows.length) {
+    nextSeq = rows[0].last_seq + 1;
+    await conn.query(
+      `UPDATE kwitansi_sequences SET last_seq = ? WHERE year = ?`,
+      [nextSeq, year]
+    );
+  } else {
+    nextSeq = 1;
+    await conn.query(
+      `INSERT INTO kwitansi_sequences (year, last_seq) VALUES (?, ?)`,
+      [year, nextSeq]
+    );
+  }
+  return {
+    seq: nextSeq,
+    id_second: `${year}-${String(nextSeq).padStart(4, "0")}`,
+  };
+};
+
+const update = async ({
   id,
   id_proyek,
   nominal,
+  status,
   id_metodepembayaran,
   tanggal,
   keterangan,
 }) => {
-  const sql = `update ${table} set id_proyek = ?, nominal = ?, id_metodepembayaran = ?, tanggal = ?, keterangan = ? where id=?`;
-  const values = [
-    id_proyek,
-    nominal,
-    id_metodepembayaran,
-    tanggal,
-    keterangan,
-    id,
-  ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  if (!tanggal) throw new Error("Tanggal wajib diisi!");
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [[current]] = await conn.query(
+      `SELECT status, tanggal, id_second FROM ${table} WHERE id = ?`,
+      [id]
+    );
+    if (!current) throw new Error("Payment not found");
+    const year = new Date(tanggal).getFullYear();
+    if (
+      (status && !current.id_second) ||
+      (status && new Date(current.tanggal).getFullYear() !== year)
+    ) {
+      const { seq, id_second } = await getNextPaymentId(year, conn);
+
+      await conn.query(
+        `UPDATE ${table} SET status = ?, id_second = ?, nominal = ?, id_metodepembayaran = ?, tanggal = ?, keterangan = ? WHERE id = ?`,
+        [
+          status,
+          id_second,
+          nominal,
+          id_metodepembayaran,
+          tanggal,
+          keterangan,
+          id,
+        ]
+      );
+
+      await conn.commit();
+      return id_second;
+    }
+    await conn.query(
+      `update ${table} set id_proyek = ?, nominal = ?, status = ?, id_metodepembayaran = ?, tanggal = ?, keterangan = ? where id=?`,
+      [id_proyek, nominal, status, id_metodepembayaran, tanggal, keterangan, id]
+    );
+    await conn.commit();
+    return current.id;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 };
 
 const destroy = ({ id }) => {
