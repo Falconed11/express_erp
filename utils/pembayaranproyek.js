@@ -56,16 +56,20 @@ const create = ({
   idproyek,
   nominal,
   id_metodepembayaran,
+  pembayar,
+  untukpembayaran,
   tanggal,
   keterangan,
 }) => {
-  const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, tanggal, keterangan) values (${
+  const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, pembayar, untukpembayaran, tanggal, keterangan) values (${
     idproyek ? `(select id from proyek where id_second=?)` : `?`
-  }, ?, ?, ?, ?)`;
+  }, ?, ?, ?, ?, ?, ?)`;
   const values = [
     idproyek ?? id_proyek,
     nominal,
     id_metodepembayaran,
+    pembayar,
+    untukpembayaran,
     tanggal,
     keterangan ?? "",
   ];
@@ -108,6 +112,8 @@ const update = async ({
   nominal,
   status,
   id_metodepembayaran,
+  pembayar,
+  untukpembayaran,
   tanggal,
   keterangan,
 }) => {
@@ -128,12 +134,14 @@ const update = async ({
       const { seq, id_second } = await getNextPaymentId(year, conn);
 
       await conn.query(
-        `UPDATE ${table} SET status = ?, id_second = ?, nominal = ?, id_metodepembayaran = ?, tanggal = ?, keterangan = ? WHERE id = ?`,
+        `UPDATE ${table} SET status = ?, id_second = ?, nominal = ?, id_metodepembayaran = ?, pembayar=?, untukpembayaran=?, tanggal = ?, keterangan = ? WHERE id = ?`,
         [
           status,
           id_second,
           nominal,
           id_metodepembayaran,
+          pembayar,
+          untukpembayaran,
           tanggal,
           keterangan,
           id,
@@ -144,8 +152,18 @@ const update = async ({
       return id_second;
     }
     await conn.query(
-      `update ${table} set id_proyek = ?, nominal = ?, status = ?, id_metodepembayaran = ?, tanggal = ?, keterangan = ? where id=?`,
-      [id_proyek, nominal, status, id_metodepembayaran, tanggal, keterangan, id]
+      `update ${table} set id_proyek = ?, nominal = ?, status = ?, id_metodepembayaran = ?, pembayar = ?, untukpembayaran = ?, tanggal = ?, keterangan = ? where id=?`,
+      [
+        id_proyek,
+        nominal,
+        status,
+        id_metodepembayaran,
+        pembayar,
+        untukpembayaran,
+        tanggal,
+        keterangan,
+        id,
+      ]
     );
     await conn.commit();
     return current.id;
