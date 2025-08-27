@@ -5,6 +5,10 @@ const cors = require("cors");
 const app = express();
 const port = 3001;
 
+//set up cors
+app.use(cors());
+app.options("*", cors()); // preflight requests
+
 // multer setup
 const multer = require("multer");
 // const storage = multer.memoryStorage();
@@ -17,6 +21,12 @@ const storage = multer.diskStorage({
     cb(null, new Date().getTime() + `.jpeg`);
   },
 });
+const storageLogo = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "logo/"),
+  filename: (req, file, cb) => cb(null, file.originalname),
+});
+
+const uploadLogo = multer({ storage: storageLogo });
 
 const test = require("./utils/test");
 
@@ -61,20 +71,27 @@ const subproyek = require("./utils/subproyek");
 const user = require("./utils/user");
 const vendor = require("./utils/vendor");
 
-// Parse JSON bodies
-app.use(bodyParser.json({ limit: "50mb" }));
-// Parse URL-encoded bodies (e.g., form data)
-app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+app.use((req, res, next) => {
+  if (req.is("application/json")) {
+    bodyParser.json({ limit: "50mb" })(req, res, next);
+  } else if (req.is("application/x-www-form-urlencoded")) {
+    bodyParser.urlencoded({ limit: "50mb", extended: true })(req, res, next);
+  } else {
+    next(); // let multer or other middleware handle it
+  }
+});
+// // Parse JSON bodies
+// app.use(bodyParser.json({ limit: "50mb" }));
+// // Parse URL-encoded bodies (e.g., form data)
+// app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
-app.use(multer({ storage }).single("file"));
-
-//set up cors
-app.use(cors());
+// app.use(multer({ storage }).single("file"));
 
 app.use((req, res, next) => {
   console.log(`IP: ${req.ip} ${req.method}${req.url} ${new Date()}`);
   next();
 });
+app.use("/logo", express.static("logo"));
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
@@ -443,6 +460,42 @@ app.delete("/api/nota", async (req, res) => {
   nota
     .destroy(req.body)
     .then((result) => res.json({ message: "Nota berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// perusahaan
+app.get("/api/perusahaan", async (req, res) => {
+  const list = perusahaan.list(req.query);
+  res.json(await list);
+});
+app.post("/api/perusahaan", uploadLogo.single("file"), async (req, res) => {
+  try {
+    const filename = req.file ? req.file.filename : null;
+    const result = await perusahaan.create({
+      ...req.body,
+      logo: filename,
+    });
+    res.json({ message: "Perusahaan berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+app.put("/api/perusahaan", uploadLogo.single("file"), async (req, res) => {
+  try {
+    const filename = req.file ? req.file.filename : null;
+    const result = await perusahaan.update({
+      ...req.body,
+      logo: filename,
+    });
+    res.json({ message: "Perusahaan berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+app.delete("/api/perusahaan", async (req, res) => {
+  perusahaan
+    .destroy(req.body)
+    .then((result) => res.json({ message: "perusahaan berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -883,30 +936,6 @@ app.delete("/api/metodepengeluaran", async (req, res) => {
   metodepengeluaran
     .destroy(req.body)
     .then((result) => res.json({ message: "Data berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// perusahaan
-app.get("/api/perusahaan", async (req, res) => {
-  const list = perusahaan.list(req.query);
-  res.json(await list);
-});
-app.post("/api/perusahaan", async (req, res) => {
-  const result = await perusahaan
-    .create(req.body)
-    .then((result) => res.json({ message: "perusahaan berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/perusahaan", async (req, res) => {
-  const result = await perusahaan
-    .update(req.body)
-    .then((result) => res.json({ message: "perusahaan berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/perusahaan", async (req, res) => {
-  perusahaan
-    .destroy(req.body)
-    .then((result) => res.json({ message: "perusahaan berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

@@ -3,7 +3,6 @@ const { pool } = require("./db.2.0.0");
 const table = "keteranganpenawaran";
 
 const list = async ({ idProyekKeteranganPenawaran, idProyek }) => {
-  console.log(idProyek);
   const sql = `select kp.*, pk.id_proyek, pk.id_keteranganpenawaran from ${table} kp 
   left join proyek_keteranganpenawaran pk on kp.id=pk.id_keteranganpenawaran and pk.id_proyek=? 
   where 1=1`;
