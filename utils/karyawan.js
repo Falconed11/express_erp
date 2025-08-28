@@ -1,48 +1,49 @@
-const connection = require("./db");
+const { pool } = require("./db.2.0.0");
 
 const table = "karyawan";
 
-const list = () => {
-  const sql = `Select * From ${table} order by nama`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+const list = async ({ id }) => {
+  const sql = `Select sk.status statuskaryawan, k.* From ${table} k 
+  left join statuskaryawan sk on sk.id=k.id_statuskaryawan 
+  where 1=1 ${id ? " id=? " : ""}
+  order by nama`;
+  const values = [id ?? null];
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
-const create = ({ nama }) => {
-  const sql = `insert into ${table} (nama) values (?)`;
-  const values = [nama];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+const create = async ({ nama, id_statuskaryawan }) => {
+  const sql = `insert into ${table} (nama, id_statuskaryawan) values (?,?)`;
+  const values = [nama, id_statuskaryawan];
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
-const update = ({ id, nama }) => {
-  const sql = `update ${table} set nama=? where id=?`;
-  const values = [nama, id];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+const update = async ({ id, nama, id_statuskaryawan }) => {
+  const fields = [];
+  const values = [];
+  const isExist = (v) => v != null;
+  if (isExist(nama)) {
+    fields.push("nama=?");
+    values.push(nama);
+  }
+  if (isExist(id_statuskaryawan)) {
+    fields.push("id_statuskaryawan=?");
+    values.push(id_statuskaryawan);
+  }
+  if (fields.length === 0)
+    return { affectedRows: 0, message: "No fields to update" };
+  values.push(id);
+  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
-const destroy = ({ id }) => {
+const destroy = async ({ id }) => {
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
 module.exports = { list, create, update, destroy };

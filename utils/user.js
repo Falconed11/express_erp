@@ -3,7 +3,7 @@ const connection = require("./db");
 // bcrypt setup
 // https://www.npmjs.com/package/bcrypt
 const bcrypt = require("bcrypt");
-const saltRounds = 10;
+const saltRounds = +process.env.SALT_ROUNDS;
 
 const table = "user";
 
@@ -31,10 +31,13 @@ const login = ({ username, password }) => {
   });
 };
 
-const list = () => {
-  const sql = `Select id, username, peran From ${table}`;
+const list = ({ id, peran }) => {
+  const sql = `Select id, username, peran From ${table} where 1=1${
+    peran == "super" ? "" : " and id=?"
+  }`;
+  const values = [id || null];
   return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
+    connection.query(sql, values, (err, res) => {
       if (!res) res = [];
       resolve(res);
     });
@@ -56,7 +59,16 @@ const create = ({ username, password, peran }) => {
   });
 };
 
-const update = ({ id, username, password, peran, passwordlama }) => {
+const update = ({
+  id,
+  username,
+  password,
+  peran,
+  passwordlama,
+  srcusername,
+  srcperan,
+}) => {
+  console.log({ srcusername, srcperan });
   return new Promise((resolve, reject) => {
     connection.query(
       `Select password From ${table} Where id=?`,
@@ -76,7 +88,7 @@ const update = ({ id, username, password, peran, passwordlama }) => {
             reject(err);
             return;
           }
-          if (!result) {
+          if (!result && srcperan != "super") {
             reject({ message: "Password lama tidak sesuai" });
             return;
           }

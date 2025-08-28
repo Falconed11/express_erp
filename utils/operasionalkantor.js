@@ -36,7 +36,7 @@ const create = ({
   kategori,
   biaya,
   tanggal,
-  keterangan,
+  keterangan = "",
 }) => {
   const values = [
     karyawan ?? id_karyawan,
@@ -50,6 +50,7 @@ const create = ({
   }, ${
     kategori ? `(select id from kategorioperasionalkantor where nama=?)` : `?`
   }, ?, ?, ?)`;
+  console.log({ sql });
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
