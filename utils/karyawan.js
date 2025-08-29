@@ -2,10 +2,13 @@ const { pool } = require("./db.2.0.0");
 
 const table = "karyawan";
 
-const list = async ({ id }) => {
+const list = async ({ id, id_statuskaryawan }) => {
+  console.log(id);
   const sql = `Select sk.status statuskaryawan, k.* From ${table} k 
   left join statuskaryawan sk on sk.id=k.id_statuskaryawan 
-  where 1=1 ${id ? " id=? " : ""}
+  where 1=1 ${id ? " and id=? " : ""}${
+    id_statuskaryawan == 1 ? " and k.id_statuskaryawan=1 " : ""
+  }
   order by nama`;
   const values = [id ?? null];
   const [rows] = await pool.execute(sql, values);

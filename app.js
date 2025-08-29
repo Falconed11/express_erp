@@ -57,6 +57,7 @@ const pengeluaran = require("./utils/pengeluaran");
 const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
 const pengeluaranproyek = require("./utils/pengeluaranproyek");
 const pembayaranproyek = require("./utils/pembayaranproyek");
+const peran = require("./utils/peran");
 const perusahaan = require("./utils/perusahaan");
 const produk = require("./utils/produk");
 const produkmasuk = require("./utils/produkmasuk");
@@ -461,6 +462,42 @@ app.delete("/api/nota", async (req, res) => {
   nota
     .destroy(req.body)
     .then((result) => res.json({ message: "Nota berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// peran
+app.get("/api/peran", async (req, res) => {
+  const list = peran.list(req.query);
+  res.json(await list);
+});
+app.post("/api/peran", uploadLogo.single("file"), async (req, res) => {
+  try {
+    const filename = req.file ? req.file.filename : null;
+    const result = await peran.create({
+      ...req.body,
+      logo: filename,
+    });
+    res.json({ message: "Perusahaan berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+app.put("/api/peran", uploadLogo.single("file"), async (req, res) => {
+  try {
+    const filename = req.file ? req.file.filename : null;
+    const result = await peran.update({
+      ...req.body,
+      logo: filename,
+    });
+    res.json({ message: "Perusahaan berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+app.delete("/api/peran", async (req, res) => {
+  peran
+    .destroy(req.body)
+    .then((result) => res.json({ message: "peran berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
