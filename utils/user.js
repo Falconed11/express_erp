@@ -8,10 +8,10 @@ const saltRounds = +process.env.SALT_ROUNDS;
 const table = "user";
 
 const login = ({ username, password }) => {
-  const sql = `Select u.*, p.rank, p.keterangan keteranganperan From ${table} u 
-  left join peran p on p.nama=u.peran 
+  const sql = `Select u.*, p.rank, p.keterangan keteranganperan, k.nama From ${table} u 
+  left join peran p on p.nama=u.peran
+  left join karyawan k on k.id=u.id_karyawan
   where username=?`;
-  console.log(sql);
   const values = [username];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
@@ -38,7 +38,11 @@ const list = ({ id = 0, peran = "", rank = "" }) => {
   const sql = `Select u.id, u.username, u.peran, u.id_karyawan, k.nama, p.rank, p.keterangan keteranganperan From ${table} u 
   left join karyawan k on k.id=u.id_karyawan 
   left join peran p on p.nama=u.peran 
-  where 1=1${peran == "super" ? "" : " and (u.id=? or rank>?) "}
+  where 1=1${
+    peran == "super"
+      ? ""
+      : ` and (u.id=?${rank && rank <= 10 ? " or rank>?" : ""}) `
+  }
   order by username`;
   const values = [...(id ? [id] : []), ...(rank ? [rank] : [])];
   return new Promise((resolve, reject) => {

@@ -146,9 +146,20 @@ const update = ({
   });
 };
 
-const updateVersion = ({ id, versi, tanggal }) => {
-  const sql = `update ${table} set versi=?, id_kustom=(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?), tanggal=? where id=?`;
-  const values = [versi, tanggal, id, tanggal, id];
+const updateVersion = ({ id, versi, tanggal, id_statusproyek }) => {
+  const qIdCustom =
+    "(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?)";
+  const sql = `update ${table} set versi=?, id_kustom=${qIdCustom}, tanggal=?${
+    id_statusproyek ? ", id_statusproyek=?" : ""
+  } where id=?`;
+  const values = [
+    versi,
+    tanggal,
+    id,
+    tanggal,
+    { ...(id_statusproyek ? [id_statusproyek] : []) },
+    id,
+  ];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

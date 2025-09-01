@@ -30,6 +30,7 @@ const uploadLogo = multer({ storage: storageLogo });
 
 const test = require("./utils/test");
 
+const aktivitaskaryawan = require("./utils/aktivitaskaryawan");
 const alat = require("./utils/alat");
 const alat2 = require("./utils/alat.2.0.0");
 const alat3 = require("./utils/alat.3.0.0");
@@ -120,6 +121,30 @@ app.put("/api/test", async (req, res) => {
 });
 app.delete("/api/test", async (req, res) => {
   test
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// aktivitaskaryawan
+app.get("/api/aktivitaskaryawan", async (req, res) => {
+  const list = aktivitaskaryawan.list(req.query);
+  res.json(await list);
+});
+app.post("/api/aktivitaskaryawan", async (req, res) => {
+  const result = await aktivitaskaryawan
+    .create(req.body)
+    .then((result) => res.json({ message: "Data berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/aktivitaskaryawan", async (req, res) => {
+  const result = await aktivitaskaryawan
+    .update(req.body)
+    .then((result) => res.json({ message: "Data berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/aktivitaskaryawan", async (req, res) => {
+  aktivitaskaryawan
     .destroy(req.body)
     .then((result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));

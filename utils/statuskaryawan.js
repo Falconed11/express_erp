@@ -31,7 +31,7 @@ const update = async ({ id, status, keterangan }) => {
     values.push(keterangan);
   }
   if (fields.length === 0)
-    return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
+    return { affectedRows: 0, message: "No fields to update" };
   values.push(id);
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
   const [rows] = await pool.execute(sql, values);
