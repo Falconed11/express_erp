@@ -152,12 +152,13 @@ const updateVersion = ({ id, versi, tanggal, id_statusproyek }) => {
   const sql = `update ${table} set versi=?, id_kustom=${qIdCustom}, tanggal=?${
     id_statusproyek ? ", id_statusproyek=?" : ""
   } where id=?`;
+  console.log(sql);
   const values = [
     versi,
     tanggal,
     id,
     tanggal,
-    { ...(id_statusproyek ? [id_statusproyek] : []) },
+    ...(id_statusproyek ? [id_statusproyek] : []),
     id,
   ];
   return new Promise((resolve, reject) => {
