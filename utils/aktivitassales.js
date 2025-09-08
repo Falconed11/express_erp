@@ -1,8 +1,8 @@
 const { pool } = require("./db.2.0.0");
 
-const table = "aktivitaskaryawan";
+const table = "aktivitassales";
 
-const list = async ({ id = "" }) => {
+const list = async ({ id_proyek = "" }) => {
   const sql = `select * from ${table} where 1=1${id ? " and id=?" : ""}`;
   const values = [id ?? null];
   const [rows] = await pool.execute(sql, values);
