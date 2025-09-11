@@ -2,12 +2,25 @@ const { pool } = require("./db.2.0.0");
 
 const table = "aktivitassales";
 
-const list = async ({ id_proyek = "" }) => {
-  const sql = `select a.*, i.nama instansi, k.nama karyawan from ${table} a
+const list = async ({ id_proyek = "", groupbyproyek = "" }) => {
+  const sql = `select a.*, i.nama instansi, k.nama karyawan from ${
+    groupbyproyek
+      ? `(
+    SELECT a.*,
+           ROW_NUMBER() OVER (
+               PARTITION BY id_proyek
+               ORDER BY tanggal DESC, id DESC
+           ) AS rn,
+           COUNT(*) OVER (PARTITION BY id_proyek) AS jumlahaktivitas
+    FROM aktivitassales a
+)`
+      : table
+  } a
   left join karyawan k on k.id=a.id_karyawan
   left join proyek p on p.id=a.id_proyek
   left join instansi i on i.id=p.id_instansi
   where 1=1${id_proyek ? " and id_proyek=? " : ""}
+  ${groupbyproyek ? " and rn=1 " : ""}
   order by a.tanggal desc
   limit 50
   `;
