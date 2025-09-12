@@ -12,6 +12,7 @@ const list = ({
   end,
   sort,
   id_karyawan,
+  id_statusproyek,
   countProgressNoOffer,
 }) => {
   const validColumns = ["tanggal", "tanggal_penawaran"];
@@ -35,9 +36,10 @@ const list = ({
     id_instansi ? "and id_instansi=?" : ""
   } ${start ? `and p.${sort}>=?` : ""} ${end ? `and p.${sort}<=?` : ""} ${
     id_karyawan ? `and id_karyawan=?` : ""
-  } ${
-    countProgressNoOffer ? "and versi<=0 and pengeluaranproyek>0" : ""
-  } order by 
+  }
+  ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}
+  ${id_statusproyek ? ` and id_statusproyek=? ` : ""}
+  order by 
     CASE 
       WHEN versi <=0 and jumlahbarangkeluar>0
       THEN 1
@@ -49,12 +51,14 @@ const list = ({
           } desc, i.nama`
         : ""
     }`;
-  const values = [];
-  if (id) values.push(id);
-  if (id_instansi) values.push(id_instansi);
-  if (start) values.push(start);
-  if (end) values.push(end);
-  if (id_karyawan) values.push(id_karyawan);
+  const values = [
+    ...(id ? [id] : []),
+    ...(id_instansi ? [id_instansi] : []),
+    ...(start ? [start] : []),
+    ...(end ? [end] : []),
+    ...(id_karyawan ? [id_karyawan] : []),
+    ...(id_statusproyek ? [id_statusproyek] : []),
+  ];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -88,10 +92,11 @@ const create = ({
     //   if (res.length > 0) {
     //     id_kustom = res[0].id_kustom + 1;
     //   }
-    sql = `insert into ${table} (id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
+    sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
       karyawan ? `(select id from karyawan where nama = ?)` : "?"
     }, ?, ?`;
     values = [
+      id_statusproyek,
       tanggal,
       tanggal,
       id_instansi,

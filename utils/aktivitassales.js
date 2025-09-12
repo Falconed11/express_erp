@@ -2,29 +2,38 @@ const { pool } = require("./db.2.0.0");
 
 const table = "aktivitassales";
 
-const list = async ({ id_proyek = "", groupbyproyek = "" }) => {
-  const sql = `select a.*, i.nama instansi, k.nama karyawan from ${
-    groupbyproyek
-      ? `(
+const list = async ({
+  id_proyek = "",
+  groupbyproyek = "",
+  id_statusproyek = "",
+}) => {
+  const qSelectNewestAktivitassalesEachProyek = `(
     SELECT a.*,
-           ROW_NUMBER() OVER (
-               PARTITION BY id_proyek
-               ORDER BY tanggal DESC, id DESC
-           ) AS rn,
-           COUNT(*) OVER (PARTITION BY id_proyek) AS jumlahaktivitas
+      ROW_NUMBER() OVER (
+        PARTITION BY id_proyek
+        ORDER BY tanggal DESC, id DESC
+      ) AS rn,
+      COUNT(*) OVER (PARTITION BY id_proyek) AS jumlahaktivitas
     FROM aktivitassales a
-)`
-      : table
+)`;
+  const sql = `select a.*, i.nama instansi, k.nama karyawan, sp.id id_statusproyek, sp.nama statusproyek from ${
+    groupbyproyek ? qSelectNewestAktivitassalesEachProyek : table
   } a
   left join karyawan k on k.id=a.id_karyawan
   left join proyek p on p.id=a.id_proyek
   left join instansi i on i.id=p.id_instansi
-  where 1=1${id_proyek ? " and id_proyek=? " : ""}
+  left join statusproyek sp on sp.id=p.id_statusproyek
+  where 1=1${id_proyek ? " and id_proyek=? " : ""}${
+    id_statusproyek ? " and id_statusproyek=? " : ""
+  }
   ${groupbyproyek ? " and rn=1 " : ""}
   order by a.tanggal desc
   limit 50
   `;
-  const values = [...(id_proyek ? [id_proyek] : [])];
+  const values = [
+    ...(id_proyek ? [id_proyek] : []),
+    ...(id_statusproyek ? [id_statusproyek] : []),
+  ];
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
