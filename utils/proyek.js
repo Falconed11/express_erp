@@ -1,11 +1,9 @@
-const connection = require("./db");
-const db = require("./db.2.0.0");
-const pool = db.pool;
+const { pool } = require("./db.2.0.0");
 const table = "proyek";
 
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
 
-const list = ({
+const list = async ({
   id,
   id_instansi,
   start,
@@ -19,9 +17,7 @@ const list = ({
   if (sort)
     if (validColumns.includes(sort)) {
     } else {
-      return new Promise((resolve, reject) => {
-        reject({ message: "Kolom tidak valid" });
-      });
+      throw new Error("Kolom tidak valid");
     }
 
   const sql = `Select p.*, sp.nama statusproyek, k.nama namakaryawan, pr.nama namaperusahaan, pr.logo logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p 
@@ -59,16 +55,11 @@ const list = ({
     ...(id_karyawan ? [id_karyawan] : []),
     ...(id_statusproyek ? [id_statusproyek] : []),
   ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
-const create = ({
+const create = async ({
   id,
   id_perusahaan,
   id_instansi,
@@ -81,42 +72,36 @@ const create = ({
   keterangan,
   id_po,
 }) => {
-  let sql = "";
-  let values = [];
   // let sql = `select id_kustom from ${table} where DATE_FORMAT(tanggal, '%m %Y') = DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1`;
   // let values = [tanggal];
-  return new Promise((resolve, reject) => {
-    // connection.query(sql, values, (err, res) => {
-    //   if (err) reject(err);
-    //   let id_kustom = 1;
-    //   if (res.length > 0) {
-    //     id_kustom = res[0].id_kustom + 1;
-    //   }
-    sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
-      karyawan ? `(select id from karyawan where nama = ?)` : "?"
-    }, ?, ?`;
-    values = [
-      id_statusproyek,
-      tanggal,
-      tanggal,
-      id_instansi,
-      id_perusahaan,
-      id_po,
-      nama,
-      klien,
-      karyawan ?? id_karyawan,
-      tanggal,
-      keterangan ?? "",
-    ];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-    // });
-  });
+  // connection.query(sql, values, (err, res) => {
+  //   if (err) reject(err);
+  //   let id_kustom = 1;
+  //   if (res.length > 0) {
+  //     id_kustom = res[0].id_kustom + 1;
+  //   }
+  const sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
+    karyawan ? `(select id from karyawan where nama = ?)` : "?"
+  }, ?, ?`;
+  const values = [
+    id_statusproyek,
+    tanggal,
+    tanggal,
+    id_instansi,
+    id_perusahaan,
+    id_po,
+    nama,
+    klien,
+    karyawan ?? id_karyawan,
+    tanggal,
+    keterangan ?? "",
+  ];
+  const [rows] = await pool.execute(sql, values);
+  return rows;
+  // });
 };
 
-const update = ({
+async function update({
   id,
   id_instansi,
   id_second,
@@ -126,32 +111,32 @@ const update = ({
   id_karyawan,
   id_statusproyek,
   tanggal,
-  keterangan,
+  tanggalsuratjalan,
+  alamatsuratjalan,
   id_po,
-}) => {
-  const sql = `update ${table} set id_second=?, id_instansi=?, id_perusahaan=?, id_po=?, nama=?, klien=?, id_karyawan=?, id_statusproyek=?, tanggal_penawaran=?, keterangan=? where id=?`;
-  const values = [
-    id_second,
-    id_instansi,
-    id_perusahaan,
-    id_po,
-    nama,
-    klien,
-    id_karyawan,
-    id_statusproyek,
-    tanggal,
-    keterangan,
-    id,
-  ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
-};
+  keterangan,
+}) {
+  const fields = [];
+  const values = [];
+  const isExist = (v) => v != null;
+  // grab the original object passed to the function
+  const allProps = arguments[0];
+  // iterate all props except id
+  for (const [key, value] of Object.entries(allProps)) {
+    if (key !== "id" && isExist(value)) {
+      fields.push(`${key}=?`);
+      values.push(value);
+    }
+  }
+  if (fields.length === 0)
+    return { affectedRows: 0, message: "No fields to update" };
+  values.push(id);
+  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+  const [rows] = await pool.execute(sql, values);
+  return rows;
+}
 
-const updateVersion = ({ id, versi, tanggal, id_statusproyek }) => {
+const updateVersion = async ({ id, versi, tanggal, id_statusproyek }) => {
   const qIdCustom =
     "(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?)";
   const sql = `update ${table} set versi=?, id_kustom=${qIdCustom}, tanggal=?${
@@ -166,12 +151,8 @@ const updateVersion = ({ id, versi, tanggal, id_statusproyek }) => {
     ...(id_statusproyek ? [id_statusproyek] : []),
     id,
   ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
 // const destroy = ({ id }) => {
@@ -223,7 +204,7 @@ const destroy = async ({ id }) => {
   }
 };
 
-const exportPenawaran = ({ id, start, end }) => {
+const exportPenawaran = async ({ id, start, end }) => {
   const sql = `select p.id id_proyek, p.nama namaproyek, p.id_Perusahaan idperusahaan, p.klien, p.tanggal tanggalproyek, pr.nama namaproduk, pr.hargamodal, pr.hargajual, pr.tanggal tanggalproduk, pr.tipe, pr.stok, pr.satuan, i.nama namainstansi, i.swasta, i.kota, i.alamat alamatinstansi, m.nama namamerek, v.nama namavendor, v.alamat alamatvendor, kp.versi, kp.jumlah, kp.harga, kp.hargakustom, kp.instalasi, k.nama namakaryawan, kpr.nama namakategoriproduk, rp.versi versirekapitulasiproyek, rp.diskon, rp.pajak, rp.audio, rp.cctv, rp.multimedia from keranjangproyek kp left join proyek p on kp.id_proyek=p.id left join produk pr on kp.id_produk = pr.id left join merek m on pr.id_merek=m.id left join vendor v on pr.id_vendor=v.id left join instansi i on p.id_instansi=i.id left join karyawan k on p.id_karyawan=k.id left join kategoriproduk kpr on pr.id_kategori=kpr.id left join rekapitulasiproyek rp on p.id=rp.id_proyek where 1=1 ${
     id ? "and id_proyek = ?" : ""
   } ${start ? "and p.tanggal>=?" : ""} ${end ? "and p.tanggal<=?" : ""}`;
@@ -231,12 +212,8 @@ const exportPenawaran = ({ id, start, end }) => {
   if (id) values.push(id);
   if (start) values.push(start);
   if (end) values.push(end);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
 module.exports = {
