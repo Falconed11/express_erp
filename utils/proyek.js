@@ -101,71 +101,30 @@ const create = async ({
   // });
 };
 
-async function update({
-  id,
-  id_instansi,
-  id_second,
-  id_perusahaan,
-  nama,
-  klien,
-  id_karyawan,
-  id_statusproyek,
-  tanggal,
-  tanggalsuratjalan,
-  alamatsuratjalan,
-  id_po,
-  keterangan,
-}) {
+const update = async ({ id, ...rest }) => {
+  if (!id) return new Error("Id harus diisi!");
+  const allowedFields = [
+    "id_instansi",
+    "id_second",
+    "id_perusahaan",
+    "nama",
+    "klien",
+    "id_karyawan",
+    "id_statusproyek",
+    "tanggal",
+    "tanggalsuratjalan",
+    "alamatsuratjalan",
+    "id_po",
+    "keterangan",
+  ];
   const fields = [];
   const values = [];
   const isExist = (v) => v != null;
-  if (isExist(id_instansi)) {
-    fields.push("id_instansi=?");
-    values.push(id_instansi);
-  }
-  if (isExist(id_second)) {
-    fields.push("id_second=?");
-    values.push(id_second);
-  }
-  if (isExist(id_perusahaan)) {
-    fields.push("id_perusahaan=?");
-    values.push(id_perusahaan);
-  }
-  if (isExist(nama)) {
-    fields.push("nama=?");
-    values.push(nama);
-  }
-  if (isExist(klien)) {
-    fields.push("klien=?");
-    values.push(klien);
-  }
-  if (isExist(id_karyawan)) {
-    fields.push("id_karyawan=?");
-    values.push(id_karyawan);
-  }
-  if (isExist(id_statusproyek)) {
-    fields.push("id_statusproyek=?");
-    values.push(id_statusproyek);
-  }
-  if (isExist(tanggal)) {
-    fields.push("tanggal=?");
-    values.push(tanggal);
-  }
-  if (isExist(tanggalsuratjalan)) {
-    fields.push("tanggalsuratjalan=?");
-    values.push(tanggalsuratjalan);
-  }
-  if (isExist(alamatsuratjalan)) {
-    fields.push("alamatsuratjalan=?");
-    values.push(alamatsuratjalan);
-  }
-  if (isExist(id_po)) {
-    fields.push("id_po=?");
-    values.push(id_po);
-  }
-  if (isExist(keterangan)) {
-    fields.push("keterangan=?");
-    values.push(keterangan);
+  for (const [key, value] of Object.entries(rest)) {
+    if (allowedFields.includes(key) && value != null) {
+      fields.push(`${key}=?`);
+      values.push(value);
+    }
   }
   if (fields.length === 0)
     return { affectedRows: 0, message: "No fields to update" };
@@ -173,7 +132,7 @@ async function update({
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
   const [rows] = await pool.execute(sql, values);
   return rows;
-}
+};
 
 const updateVersion = async ({ id, versi, tanggal, id_statusproyek }) => {
   const qIdCustom =
