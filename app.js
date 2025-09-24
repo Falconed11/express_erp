@@ -1,16 +1,18 @@
-require("dotenv").config();
-const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
+import dotenv from "dotenv";
+dotenv.config();
+import express from "express";
+import bodyParser from "body-parser";
+import cors from "cors";
+import multer from "multer";
+
 const app = express();
 const port = 3001;
 
-//set up cors
+// set up cors
 app.use(cors());
 app.options("*", cors()); // preflight requests
 
 // multer setup
-const multer = require("multer");
 // const storage = multer.memoryStorage();
 // const upload = multer({ dest: "nota/" });
 const storage = multer.diskStorage({
@@ -21,6 +23,7 @@ const storage = multer.diskStorage({
     cb(null, new Date().getTime() + `.jpeg`);
   },
 });
+
 const storageLogo = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "logo/"),
   filename: (req, file, cb) => cb(null, file.originalname),
@@ -28,51 +31,51 @@ const storageLogo = multer.diskStorage({
 
 const uploadLogo = multer({ storage: storageLogo });
 
-const test = require("./utils/test");
-
-const aktivitassales = require("./utils/aktivitassales");
-const alat = require("./utils/alat");
-const alat2 = require("./utils/alat.2.0.0");
-const alat3 = require("./utils/alat.3.0.0");
-const bank = require("./utils/bank");
-const customer = require("./utils/customer");
-const dashboard = require("./utils/dashboard");
-const gudang = require("./utils/gudang");
-const karyawan = require("./utils/karyawan");
-const kategorioperasionalkantor = require("./utils/kategorioperasionalkantor");
-const kategoriproduk = require("./utils/kategoriproduk");
-const kategoriproyek = require("./utils/kategoriproyek");
-const keranjangnota = require("./utils/keranjangnota");
-const keranjangproyek = require("./utils/keranjangproyek");
-const keteranganpenawaran = require("./utils/keteranganpenawaran");
-const klien = require("./utils/klien");
-const kwitansi = require("./utils/kwitansi");
-const laporan = require("./utils/laporan");
-const lembur = require("./utils/lembur");
-const merek = require("./utils/merek");
-const metodepembayaran = require("./utils/metodepembayaran");
-const metodepengeluaran = require("./utils/metodepengeluaran");
-const nota = require("./utils/nota");
-const operasionalkantor = require("./utils/operasionalkantor");
-const pengeluaran = require("./utils/pengeluaran");
-const pengeluaranperusahaan = require("./utils/pengeluaranperusahaan");
-const pengeluaranproyek = require("./utils/pengeluaranproyek");
-const pembayaranproyek = require("./utils/pembayaranproyek");
-const peran = require("./utils/peran");
-const perusahaan = require("./utils/perusahaan");
-const produk = require("./utils/produk");
-const produkmasuk = require("./utils/produkmasuk");
-const produkkeluar = require("./utils/produkkeluar");
-const proyek = require("./utils/proyek");
-const proyek_keteranganpenawaran = require("./utils/proyek_keteranganpenawaran");
-const rekapitulasiproyek = require("./utils/rekapitulasiproyek");
-const statuskaryawan = require("./utils/statuskaryawan");
-const statusproyek = require("./utils/statusproyek");
-const stok = require("./utils/stok");
-const subkategoriproduk = require("./utils/subkategoriproduk");
-const subproyek = require("./utils/subproyek");
-const user = require("./utils/user");
-const vendor = require("./utils/vendor");
+// utils imports
+import test from "./utils/test.cjs"; // if still CJS
+import aktivitassales from "./utils/aktivitassales.cjs";
+import alat from "./utils/alat.cjs";
+import alat2 from "./utils/alat.2.0.0.cjs";
+import alat3 from "./utils/alat.3.0.0.cjs";
+import bank from "./utils/bank.cjs";
+import customer from "./utils/customer.cjs";
+import dashboard from "./utils/dashboard.cjs";
+import gudang from "./utils/gudang.cjs";
+import karyawan from "./utils/karyawan.cjs";
+import kategorioperasionalkantor from "./utils/kategorioperasionalkantor.cjs";
+import kategoriproduk from "./utils/kategoriproduk.cjs";
+import kategoriproyek from "./utils/kategoriproyek.cjs";
+import keranjangnota from "./utils/keranjangnota.cjs";
+import keranjangproyek from "./utils/keranjangproyek.cjs";
+import keteranganpenawaran from "./utils/keteranganpenawaran.cjs";
+import klien from "./utils/klien.cjs";
+import kwitansi from "./utils/kwitansi.cjs";
+import laporan from "./utils/laporan.cjs";
+import lembur from "./utils/lembur.cjs";
+import merek from "./utils/merek.cjs";
+import metodepembayaran from "./utils/metodepembayaran.cjs";
+import metodepengeluaran from "./utils/metodepengeluaran.cjs";
+import nota from "./utils/nota.cjs";
+import operasionalkantor from "./utils/operasionalkantor.cjs";
+import pengeluaran from "./utils/pengeluaran.cjs";
+import pengeluaranperusahaan from "./utils/pengeluaranperusahaan.cjs";
+import pengeluaranproyek from "./utils/pengeluaranproyek.cjs";
+import pembayaranproyek from "./utils/pembayaranproyek.cjs";
+import peran from "./utils/peran.cjs";
+import perusahaan from "./utils/perusahaan.cjs";
+import produk from "./utils/produk.cjs";
+import produkmasuk from "./utils/produkmasuk.cjs";
+import produkkeluar from "./utils/produkkeluar.cjs";
+import proyek from "./utils/proyek.cjs";
+import proyek_keteranganpenawaran from "./utils/proyek_keteranganpenawaran.cjs";
+import rekapitulasiproyek from "./utils/rekapitulasiproyek.cjs";
+import statuskaryawan from "./utils/statuskaryawan.cjs";
+import statusproyek from "./utils/statusproyek.cjs";
+import stok from "./utils/stok.cjs";
+import subkategoriproduk from "./utils/subkategoriproduk.cjs";
+import subproyek from "./utils/subproyek.cjs";
+import user from "./utils/user.cjs";
+import vendor from "./utils/vendor.cjs";
 
 app.use((req, res, next) => {
   if (req.is("application/json")) {
