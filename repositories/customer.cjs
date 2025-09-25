@@ -42,14 +42,21 @@ const transfer = async ({ currentId, targetId }) => {
   return rows;
 };
 
-const create = async ({ nama, swasta, kota, alamat = "", lastuser = null }) => {
+const create = async ({
+  nama,
+  swasta,
+  kota,
+  alamat = "",
+  lastuser = null,
+  conn = pool,
+}) => {
   if (!nama) throw new Error("Nama wajib diisi!");
   if (!kota) throw new Error("Kota wajib diisi!");
   if (!swasta) throw new Error("Swasta/Negri wajib dipilih!");
   const sql = `insert into ${table} (nama, swasta, kota, alamat, lastuser) values (?,?,?,?,?)`;
   const values = [nama, swasta, kota, alamat, lastuser];
-  const [rows] = await pool.execute(sql, values);
-  return rows;
+  const [result] = await conn.execute(sql, values);
+  return result.insertId;
 };
 
 const update = async ({ id, nama, swasta, kota, alamat, lastuser = null }) => {

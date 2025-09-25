@@ -32,50 +32,50 @@ const storageLogo = multer.diskStorage({
 const uploadLogo = multer({ storage: storageLogo });
 
 // utils imports
-import test from "./utils/test.cjs"; // if still CJS
-import aktivitassales from "./utils/aktivitassales.cjs";
-import alat from "./utils/alat.cjs";
-import alat2 from "./utils/alat.2.0.0.cjs";
-import alat3 from "./utils/alat.3.0.0.cjs";
-import bank from "./utils/bank.cjs";
-import customer from "./utils/customer.cjs";
-import dashboard from "./utils/dashboard.cjs";
-import gudang from "./utils/gudang.cjs";
-import karyawan from "./utils/karyawan.cjs";
-import kategorioperasionalkantor from "./utils/kategorioperasionalkantor.cjs";
-import kategoriproduk from "./utils/kategoriproduk.cjs";
-import kategoriproyek from "./utils/kategoriproyek.cjs";
-import keranjangnota from "./utils/keranjangnota.cjs";
-import keranjangproyek from "./utils/keranjangproyek.cjs";
-import keteranganpenawaran from "./utils/keteranganpenawaran.cjs";
-import klien from "./utils/klien.cjs";
-import kwitansi from "./utils/kwitansi.cjs";
-import laporan from "./utils/laporan.cjs";
-import lembur from "./utils/lembur.cjs";
-import merek from "./utils/merek.cjs";
-import metodepembayaran from "./utils/metodepembayaran.cjs";
-import metodepengeluaran from "./utils/metodepengeluaran.cjs";
-import nota from "./utils/nota.cjs";
-import operasionalkantor from "./utils/operasionalkantor.cjs";
-import pengeluaran from "./utils/pengeluaran.cjs";
-import pengeluaranperusahaan from "./utils/pengeluaranperusahaan.cjs";
-import pengeluaranproyek from "./utils/pengeluaranproyek.cjs";
-import pembayaranproyek from "./utils/pembayaranproyek.cjs";
-import peran from "./utils/peran.cjs";
-import perusahaan from "./utils/perusahaan.cjs";
-import produk from "./utils/produk.cjs";
-import produkmasuk from "./utils/produkmasuk.cjs";
-import produkkeluar from "./utils/produkkeluar.cjs";
-import proyek from "./utils/proyek.cjs";
-import proyek_keteranganpenawaran from "./utils/proyek_keteranganpenawaran.cjs";
-import rekapitulasiproyek from "./utils/rekapitulasiproyek.cjs";
-import statuskaryawan from "./utils/statuskaryawan.cjs";
-import statusproyek from "./utils/statusproyek.cjs";
-import stok from "./utils/stok.cjs";
-import subkategoriproduk from "./utils/subkategoriproduk.cjs";
-import subproyek from "./utils/subproyek.cjs";
-import user from "./utils/user.cjs";
-import vendor from "./utils/vendor.cjs";
+import test from "./repositories/test.cjs"; // if still CJS
+import aktivitassales from "./repositories/aktivitassales.cjs";
+import alat from "./repositories/alat.cjs";
+import alat2 from "./repositories/alat.2.0.0.cjs";
+import alat3 from "./repositories/alat.3.0.0.cjs";
+import bank from "./repositories/bank.cjs";
+import customer from "./repositories/customer.cjs";
+import dashboard from "./repositories/dashboard.cjs";
+import gudang from "./repositories/gudang.cjs";
+import karyawan from "./repositories/karyawan.cjs";
+import kategorioperasionalkantor from "./repositories/kategorioperasionalkantor.cjs";
+import kategoriproduk from "./repositories/kategoriproduk.cjs";
+import kategoriproyek from "./repositories/kategoriproyek.cjs";
+import keranjangnota from "./repositories/keranjangnota.cjs";
+import keranjangproyek from "./repositories/keranjangproyek.cjs";
+import keteranganpenawaran from "./repositories/keteranganpenawaran.cjs";
+import klien from "./repositories/klien.cjs";
+import kwitansi from "./repositories/kwitansi.cjs";
+import laporan from "./repositories/laporan.cjs";
+import lembur from "./repositories/lembur.cjs";
+import merek from "./repositories/merek.cjs";
+import metodepembayaran from "./repositories/metodepembayaran.cjs";
+import metodepengeluaran from "./repositories/metodepengeluaran.cjs";
+import nota from "./repositories/nota.cjs";
+import operasionalkantor from "./repositories/operasionalkantor.cjs";
+import pengeluaran from "./repositories/pengeluaran.cjs";
+import pengeluaranperusahaan from "./repositories/pengeluaranperusahaan.cjs";
+import pengeluaranproyek from "./repositories/pengeluaranproyek.cjs";
+import pembayaranproyek from "./repositories/pembayaranproyek.cjs";
+import peran from "./repositories/peran.cjs";
+import perusahaan from "./repositories/perusahaan.cjs";
+import produk from "./repositories/produk.cjs";
+import produkmasuk from "./repositories/produkmasuk.cjs";
+import produkkeluar from "./repositories/produkkeluar.cjs";
+import proyek from "./repositories/proyek.cjs";
+import proyek_keteranganpenawaran from "./repositories/proyek_keteranganpenawaran.cjs";
+import rekapitulasiproyek from "./repositories/rekapitulasiproyek.cjs";
+import statuskaryawan from "./repositories/statuskaryawan.cjs";
+import statusproyek from "./repositories/statusproyek.cjs";
+import stok from "./repositories/stok.cjs";
+import subkategoriproduk from "./repositories/subkategoriproduk.cjs";
+import subproyek from "./repositories/subproyek.cjs";
+import user from "./repositories/user.cjs";
+import vendor from "./repositories/vendor.cjs";
 
 app.use((req, res, next) => {
   if (req.is("application/json")) {
@@ -391,7 +391,7 @@ app.get("/api/keteranganpenawaran", async (req, res) => {
     const list = await keteranganpenawaran.list(req.query);
     res.json(list);
   } catch (e) {
-    res.status(400).json(e);
+    res.status(400).json({ error: e.message || "Unknown error" });
   }
 });
 app.post("/api/keteranganpenawaran", async (req, res) => {
@@ -498,28 +498,20 @@ app.get("/api/peran", async (req, res) => {
   const list = peran.list(req.query);
   res.json(await list);
 });
-app.post("/api/peran", uploadLogo.single("file"), async (req, res) => {
+app.post("/api/peran", async (req, res) => {
   try {
-    const filename = req.file ? req.file.filename : null;
-    const result = await peran.create({
-      ...req.body,
-      logo: filename,
-    });
+    const result = await peran.create(req.body);
     res.json({ message: "Perusahaan berhasil ditambahkan", data: result });
   } catch (e) {
-    res.status(400).json({ message: e.message });
+    res.status(400).json({ message: e.message || "Unknown Error" });
   }
 });
-app.put("/api/peran", uploadLogo.single("file"), async (req, res) => {
+app.put("/api/peran", async (req, res) => {
   try {
-    const filename = req.file ? req.file.filename : null;
-    const result = await peran.update({
-      ...req.body,
-      logo: filename,
-    });
+    const result = await peran.update(req.body);
     res.json({ message: "Perusahaan berhasil ditambahkan", data: result });
   } catch (e) {
-    res.status(400).json({ message: e.message });
+    res.status(400).json({ message: e.message || "Unknown Error" });
   }
 });
 app.delete("/api/peran", async (req, res) => {
@@ -1102,10 +1094,12 @@ app.put("/api/transfervendor", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/vendor", async (req, res) => {
-  const result = await vendor
-    .update(req.body)
-    .then((result) => res.json({ message: "vendor berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    const result = await vendor.update(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
 });
 app.delete("/api/vendor", async (req, res) => {
   vendor

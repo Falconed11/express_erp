@@ -1,23 +1,10 @@
-const connection = require("./db.cjs");
-const db = require("./db.2.0.0.cjs");
-const pool = db.pool;
-
+const { pool } = require("./db.2.0.0.cjs");
 const table = "produk";
+const db_kategori = require("./kategoriproduk.cjs");
+const db_merek = require("./merek.cjs");
+const db_vendor = require("./vendor.cjs");
 
-// const list = () => {
-//   const sql = `Select p.*, s.nama as subkategori, k.nama as kategori, m.nama as merek From ${table} p
-//   left join subkategoriproduk s on p.id_subkategori = s.id
-//   left join kategoriproduk k on p.id_kategori = k.id
-//   left join merek m on p.id_merek = m.id`;
-//   return new Promise((resolve, reject) => {
-//     connection.query(sql, (err, res) => {
-//       if (!res) res = [];
-//       resolve(res);
-//     });
-//   });
-// };
-
-const list = ({ id, kategori, limit, nama, isReadyStock }) => {
+const list = async ({ id, kategori, limit, nama, isReadyStock }) => {
   if (nama) nama = "%" + nama + "%";
   const sql = `select kp.nama kategoriproduk, m.nama nmerek, v.nama nvendor, p.* from ${table} p left join merek m on p.id_merek=m.id left join vendor v on p.id_vendor=v.id left join kategoriproduk kp on p.id_kategori = kp.id where 1 ${
     id ? "and p.id=?" : ""
@@ -33,22 +20,15 @@ const list = ({ id, kategori, limit, nama, isReadyStock }) => {
   if (kategori) values.push(kategori);
   if (nama) values.push(nama);
   if (limit) values.push(limit);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
-const listKategori = () => {
+const listKategori = async () => {
   const sql = `select distinct kategori from ${table}`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const values = [];
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
 // const create = ({
@@ -135,9 +115,9 @@ const listKategori = () => {
 
 const create = async ({
   id_kategori,
-  id_kustom,
+  id_kustom = "",
   nama,
-  id_merek,
+  id_merek = null,
   tipe,
   id_vendor,
   stok,
@@ -148,17 +128,33 @@ const create = async ({
   jatuhtempo,
   terbayar,
   lunas,
-  keterangan,
+  keterangan = "",
+  kategori,
+  merek,
+  vendor,
+  alamat,
 }) => {
   terbayar = terbayar ? terbayar : 0;
   const connection = await pool.getConnection();
-  console.log(nama ? true : false);
   try {
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
-    let values = [
+    let sql, values;
+    if (kategori && !id_kategori) {
+      const kategoriResult = await db_kategori.create({ nama: kategori });
+      id_kategori = kategoriResult.insertId;
+    }
+    if (merek && !id_merek) {
+      const merekResult = await db_merek.create({ nama: merek });
+      id_merek = merekResult.insertId;
+    }
+    if (vendor && !id_vendor) {
+      const vendorResult = await db_vendor.create({ nama: vendor, alamat });
+      id_vendor = vendorResult.insertId;
+    }
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    values = [
       id_kategori,
       id_kustom,
       nama ? nama : tipe,
@@ -202,51 +198,42 @@ const create = async ({
   }
 };
 
-const update = ({
-  id,
-  id_kustom,
-  id_kategori,
-  nama,
-  id_merek,
-  tipe,
-  satuan,
-  hargamodal,
-  hargajual,
-  tanggal,
-  keterangan,
-}) => {
-  const sql = `update ${table} set id_kategori=?, id_kustom=?, nama=?, id_merek=?, tipe=?, satuan=?, hargamodal=?, hargajual=?, tanggal=?, keterangan=? where id=?`;
-  return new Promise((resolve, reject) => {
-    connection.query(
-      sql,
-      [
-        id_kategori,
-        id_kustom,
-        nama,
-        id_merek,
-        tipe,
-        satuan,
-        hargamodal,
-        hargajual,
-        tanggal,
-        keterangan,
-        id,
-      ],
-      (err, res) => {
-        if (err) reject(err);
-        resolve(res);
-      }
-    );
-  });
+const update = async ({ id, ...rest }) => {
+  const allowedFields = [
+    "id_kustom",
+    "id_kategori",
+    "nama",
+    "id_merek",
+    "tipe",
+    "satuan",
+    "hargamodal",
+    "hargajual",
+    "tanggal",
+    "keterangan",
+  ];
+  const fields = [];
+  const values = [];
+  const isExist = (v) => v != null;
+  for (const [key, value] of Object.entries(rest)) {
+    if (allowedFields.includes(key) && value != null) {
+      fields.push(key);
+      values.push(value);
+    }
+  }
+  fields.push("id_instansi=?");
+  values.push(id_instansi);
+  if (fields.length === 0)
+    return { affectedRows: 0, message: "No fields to update" };
+  values.push(id);
+  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+  const [result] = await pool.execute(sql, values);
+  return result;
 };
-const destroy = ({ id }) => {
+const destroy = async ({ id }) => {
   const sql = `delete from ${table} where id = ?`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, [id], (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const values = [id];
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
 module.exports = { list, create, update, destroy, listKategori };
