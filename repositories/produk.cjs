@@ -1,8 +1,9 @@
 const { pool } = require("./db.2.0.0.cjs");
 const table = "produk";
-const db_kategori = require("./kategoriproduk.cjs");
-const db_merek = require("./merek.cjs");
-const db_vendor = require("./vendor.cjs");
+const { withTransaction } = require("./../helpers/transaction.cjs");
+const { create: createKategori } = require("./kategoriproduk.cjs");
+const { create: createMerek } = require("./merek.cjs");
+const { create: createVendor } = require("./vendor.cjs");
 
 const list = async ({ id, kategori, limit, nama, isReadyStock }) => {
   if (nama) nama = "%" + nama + "%";
@@ -135,66 +136,58 @@ const create = async ({
   alamat,
 }) => {
   terbayar = terbayar ? terbayar : 0;
-  const connection = await pool.getConnection();
   try {
-    // Start the transaction
-    await connection.beginTransaction();
-
     let sql, values;
-    if (kategori && !id_kategori) {
-      const kategoriResult = await db_kategori.create({ nama: kategori });
-      id_kategori = kategoriResult.insertId;
-    }
-    if (merek && !id_merek) {
-      const merekResult = await db_merek.create({ nama: merek });
-      id_merek = merekResult.insertId;
-    }
-    if (vendor && !id_vendor) {
-      const vendorResult = await db_vendor.create({ nama: vendor, alamat });
-      id_vendor = vendorResult.insertId;
-    }
-    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
-    values = [
-      id_kategori,
-      id_kustom,
-      nama ? nama : tipe,
-      id_merek ?? 0,
-      tipe,
-      stok,
-      satuan,
-      hargamodal,
-      hargajual,
-      tanggal,
-      keterangan ?? "",
-    ];
-    const [result1] = await connection.execute(sql, values);
-
-    if (stok > 0) {
-      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (${result1.insertId}, ?, ?, ?, ?, ?, ?)`;
+    const result = await withTransaction(pool, async (conn) => {
+      if (kategori && !id_kategori) {
+        id_kategori = await createKategori({ nama: kategori, conn });
+      }
+      if (merek && !id_merek) {
+        id_merek = await createMerek({ nama: merek, conn });
+      }
+      if (vendor && !id_vendor) {
+        id_vendor = await createVendor({ nama: vendor, alamat, conn });
+      }
+      sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
       values = [
+        id_kategori,
+        id_kustom,
+        nama ? nama : tipe,
+        id_merek ?? 0,
+        tipe,
         stok,
+        satuan,
         hargamodal,
+        hargajual,
         tanggal,
-        jatuhtempo ?? null,
-        lunas == "1" ? stok * hargamodal : terbayar,
-        id_vendor,
+        keterangan ?? "",
       ];
-      const [result2] = await connection.execute(sql, values);
-    }
-    // If no errors, commit the transaction
-    await connection.commit();
-    console.log("Transaction committed successfully.");
-
-    return { message: "Sukses" };
-  } catch (error) {
-    // If any error occurs, rollback the transaction
-    await connection.rollback();
-    console.error("Transaction rolled back due to error:", error);
-
-    throw error;
-  } finally {
-    // Release the connection back to the pool
-    connection.release();
+      const [result1] = await conn.execute(sql, values);
+      let result2 = null;
+      if (stok > 0) {
+        sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (${result1.insertId}, ?, ?, ?, ?, ?, ?)`;
+        values = [
+          stok,
+          hargamodal,
+          tanggal,
+          jatuhtempo ?? null,
+          lunas == "1" ? stok * hargamodal : terbayar,
+          id_vendor,
+        ];
+        [result2] = await conn.execute(sql, values);
+      }
+      return {
+        kategoriInsertId: id_kategori,
+        merekInsertId: id_merek,
+        vendorInsertId: id_vendor,
+        produkInsertId: result1.insertId,
+        produkMasukInsertId: result2?.insertId,
+      };
+    });
+    return result;
+  } catch (err) {
+    console.log(err);
+    throw err;
   }
 };
 

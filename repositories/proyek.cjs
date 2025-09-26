@@ -1,5 +1,6 @@
 const { pool } = require("./db.2.0.0.cjs");
 const { create: customerCreate } = require("./customer.cjs");
+const { withTransaction } = require("./../helpers/transaction.cjs");
 const table = "proyek";
 
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
@@ -106,56 +107,16 @@ const create = async ({
         tanggal,
         keterangan ?? "",
       ];
-      const [insertResult] = await connection.execute(sql, values);
+      const [insertResult] = await conn.execute(sql, values);
+      return {
+        customerInsertId: id_instansi,
+        proyekInsertId: insertResult.insertId,
+      };
     });
-    return { customerInsertId, proyekInsertId: insertResult.insertId };
+    return result;
   } catch (err) {
     console.error(err);
-    res.status(400).json({ error: "Transaction failed" });
-  }
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    if (instansi && !id_instansi) {
-      const customerResult = await db_customer.create({
-        nama: instansi,
-        swasta,
-        kota,
-        alamat,
-        lastuser,
-      });
-      id_instansi = customerResult.insertId;
-    }
-
-    const sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
-      karyawan ? `(select id from karyawan where nama = ?)` : "?"
-    }, ?, ?`;
-    const values = [
-      id_statusproyek,
-      tanggal,
-      tanggal,
-      id_instansi,
-      id_perusahaan,
-      id_po,
-      nama,
-      klien,
-      karyawan ?? id_karyawan,
-      tanggal,
-      keterangan ?? "",
-    ];
-    [insertResult] = await connection.execute(sql, values);
-    // If no errors, commit the transaction
-    await connection.commit();
-    console.log("Transaction committed successfully.");
-
-    return { insertResult, message: "Sukses" };
-  } catch (error) {
-    // If any error occurs, rollback the transaction
-    await connection.rollback();
-    console.error("Transaction rolled back due to error:", error);
-    throw error;
-  } finally {
-    connection.release();
+    throw err;
   }
 };
 // const create = async ({
@@ -255,38 +216,36 @@ const update = async ({
       values.push(value);
     }
   }
-  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-    if (instansi && !id_instansi) {
-      const customerResult = await db_customer.create({
-        nama: instansi,
-        swasta,
-        kota,
-        alamat,
-        lastuser,
-      });
-      id_instansi = customerResult.insertId;
-    }
-    fields.push("id_instansi=?");
-    values.push(id_instansi);
-    if (fields.length === 0)
-      return { affectedRows: 0, message: "No fields to update" };
-    values.push(id);
-    const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-    [updateResult] = await connection.execute(sql, values);
-    // If no errors, commit the transaction
-    await connection.commit();
-    console.log("Transaction committed successfully.");
-
-    return { updateResult, message: "Sukses" };
-  } catch (error) {
-    // If any error occurs, rollback the transaction
-    await connection.rollback();
-    console.error("Transaction rolled back due to error:", error);
-    throw error;
-  } finally {
-    connection.release();
+    const result = await withTransaction(pool, async (conn) => {
+      if (instansi && !id_instansi) {
+        const customerInsertId = await customerCreate({
+          nama: instansi,
+          swasta,
+          kota,
+          alamat,
+          lastuser,
+          conn,
+        });
+        id_instansi = customerInsertId;
+      }
+      fields.push("id_instansi=?");
+      values.push(id_instansi);
+      if (fields.length === 0)
+        return { affectedRows: 0, message: "No fields to update" };
+      values.push(id);
+      console.log({ fields, values, rest });
+      const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+      [updateResult] = await conn.execute(sql, values);
+      return {
+        customerInsertId: id_instansi,
+        proyekInsertId: updateResult.insertId,
+      };
+    });
+    return result;
+  } catch (err) {
+    console.error(err);
+    throw err;
   }
 };
 

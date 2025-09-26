@@ -35,12 +35,12 @@ const transfer = async ({ currentId, targetId }) => {
   return result;
 };
 
-const create = async ({ nama, alamat = "" }) => {
+const create = async ({ nama, alamat = "", conn = pool }) => {
   if (!nama) throw new Error("Nama wajib diisi!");
   const sql = `insert into ${table} (nama, alamat) values (?,?)`;
   const values = [nama, alamat];
-  const [result] = await pool.execute(sql, values);
-  return result;
+  const [result] = await conn.execute(sql, values);
+  return result.insertId;
 };
 
 const update = async ({ id, nama, alamat = "" }) => {

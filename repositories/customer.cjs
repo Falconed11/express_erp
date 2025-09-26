@@ -50,9 +50,8 @@ const create = async ({
   lastuser = null,
   conn = pool,
 }) => {
-  if (!nama) throw new Error("Nama wajib diisi!");
-  if (!kota) throw new Error("Kota wajib diisi!");
-  if (!swasta) throw new Error("Swasta/Negri wajib dipilih!");
+  if (!nama || !kota || !swasta)
+    throw new Error("Nama, Kota, dan Swasta/Negri wajib diisi!");
   const sql = `insert into ${table} (nama, swasta, kota, alamat, lastuser) values (?,?,?,?,?)`;
   const values = [nama, swasta, kota, alamat, lastuser];
   const [result] = await conn.execute(sql, values);

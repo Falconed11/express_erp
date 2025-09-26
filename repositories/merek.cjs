@@ -14,12 +14,12 @@ const transfer = async ({ currentId, targetId }) => {
   return result;
 };
 
-const create = async ({ nama }) => {
+const create = async ({ nama, conn = pool }) => {
   if (!nama) throw new Error("Nama wajin diisi!");
   const sql = `insert into ${table} (nama) values (?)`;
   const values = [nama];
-  const [result] = await pool.execute(sql, values);
-  return result;
+  const [result] = await conn.execute(sql, values);
+  return result.insertId;
 };
 
 const update = async ({ id, nama }) => {
