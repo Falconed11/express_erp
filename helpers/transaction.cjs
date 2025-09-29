@@ -8,8 +8,9 @@ const withTransaction = async (pool, fn) => {
     return result;
   } catch (err) {
     await conn.rollback();
-    console.error("Transaction rolled back due to error:", err);
-    throw err;
+    const rollbackMessage = "Transaction rolled back due to error:";
+    console.error(rollbackMessage, err);
+    throw new Error(rollbackMessage + " " + err.message);
   } finally {
     conn.release();
   }

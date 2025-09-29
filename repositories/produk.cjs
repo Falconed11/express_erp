@@ -114,33 +114,36 @@ const listKategori = async () => {
 //   });
 // };
 
-const create = async ({
-  id_kategori,
-  id_kustom = "",
-  nama,
-  id_merek = null,
-  tipe,
-  id_vendor,
-  stok,
-  satuan,
-  hargamodal,
-  hargajual,
-  tanggal,
-  jatuhtempo,
-  terbayar,
-  lunas,
-  keterangan = "",
-  kategori,
-  merek,
-  vendor,
-  alamat,
-}) => {
+const create = async (
+  {
+    id_kategori,
+    id_kustom = "",
+    nama,
+    id_merek = null,
+    tipe,
+    id_vendor,
+    stok,
+    satuan,
+    hargamodal,
+    hargajual,
+    tanggal,
+    jatuhtempo,
+    terbayar,
+    lunas,
+    keterangan = "",
+    kategoriproduk,
+    merek,
+    vendor,
+    alamat,
+  },
+  fn
+) => {
   terbayar = terbayar ? terbayar : 0;
   try {
     let sql, values;
     const result = await withTransaction(pool, async (conn) => {
-      if (kategori && !id_kategori) {
-        id_kategori = await createKategori({ nama: kategori, conn });
+      if (kategoriproduk && !id_kategori) {
+        id_kategori = await createKategori({ nama: kategoriproduk, conn });
       }
       if (merek && !id_merek) {
         id_merek = await createMerek({ nama: merek, conn });
@@ -165,8 +168,9 @@ const create = async ({
       const [result1] = await conn.execute(sql, values);
       let result2 = null;
       if (stok > 0) {
-        sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (${result1.insertId}, ?, ?, ?, ?, ?, ?)`;
+        sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (?, ?, ?, ?, ?, ?, ?)`;
         values = [
+          result1.insertId,
           stok,
           hargamodal,
           tanggal,
@@ -176,13 +180,19 @@ const create = async ({
         ];
         [result2] = await conn.execute(sql, values);
       }
-      return {
+      let finalResult = {
         kategoriInsertId: id_kategori,
         merekInsertId: id_merek,
         vendorInsertId: id_vendor,
         produkInsertId: result1.insertId,
         produkMasukInsertId: result2?.insertId,
       };
+      if (fn) {
+        const result = await fn(conn, finalResult);
+        if (result && typeof result === "object")
+          finalResult = { ...finalResult, ...result };
+      }
+      return finalResult;
     });
     return result;
   } catch (err) {
@@ -207,20 +217,40 @@ const update = async ({ id, ...rest }) => {
   const fields = [];
   const values = [];
   const isExist = (v) => v != null;
-  for (const [key, value] of Object.entries(rest)) {
-    if (allowedFields.includes(key) && value != null) {
-      fields.push(key);
-      values.push(value);
-    }
+  try {
+    const result = await withTransaction(pool, async (conn) => {
+      if (rest.kategoriproduk && !rest.id_kategori) {
+        rest.id_kategori = await createKategori({
+          nama: rest.kategoriproduk,
+          conn,
+        });
+      }
+      if (rest.merek && !rest.id_merek) {
+        rest.id_merek = await createMerek({ nama: rest.merek, conn });
+      }
+      for (const [key, value] of Object.entries(rest)) {
+        if (allowedFields.includes(key) && value != null) {
+          fields.push(`${key}=?`);
+          values.push(value);
+        }
+      }
+      if (fields.length === 0)
+        return { affectedRows: 0, message: "No fields to update" };
+      values.push(id);
+      const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+      console.log(sql);
+      const [result] = await conn.execute(sql, values);
+      return {
+        insertKategoriId: rest.id_kategori,
+        insertMerekId: rest.id_merek,
+        insertProdukId: result.insertId,
+      };
+    });
+    return result;
+  } catch (err) {
+    console.log(err);
+    throw err;
   }
-  fields.push("id_instansi=?");
-  values.push(id_instansi);
-  if (fields.length === 0)
-    return { affectedRows: 0, message: "No fields to update" };
-  values.push(id);
-  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-  const [result] = await pool.execute(sql, values);
-  return result;
 };
 const destroy = async ({ id }) => {
   const sql = `delete from ${table} where id = ?`;
