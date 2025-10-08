@@ -249,13 +249,17 @@ const update = async ({
   }
 };
 
-const updateVersion = async ({ id, versi, tanggal, id_statusproyek }) => {
+const updateVersion = async ({
+  id,
+  versi = 0,
+  tanggal = "",
+  id_statusproyek,
+}) => {
   const qIdCustom =
     "(select coalesce(id_kustom,((select id_kustom from proyek where id_kustom>0 and DATE_FORMAT(tanggal, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_kustom desc limit 1)+1),1) from proyek where id=?)";
   const sql = `update ${table} set versi=?, id_kustom=${qIdCustom}, tanggal=?${
     id_statusproyek ? ", id_statusproyek=?" : ""
   } where id=?`;
-  console.log(sql);
   const values = [
     versi,
     tanggal,
