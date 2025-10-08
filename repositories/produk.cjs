@@ -238,7 +238,6 @@ const update = async ({ id, ...rest }) => {
         return { affectedRows: 0, message: "No fields to update" };
       values.push(id);
       const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-      console.log(sql);
       const [result] = await conn.execute(sql, values);
       return {
         insertKategoriId: rest.id_kategori,

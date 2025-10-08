@@ -1,8 +1,8 @@
-const connection = require("./db.cjs");
+const { withTransaction } = require("../helpers/transaction.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 const table = "pembayaranproyek";
 
-const list = ({
+const list = async ({
   id_proyek,
   id_metodepembayaran,
   monthyear,
@@ -10,8 +10,10 @@ const list = ({
   end,
   asc,
 }) => {
-  const sql = `Select p.id id_proyek, p.nama, i.nama instansi, mp.nama metodepembayaran, mp.norekening, mp.atasnama, b.nama nama_bank, pp.* from ${table} pp 
+  const sql = `Select ki.nama picInvoice, kk.nama picKwitansi, p.id id_proyek, p.nama, i.nama instansi, mp.nama metodepembayaran, mp.norekening, mp.atasnama, b.nama nama_bank, pp.* from ${table} pp 
   left join proyek p on pp.id_proyek=p.id 
+  left join karyawan ki on pp.id_karyawaninvoice = ki.id
+  left join karyawan kk on pp.id_karyawankwitansi = kk.id
   left join metodepembayaran mp on pp.id_metodepembayaran=mp.id 
   left join bank b on mp.id_bank = b.id 
   left join instansi i on p.id_instansi=i.id where 1=1 ${
@@ -27,58 +29,50 @@ const list = ({
   if (start) values.push(start);
   if (end) values.push(end);
   if (id_metodepembayaran) values.push(id_metodepembayaran);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) console.log(err);
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
-const total = ({ id_proyek, monthyear }) => {
+const total = async ({ id_proyek, monthyear }) => {
   const sql = `Select sum(nominal) total from ${table} where 1=1 ${
     id_proyek ? `and id_proyek=?` : ""
   } ${monthyear ? `and DATE_FORMAT(tanggal, '%m-%Y')=?` : ""}`;
   const values = [];
   if (id_proyek) values.push(id_proyek);
   if (monthyear) values.push(monthyear);
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
-const create = ({
+const create = async ({
   id_proyek,
   idproyek,
   nominal,
   id_metodepembayaran,
-  pembayar,
-  untukpembayaran,
-  tanggal,
-  keterangan,
+  id_karyawaninvoice = null,
+  id_karyawankwitansi = null,
+  pembayar = "",
+  untukpembayaran = "",
+  tanggal = "",
+  keterangan = "",
 }) => {
-  const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, pembayar, untukpembayaran, tanggal, keterangan) values (${
+  const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, id_karyawaninvoice, id_karyawankwitansi, pembayar, untukpembayaran, tanggal, keterangan) values (${
     idproyek ? `(select id from proyek where id_second=?)` : `?`
-  }, ?, ?, ?, ?, ?, ?)`;
+  }, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     idproyek ?? id_proyek,
     nominal,
     id_metodepembayaran,
+    id_karyawaninvoice,
+    id_karyawankwitansi,
     pembayar,
     untukpembayaran,
     tanggal,
     keterangan ?? "",
   ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  console.log(values);
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
 const getNextPaymentId = async (year, conn) => {
@@ -106,84 +100,73 @@ const getNextPaymentId = async (year, conn) => {
   };
 };
 
-const update = async ({
-  id,
-  id_proyek,
-  nominal,
-  status,
-  id_metodepembayaran,
-  pembayar,
-  untukpembayaran,
-  tanggal,
-  keterangan,
-}) => {
+const update = async ({ id, ...rest }) => {
+  const { status, tanggal } = rest;
   if (!tanggal) throw new Error("Tanggal wajib diisi!");
-  const conn = await pool.getConnection();
   try {
-    await conn.beginTransaction();
-    const [[current]] = await conn.query(
-      `SELECT status, tanggal, id_second FROM ${table} WHERE id = ?`,
-      [id]
-    );
-    if (!current) throw new Error("Payment not found");
-    const year = new Date(tanggal).getFullYear();
-    if (
-      (status && !current.id_second) ||
-      (status && new Date(current.tanggal).getFullYear() !== year)
-    ) {
-      const { seq, id_second } = await getNextPaymentId(year, conn);
+    const result = await withTransaction(pool, async (conn) => {
+      const [[current]] = await conn.execute(
+        `SELECT status, tanggal, id_second FROM ${table} WHERE id = ?`,
+        [id]
+      );
+      if (!current) throw new Error("Payment not found");
 
-      await conn.query(
-        `UPDATE ${table} SET status = ?, id_second = ?, nominal = ?, id_metodepembayaran = ?, pembayar=?, untukpembayaran=?, tanggal = ?, keterangan = ? WHERE id = ?`,
-        [
-          status,
-          id_second,
-          nominal,
-          id_metodepembayaran,
-          pembayar,
-          untukpembayaran,
-          tanggal,
-          keterangan,
-          id,
-        ]
+      const year = new Date(tanggal).getFullYear();
+      const currentYear = new Date(current.tanggal).getFullYear();
+      let id_second = current.id_second;
+
+      if (status && (!id_second || currentYear !== year)) {
+        const { id_second: newId } = await getNextPaymentId(year, conn);
+        id_second = newId;
+      }
+
+      const allowedFields = [
+        "status",
+        "nominal",
+        "id_metodepembayaran",
+        "id_karyawaninvoice",
+        "id_karyawankwitansi",
+        "pembayar",
+        "untukpembayaran",
+        "tanggal",
+        "keterangan",
+      ];
+
+      const entries = Object.entries(rest).filter(
+        ([k, v]) => allowedFields.includes(k) && v != null
       );
 
-      await conn.commit();
-      return id_second;
-    }
-    await conn.query(
-      `update ${table} set id_proyek = ?, nominal = ?, status = ?, id_metodepembayaran = ?, pembayar = ?, untukpembayaran = ?, tanggal = ?, keterangan = ? where id=?`,
-      [
-        id_proyek,
-        nominal,
-        status,
-        id_metodepembayaran,
-        pembayar,
-        untukpembayaran,
-        tanggal,
-        keterangan,
-        id,
-      ]
-    );
-    await conn.commit();
-    return current.id;
+      const fields = entries.map(([k]) => `${k}=?`);
+      const values = entries.map(([, v]) => v);
+
+      if (id_second !== current.id_second) {
+        fields.push("id_second=?");
+        values.push(id_second);
+      }
+
+      if (fields.length === 0)
+        return { affectedRows: 0, message: "No fields to update" };
+
+      values.push(id);
+      const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+      const [result] = await conn.execute(sql, values);
+      return result;
+    });
+    return {
+      affectedRows: result.affectedRows || 0,
+      message: result.affectedRows ? "Payment updated" : "No fields to update",
+    };
   } catch (err) {
-    await conn.rollback();
+    console.log(err);
     throw err;
-  } finally {
-    conn.release();
   }
 };
 
-const destroy = ({ id }) => {
+const destroy = async ({ id }) => {
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [results] = await pool.execute(sql, values);
+  return results;
 };
 
 module.exports = { list, create, update, destroy, total };

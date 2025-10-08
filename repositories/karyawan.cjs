@@ -3,7 +3,6 @@ const { pool } = require("./db.2.0.0.cjs");
 const table = "karyawan";
 
 const list = async ({ id, id_statuskaryawan }) => {
-  console.log(id);
   const sql = `Select sk.status statuskaryawan, k.* From ${table} k 
   left join statuskaryawan sk on sk.id=k.id_statuskaryawan 
   where 1=1 ${id ? " and id=? " : ""}${

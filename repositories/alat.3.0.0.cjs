@@ -1,18 +1,5 @@
-const mysql = require("mysql2/promise");
-
+const { pool } = require("./db.2.0.0.cjs");
 let inputcode = "trial";
-
-const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "erp",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  connectTimeout: 10000,
-  multipleStatements: true, // Enable multiple statements
-});
 
 const runTransaction = async (connection, insertRow, json) => {
   const finalresult = [];
@@ -239,36 +226,22 @@ const importOperasionalKantor = async (json) => {
 };
 
 const importProduk = async (json) => {
-  console.log(json.customInputCode);
-  inputcode = json.customInputCode ?? inputcode;
+  console.log(json);
+  inputcode = json.customInputCode || inputcode;
   const connection = await pool.getConnection();
   const insertRow = async (row) => {
     let {
-      id,
-      nama,
-      merek,
-      tipe,
-      satuan,
-      modal,
-      jual,
-      tanggal,
-      kategori,
-      keterangan,
-      customInputCode,
+      id = "",
+      nama = "",
+      merek = "",
+      tipe = "",
+      satuan = "",
+      modal = 0,
+      jual = 0,
+      tanggal = new Date(),
+      kategori = null,
+      keterangan = "",
     } = row;
-    id = id ?? "";
-    nama = nama ?? "";
-    merek = merek ?? "";
-    tipe = tipe ?? "";
-    satuan = satuan ?? "";
-    modal = modal ?? "";
-    jual = jual ?? "";
-    tanggal = tanggal ?? "";
-    kategori = kategori ?? 0;
-    keterangan = keterangan ?? "";
-    inputcode = customInputCode ?? inputcode;
-
-    console.log(id);
 
     let sql = "";
     let values = [];
@@ -278,13 +251,15 @@ const importProduk = async (json) => {
     try {
       sql = `INSERT INTO merek (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM merek WHERE nama = ?);`;
       values = [merek, inputcode, merek];
-      [result] = await connection.query(sql, values);
+      const [resultMerek] = await connection.query(sql, values);
       // console.log(5);
+
+      let resultKategori;
 
       if (kategori) {
         sql = `INSERT INTO kategoriproduk (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM kategoriproduk WHERE nama = ?);`;
         values = [kategori, inputcode, kategori];
-        [result] = await connection.query(sql, values);
+        [resultKategori] = await connection.query(sql, values);
         // console.log(5);
       }
 
