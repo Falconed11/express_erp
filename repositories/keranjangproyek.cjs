@@ -41,7 +41,7 @@ const listVersion = ({ id_proyek }) => {
 const create = ({
   id_produk,
   id_proyek,
-  id_subproyek,
+  id_subproyek = null,
   jumlah,
   hargamodal,
   harga,
@@ -62,7 +62,7 @@ const create = ({
   const values = [
     id_produk,
     id_proyek,
-    id_subproyek,
+    id_subproyek || null,
     jumlah,
     hargamodal ?? 0,
     harga ?? 0,
@@ -71,6 +71,7 @@ const create = ({
     keterangan ?? "",
     versi,
   ];
+  console.log({ id_subproyek });
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -91,7 +92,7 @@ const createNewVersion = ({ id_proyek, versi }) => {
 };
 const update = ({
   id,
-  id_subproyek,
+  id_subproyek = null,
   jumlah,
   hargamodal,
   harga,
@@ -100,13 +101,14 @@ const update = ({
   showmerek,
   showtipe,
 }) => {
-  const isExist = (v) => v != null;
+  console.log(id_subproyek);
+  const isExist = (v) => v !== undefined;
   const fields = [];
   const values = [];
 
   if (isExist(id_subproyek)) {
     fields.push("id_subproyek = ?");
-    values.push(id_subproyek);
+    values.push(id_subproyek || null);
   }
   if (isExist(jumlah)) {
     fields.push("jumlah = ?");
@@ -136,7 +138,6 @@ const update = ({
     fields.push("showtipe = ?");
     values.push(showtipe);
   }
-  console.log({ fields, values });
   // ⛔ No fields to update
   if (fields.length === 0)
     return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
@@ -145,6 +146,7 @@ const update = ({
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
+      console.log(err);
       if (err) reject(err);
       resolve(res);
     });

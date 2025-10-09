@@ -314,10 +314,10 @@ const importProduk = async (json) => {
         // console.log(6);
       }
       console.log(result);
-      finalresult.push(`Sukses`);
-    } catch (error) {
-      finalresult.push(error);
-      throw error;
+      finalresult.push((isExist ? "Update" : "Tambah") + ` data sukses`);
+    } catch (err) {
+      finalresult.push(err);
+      throw err;
     }
     return finalresult;
   };

@@ -252,7 +252,7 @@ const update = async ({
 const updateVersion = async ({
   id,
   versi = 0,
-  tanggal = "",
+  tanggal = null,
   id_statusproyek,
 }) => {
   const qIdCustom =
@@ -296,6 +296,14 @@ const destroy = async ({ id }) => {
     values = [id];
     [result] = await connection.execute(sql, values);
 
+    sql = `delete from subproyek where id_proyek = ?`;
+    values = [id];
+    [result] = await connection.execute(sql, values);
+
+    sql = `delete from proyek_keteranganpenawaran where id_proyek = ?`;
+    values = [id];
+    [result] = await connection.execute(sql, values);
+
     sql = `delete from rekapitulasiproyek where id_proyek = ?`;
     values = [id];
     [result] = await connection.execute(sql, values);
@@ -313,7 +321,6 @@ const destroy = async ({ id }) => {
     // If any error occurs, rollback the transaction
     await connection.rollback();
     console.error("Transaction rolled back due to error:", error);
-
     throw error;
   } finally {
     // Release the connection back to the pool
