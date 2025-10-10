@@ -114,79 +114,99 @@ const listKategori = async () => {
 //   });
 // };
 
-const create = async (
-  {
-    id_kategori,
-    id_kustom = "",
-    nama,
-    id_merek = null,
-    tipe,
-    id_vendor,
-    stok,
-    satuan,
-    hargamodal,
-    hargajual,
-    tanggal,
-    jatuhtempo,
-    terbayar,
-    lunas,
-    keterangan = "",
-    kategoriproduk,
-    merek,
-    vendor,
-    alamat,
-  },
-  fn
-) => {
-  terbayar = terbayar ? terbayar : 0;
+/**
+ * @returns {Promise<{ kategoriInsertId: number,
+ * merekInsertId: number,
+ * vendorInsertId: number,
+ * produkInsertId: number,
+ * produkMasukInsertId: number, }>}
+ */
+const insertProduk = async ({
+  id_kategori = null,
+  id_kustom = "",
+  nama = "",
+  id_merek = null,
+  tipe = "",
+  id_vendor = null,
+  stok = 0,
+  satuan = "",
+  hargamodal = 0,
+  hargajual = 0,
+  tanggal = null,
+  jatuhtempo = null,
+  terbayar = 0,
+  lunas = 0,
+  keterangan = "",
+  kategoriproduk = "",
+  merek = "",
+  vendor = "",
+  alamat = "",
+  conn = null,
+}) => {
+  let sql, values;
   try {
-    let sql, values;
-    const result = await withTransaction(pool, async (conn) => {
-      if (kategoriproduk && !id_kategori) {
-        id_kategori = await createKategori({ nama: kategoriproduk, conn });
-      }
-      if (merek && !id_merek) {
-        id_merek = await createMerek({ nama: merek, conn });
-      }
-      if (vendor && !id_vendor) {
-        id_vendor = await createVendor({ nama: vendor, alamat, conn });
-      }
-      sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    if (!conn && !conn.__inTransaction)
+      throw new Error(
+        "insertProduk() must be called inside transaction. Set conn.__inTransacation to true after transaction begin."
+      );
+    // if (!nama) throw new Error("Nama belum diisi.");
+    if (!satuan) throw new Error("Satuan belum diisi.");
+    if (kategoriproduk && !id_kategori) {
+      id_kategori = await createKategori({ nama: kategoriproduk, conn });
+    }
+    if (merek && !id_merek) {
+      id_merek = await createMerek({ nama: merek, conn });
+    }
+    if (vendor && !id_vendor) {
+      id_vendor = await createVendor({ nama: vendor, alamat, conn });
+    }
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    values = [
+      id_kategori,
+      id_kustom,
+      nama ? nama : tipe,
+      id_merek ?? 0,
+      tipe,
+      stok,
+      satuan,
+      hargamodal,
+      hargajual,
+      tanggal,
+      keterangan ?? "",
+    ];
+    const [result1] = await conn.execute(sql, values);
+    let result2 = null;
+    if (stok > 0) {
+      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (?, ?, ?, ?, ?, ?, ?)`;
       values = [
-        id_kategori,
-        id_kustom,
-        nama ? nama : tipe,
-        id_merek ?? 0,
-        tipe,
+        result1.insertId,
         stok,
-        satuan,
         hargamodal,
-        hargajual,
         tanggal,
-        keterangan ?? "",
+        jatuhtempo ?? null,
+        lunas == "1" ? stok * hargamodal : terbayar,
+        id_vendor,
       ];
-      const [result1] = await conn.execute(sql, values);
-      let result2 = null;
-      if (stok > 0) {
-        sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (?, ?, ?, ?, ?, ?, ?)`;
-        values = [
-          result1.insertId,
-          stok,
-          hargamodal,
-          tanggal,
-          jatuhtempo ?? null,
-          lunas == "1" ? stok * hargamodal : terbayar,
-          id_vendor,
-        ];
-        [result2] = await conn.execute(sql, values);
-      }
-      let finalResult = {
-        kategoriInsertId: id_kategori,
-        merekInsertId: id_merek,
-        vendorInsertId: id_vendor,
-        produkInsertId: result1.insertId,
-        produkMasukInsertId: result2?.insertId,
-      };
+      [result2] = await conn.execute(sql, values);
+    }
+    let finalResult = {
+      kategoriInsertId: id_kategori,
+      merekInsertId: id_merek,
+      vendorInsertId: id_vendor,
+      produkInsertId: result1.insertId,
+      produkMasukInsertId: result2?.insertId,
+    };
+    return finalResult;
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+};
+
+const create = async (rest, fn) => {
+  try {
+    const result = await withTransaction(pool, async (conn) => {
+      const finalResult = await insertProduk({ ...rest, conn });
       if (fn) {
         const result = await fn(conn, finalResult);
         if (result && typeof result === "object")
