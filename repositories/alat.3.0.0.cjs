@@ -1,4 +1,5 @@
 const { pool } = require("./db.2.0.0.cjs");
+const { insertKeranjangProyek } = require("./keranjangproyek.cjs");
 let inputcode = "trial";
 
 const runTransaction = async (connection, insertRow, json) => {
@@ -241,6 +242,7 @@ const importProduk = async (json) => {
       tanggal = new Date(),
       kategori = null,
       keterangan = "",
+      jumlah = 0,
     } = row;
 
     let sql = "";
@@ -294,7 +296,9 @@ const importProduk = async (json) => {
           inputcode,
         ];
         [result] = await connection.query(sql, values);
-        // console.log(6);
+        if (json.id_proyek && result.insertId) {
+          result = await insertKeranjangProyek({ conn });
+        }
       } else {
         sql = `UPDATE produk SET hargamodal = ?, id_kategori = ${val}, hargajual = ?, tanggal = ?, nama=?, id_merek=(select id from merek where nama=?), tipe=?, satuan=?, keterangan = ?, inputcode = ? WHERE id = ?;`;
         values = [

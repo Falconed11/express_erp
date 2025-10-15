@@ -1,4 +1,5 @@
 const connection = require("./db.cjs");
+const { pool } = require("./db.2.0.0.cjs");
 const table = "keranjangproyek";
 
 const list = ({ id_proyek, instalasi, versi }) => {
@@ -38,26 +39,21 @@ const listVersion = ({ id_proyek }) => {
   });
 };
 
-const create = ({
+const insertKeranjangProyek = async ({
   id_produk,
   id_proyek,
   id_subproyek = null,
-  jumlah,
-  hargamodal,
-  harga,
-  hargakustom,
-  instalasi,
-  keterangan,
-  versi,
+  jumlah = 0,
+  hargamodal = 0,
+  harga = 0,
+  hargakustom = 0,
+  instalasi = 0,
+  keterangan = "",
+  versi = 1,
+  conn,
 }) => {
-  if (!id_produk.length)
-    return new Promise((resolve, reject) =>
-      reject({ message: `Produk Belum Dipilih` })
-    );
-  if (!jumlah)
-    return new Promise((resolve, reject) =>
-      reject({ message: `Jumlah Belum Diisi` })
-    );
+  if (!id_produk.length) throw new Error(`Produk Belum Dipilih`);
+  if (!jumlah) throw new Error(`Jumlah Belum Diisi`);
   const sql = `insert into ${table} (id_produk, id_proyek, id_subproyek, jumlah, hargamodal, harga, hargakustom, instalasi, keterangan, versi) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     id_produk,
@@ -71,13 +67,18 @@ const create = ({
     keterangan ?? "",
     versi,
   ];
-  console.log({ id_subproyek });
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [result] = await conn.execute(sql, values);
+  return result.insertId;
+};
+
+const create = async ({ ...rest }) => {
+  try {
+    const result = await insertKeranjangProyek({ ...rest, conn: pool });
+    return result;
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 };
 
 const createNewVersion = ({ id_proyek, versi }) => {
@@ -183,5 +184,6 @@ module.exports = {
   createNewVersion,
   update,
   updateHargaJualByPersenProvit,
+  insertKeranjangProyek,
   destroy,
 };

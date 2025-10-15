@@ -12,7 +12,7 @@ const list = async ({ id, limit, columnName, sortOrder }) => {
     }
   sortOrder = sortOrder ? "desc" : "asc";
   const sql = `select * from vendor where 1=1 ${id ? `and id=?` : ""} ${
-    columnName ? ` order by ? ${sortOrder}` : ""
+    columnName ? ` order by ?, id ${sortOrder}` : ""
   } ${limit ? "limit 0, ?" : ""}`;
   const values = [];
   if (id) values.push(id);

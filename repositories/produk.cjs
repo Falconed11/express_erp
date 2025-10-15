@@ -13,7 +13,7 @@ const list = async ({ id, kategori, limit, nama, isReadyStock }) => {
     nama ? "and p.nama like ?" : ""
   } and p.tanggal >= '2025-01-01' ${
     isReadyStock ? "and stok>0" : ""
-  } order by p.tanggal desc, kategoriproduk, nama, m.nama ${
+  } order by p.tanggal desc, kategoriproduk, nama, m.nama, p.id ${
     limit ? "limit ?" : ""
   }`;
   const values = [];
