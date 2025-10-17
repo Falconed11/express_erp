@@ -43,7 +43,7 @@ const insertKeranjangProyek = async ({
   id_produk,
   id_proyek,
   id_subproyek = null,
-  jumlah = 0,
+  jumlah,
   hargamodal = 0,
   harga = 0,
   hargakustom = 0,
@@ -52,7 +52,7 @@ const insertKeranjangProyek = async ({
   versi = 1,
   conn,
 }) => {
-  if (!id_produk.length) throw new Error(`Produk Belum Dipilih`);
+  if (!id_produk) throw new Error(`Produk Belum Dipilih`);
   if (!jumlah) throw new Error(`Jumlah Belum Diisi`);
   const sql = `insert into ${table} (id_produk, id_proyek, id_subproyek, jumlah, hargamodal, harga, hargakustom, instalasi, keterangan, versi) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
