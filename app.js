@@ -913,8 +913,12 @@ app.delete("/api/kwitansi", async (req, res) => {
 
 // operasionalkantor
 app.get("/api/operasionalkantor", async (req, res) => {
-  const list = operasionalkantor.list(req.query);
-  res.json(await list);
+  try {
+    const list = operasionalkantor.list(req.query);
+    res.json(await list);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 app.post("/api/operasionalkantor", async (req, res) => {
   const result = await operasionalkantor
