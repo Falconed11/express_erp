@@ -11,7 +11,9 @@ const list = async ({
   groupbykategori,
 }) => {
   const sql = `Select o.*,${
-    groupbykategori ? " sum(biaya) totaloperasionalkantor," : ""
+    groupbykategori
+      ? " sum(biaya) totaloperasionalkantor, count(biaya) totaltransaksioperasionalkantor,"
+      : ""
   } k.nama karyawan, ko.id id_kategorioperasionalkantor, ko.nama kategori from ${table} o left join karyawan k on o.id_karyawan = k.id left join kategorioperasionalkantor ko on o.id_kategorioperasionalkantor = ko.id where 1=1 ${
     id_karyawan ? `and id_karyawan=?` : ""
   } ${start ? `and tanggal>=?` : ""}
@@ -83,21 +85,6 @@ const update = ({
   return res;
 };
 
-const transfer = ({
-  id_kategorioperasionalkantor,
-  newid_kategorioperasionalkantor,
-}) => {
-  if (!id_kategorioperasionalkantor) throw new Error("Id lama wajib diisi!");
-  if (!newid_kategorioperasionalkantor) throw new Error("Id baru wajib diisi!");
-  const sql = `update ${table} set id_kategorioperasionalkantor = ? where id_kategorioperasionalkantor = ?`;
-  const values = [
-    newid_kategorioperasionalkantor,
-    id_kategorioperasionalkantor,
-  ];
-  const [res] = pool.execute(sql, values);
-  return res;
-};
-
 const destroy = ({ id }) => {
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
@@ -105,4 +92,4 @@ const destroy = ({ id }) => {
   return res;
 };
 
-module.exports = { list, create, update, transfer, destroy };
+module.exports = { list, create, update, destroy };

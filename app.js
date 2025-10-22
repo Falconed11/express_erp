@@ -264,17 +264,19 @@ app.post("/api/customer", async (req, res) => {
     .then((result) => res.json({ message: "customer berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/transfercustomer", async (req, res) => {
-  const result = await customer
-    .transfer(req.body)
-    .then((result) => res.json({ message: "Transfer customer berhasil" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
 app.put("/api/customer", async (req, res) => {
   const result = await customer
     .update(req.body)
     .then((result) => res.json({ message: "customer berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transfercustomer", async (req, res) => {
+  try {
+    const result = await customer.transfer(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 app.delete("/api/customer", async (req, res) => {
   customer
@@ -311,6 +313,68 @@ app.delete("/api/proyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
+// karyawan
+app.get("/api/karyawan", async (req, res) => {
+  const list = karyawan.list(req.query);
+  res.json(await list);
+});
+app.post("/api/karyawan", async (req, res) => {
+  const result = await karyawan
+    .create(req.body)
+    .then((result) => res.json({ message: "karyawan berhasil ditambahkan" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/karyawan", async (req, res) => {
+  const result = await karyawan
+    .update(req.body)
+    .then((result) => res.json({ message: "karyawan berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/karyawan", async (req, res) => {
+  karyawan
+    .destroy(req.body)
+    .then((result) => res.json({ message: "karyawan berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// kategorioperasionalkantor
+app.get("/api/kategorioperasionalkantor", async (req, res) => {
+  const list = kategorioperasionalkantor.list(req.query);
+  res.json(await list);
+});
+app.post("/api/kategorioperasionalkantor", async (req, res) => {
+  const result = await kategorioperasionalkantor
+    .create(req.body)
+    .then((result) =>
+      res.json({ message: "Kategori Operasional Kantor berhasil ditambahkan" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kategorioperasionalkantor", async (req, res) => {
+  const result = await kategorioperasionalkantor
+    .update(req.body)
+    .then((result) =>
+      res.json({ message: "Kategori Operasional Kantor berhasil diubah" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/transferoperasionalkantor", async (req, res) => {
+  try {
+    const result = await kategorioperasionalkantor.transfer(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+app.delete("/api/kategorioperasionalkantor", async (req, res) => {
+  kategorioperasionalkantor
+    .destroy(req.body)
+    .then((result) =>
+      res.json({ message: "Kategori Operasional Kantor berhasil dihapus" })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
 // kategoriproyek
 app.get("/api/kategoriproyek", async (req, res) => {
   const list = kategoriproyek.list(req.query);
@@ -340,6 +404,34 @@ app.delete("/api/kategoriproyek", async (req, res) => {
   kategoriproyek
     .destroy(req.body)
     .then((result) => res.json({ message: "kategoriproyek berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// keranjangnota
+app.get("/api/keranjangnota", async (req, res) => {
+  const list = keranjangnota.list(req.query);
+  res.json(await list);
+});
+app.post("/api/keranjangnota", async (req, res) => {
+  const result = await keranjangnota
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Keranjang Nota berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/keranjangnota", async (req, res) => {
+  const result = await keranjangnota
+    .update(req.body)
+    .then((result) => res.json({ message: "Keranjang Nota berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/keranjangnota", async (req, res) => {
+  keranjangnota
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Keranjang Nota berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -410,6 +502,34 @@ app.delete("/api/keteranganpenawaran", async (req, res) => {
   keteranganpenawaran
     .destroy(req.body)
     .then((result) => res.json({ message: "Data berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+
+// kwitansi
+app.get("/api/kwitansi", async (req, res) => {
+  const list = kwitansi.list(req.query);
+  res.json(await list);
+});
+app.post("/api/kwitansi", async (req, res) => {
+  const result = await kwitansi
+    .create(req.body)
+    .then((result) =>
+      res.json({
+        message: "Kwitansi berhasil ditambahkan",
+      })
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kwitansi", async (req, res) => {
+  const result = await kwitansi
+    .update(req.body)
+    .then((result) => res.json({ message: "Kwitansi berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.delete("/api/kwitansi", async (req, res) => {
+  kwitansi
+    .destroy(req.body)
+    .then((result) => res.json({ message: "Kwitansi berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -855,62 +975,6 @@ app.delete("/api/stok", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
-// keranjangnota
-app.get("/api/keranjangnota", async (req, res) => {
-  const list = keranjangnota.list(req.query);
-  res.json(await list);
-});
-app.post("/api/keranjangnota", async (req, res) => {
-  const result = await keranjangnota
-    .create(req.body)
-    .then((result) =>
-      res.json({
-        message: "Keranjang Nota berhasil ditambahkan",
-      })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/keranjangnota", async (req, res) => {
-  const result = await keranjangnota
-    .update(req.body)
-    .then((result) => res.json({ message: "Keranjang Nota berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/keranjangnota", async (req, res) => {
-  keranjangnota
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Keranjang Nota berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// kwitansi
-app.get("/api/kwitansi", async (req, res) => {
-  const list = kwitansi.list(req.query);
-  res.json(await list);
-});
-app.post("/api/kwitansi", async (req, res) => {
-  const result = await kwitansi
-    .create(req.body)
-    .then((result) =>
-      res.json({
-        message: "Kwitansi berhasil ditambahkan",
-      })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/kwitansi", async (req, res) => {
-  const result = await kwitansi
-    .update(req.body)
-    .then((result) => res.json({ message: "Kwitansi berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/kwitansi", async (req, res) => {
-  kwitansi
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Kwitansi berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
 // operasionalkantor
 app.get("/api/operasionalkantor", async (req, res) => {
   try {
@@ -942,60 +1006,6 @@ app.delete("/api/operasionalkantor", async (req, res) => {
     .then((result) =>
       res.json({ message: "Operasional Kantor berhasil dihapus" })
     )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// kategorioperasionalkantor
-app.get("/api/kategorioperasionalkantor", async (req, res) => {
-  const list = kategorioperasionalkantor.list(req.query);
-  res.json(await list);
-});
-app.post("/api/kategorioperasionalkantor", async (req, res) => {
-  const result = await kategorioperasionalkantor
-    .create(req.body)
-    .then((result) =>
-      res.json({ message: "Kategori Operasional Kantor berhasil ditambahkan" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/kategorioperasionalkantor", async (req, res) => {
-  const result = await kategorioperasionalkantor
-    .update(req.body)
-    .then((result) =>
-      res.json({ message: "Kategori Operasional Kantor berhasil diubah" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/kategorioperasionalkantor", async (req, res) => {
-  kategorioperasionalkantor
-    .destroy(req.body)
-    .then((result) =>
-      res.json({ message: "Kategori Operasional Kantor berhasil dihapus" })
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// karyawan
-app.get("/api/karyawan", async (req, res) => {
-  const list = karyawan.list(req.query);
-  res.json(await list);
-});
-app.post("/api/karyawan", async (req, res) => {
-  const result = await karyawan
-    .create(req.body)
-    .then((result) => res.json({ message: "karyawan berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.put("/api/karyawan", async (req, res) => {
-  const result = await karyawan
-    .update(req.body)
-    .then((result) => res.json({ message: "karyawan berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-app.delete("/api/karyawan", async (req, res) => {
-  karyawan
-    .destroy(req.body)
-    .then((result) => res.json({ message: "karyawan berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 

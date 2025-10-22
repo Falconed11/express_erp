@@ -35,11 +35,19 @@ const produksi = async () => {
   return rows;
 };
 
-const transfer = async ({ currentId, targetId }) => {
-  const sql = "update proyek set id_instansi = ? where id_instansi = ?";
-  const values = [targetId, currentId];
-  const [rows] = await pool.execute(sql, values);
-  return rows;
+const transfer = async ({ id, newId }) => {
+  if (!id) throw new Error("Id lama wajib diisi!");
+  if (!newId) throw new Error("Id baru wajib diisi!");
+  const field = "id_instansi";
+  try {
+    const sql = `update proyek set ${field}= ? where ${field} = ?`;
+    const values = [newId, id];
+    const [res] = await pool.execute(sql, values);
+    return res;
+  } catch (err) {
+    console.error("Query error: ", err);
+    throw err;
+  }
 };
 
 const create = async ({
