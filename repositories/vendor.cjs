@@ -1,22 +1,26 @@
+const { withTransaction } = require("../helpers/transaction.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 const table = "vendor";
 
-const list = async ({ id, limit, columnName, sortOrder }) => {
+const list = async ({ id, limit, columnName, sortOrder = "" }) => {
   validColumns = ["nama"];
   // if (!Number.isInteger(limit) || limit <= 0) {
   //   return Promise.reject(new Error("Invalid limit value"));
   // }
-  if (columnName)
-    if (!validColumns.includes(columnName)) {
-      throw new Error("Nama kolom tidak valid");
-    }
+  if (columnName && !validColumns.includes(columnName))
+    throw new Error("Nama kolom tidak valid");
   sortOrder = sortOrder ? "desc" : "asc";
-  const sql = `select * from vendor where 1=1 ${id ? `and id=?` : ""} ${
-    columnName ? ` order by ?, id ${sortOrder}` : ""
-  } ${limit ? "limit 0, ?" : ""}`;
+  const sql = `select v.*, sum(p.jumlah) nprodukkeluar, sum(pm.jumlah) nprodukmasuk from ${table} v
+  left join pengeluaranproyek p on p.id_vendor=v.id
+  left join produkmasuk pm on pm.id_vendor=v.id
+  where 1=1 ${id ? `and v.id=?` : ""}
+  group by v.id
+  ${columnName ? ` order by ${columnName} ${sortOrder} , v.id` : ""} ${
+    limit ? "limit 0, ?" : ""
+  }`;
+  console.log(sql);
   const values = [];
   if (id) values.push(id);
-  if (columnName) values.push(columnName);
   if (limit) values.push(+limit);
   const [result] = await pool.execute(sql, values);
   return result;
@@ -28,11 +32,24 @@ const hutang = async () => {
   return result;
 };
 
-const transfer = async ({ currentId, targetId }) => {
-  const sql = "update produk set id_vendor = ? where id_vendor = ?";
-  const values = [targetId, currentId];
-  const [result] = await pool.execute(sql, values);
-  return result;
+const transfer = async ({ id, newId }) => {
+  try {
+    const result = await withTransaction(pool, async (conn) => {
+      const acc = {};
+      const values = [newId, id];
+      let sql = "UPDATE produkmasuk SET id_vendor = ? WHERE id_vendor = ?";
+      const [produkmasukRes] = await conn.execute(sql, values);
+      acc.produkmasuk = produkmasukRes;
+      sql = "UPDATE pengeluaranproyek SET id_vendor = ? WHERE id_vendor = ?";
+      const [pengeluaranproyekRes] = await conn.execute(sql, values);
+      acc.pengeluaranproyek = pengeluaranproyekRes;
+      return acc;
+    });
+    return result;
+  } catch (err) {
+    console.error("Transaction Error:", err.message || err);
+    throw err;
+  }
 };
 
 const create = async ({ nama, alamat = "", conn = pool }) => {
