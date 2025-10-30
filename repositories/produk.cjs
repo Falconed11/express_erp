@@ -278,4 +278,4 @@ const destroy = async ({ id }) => {
   return results;
 };
 
-module.exports = { list, create, update, destroy, listKategori };
+module.exports = { list, insertProduk, create, update, destroy, listKategori };
