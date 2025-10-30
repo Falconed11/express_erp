@@ -1,5 +1,6 @@
 const connection = require("./db.cjs");
 const { pool } = require("./db.2.0.0.cjs");
+const { insertProduk } = require("./produk.cjs");
 const table = "keranjangproyek";
 
 const list = ({ id_proyek, instalasi, versi }) => {
@@ -40,20 +41,43 @@ const listVersion = ({ id_proyek }) => {
 };
 
 const insertKeranjangProyek = async ({
+  produk,
   id_produk,
   id_proyek,
   id_subproyek = null,
+  id_kategori = null,
+  id_merek = null,
+  tipe = "",
+  satuan,
   jumlah,
   hargamodal = 0,
   harga = 0,
   hargakustom = 0,
+  tanggal = new Date(),
   instalasi = 0,
   keterangan = "",
+  kategoriproduk,
+  merek,
   versi = 1,
   conn,
 }) => {
-  if (!id_produk) throw new Error(`Produk Belum Dipilih`);
+  if (!id_produk && produk == null) throw new Error(`Produk Belum Dipilih`);
   if (!jumlah) throw new Error(`Jumlah Belum Diisi`);
+  if (!id_produk && produk)
+    id_produk = await insertProduk({
+      id_kategori,
+      nama: produk,
+      id_merek,
+      tipe,
+      satuan,
+      hargamodal,
+      hargajual: harga,
+      tanggal,
+      keterangan,
+      kategoriproduk,
+      merek,
+      conn,
+    });
   const sql = `insert into ${table} (id_produk, id_proyek, id_subproyek, jumlah, hargamodal, harga, hargakustom, instalasi, keterangan, versi) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     id_produk,
