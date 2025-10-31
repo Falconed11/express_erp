@@ -1,6 +1,10 @@
 const connection = require("./db.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 const { insertProduk } = require("./produk.cjs");
+const {
+  assertTransaction,
+  withTransaction,
+} = require("../helpers/transaction.cjs");
 const table = "keranjangproyek";
 
 const list = ({ id_proyek, instalasi, versi }) => {
@@ -40,44 +44,41 @@ const listVersion = ({ id_proyek }) => {
   });
 };
 
+/**
+ * @returns {Promise<{
+ *   keranjangProyekInsertId: number;
+ *   produkInsertId: number;
+ * }>}
+ */
 const insertKeranjangProyek = async ({
   produk,
   id_produk,
   id_proyek,
   id_subproyek = null,
-  id_kategori = null,
-  id_merek = null,
-  tipe = "",
-  satuan,
   jumlah,
   hargamodal = 0,
   harga = 0,
   hargakustom = 0,
-  tanggal = new Date(),
   instalasi = 0,
   keterangan = "",
-  kategoriproduk,
-  merek,
   versi = 1,
   conn,
+  ...rest
 }) => {
-  if (!id_produk && produk == null) throw new Error(`Produk Belum Dipilih`);
+  assertTransaction(conn, insertKeranjangProyek.name);
+  if (!id_produk && !produk) throw new Error(`Produk Belum Dipilih`);
   if (!jumlah) throw new Error(`Jumlah Belum Diisi`);
   if (!id_produk && produk)
-    id_produk = await insertProduk({
-      id_kategori,
-      nama: produk,
-      id_merek,
-      tipe,
-      satuan,
-      hargamodal,
-      hargajual: harga,
-      tanggal,
-      keterangan,
-      kategoriproduk,
-      merek,
-      conn,
-    });
+    id_produk = (
+      await insertProduk({
+        ...rest,
+        nama: produk,
+        hargamodal,
+        hargajual: harga,
+        tanggal: new Date(),
+        conn,
+      })
+    )?.produkInsertId;
   const sql = `insert into ${table} (id_produk, id_proyek, id_subproyek, jumlah, hargamodal, harga, hargakustom, instalasi, keterangan, versi) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     id_produk,
@@ -92,12 +93,19 @@ const insertKeranjangProyek = async ({
     versi,
   ];
   const [result] = await conn.execute(sql, values);
-  return result.insertId;
+  return {
+    keranjangProyekInsertId: result.insertId,
+    produkInsertId: id_produk,
+  };
 };
 
-const create = async ({ ...rest }) => {
+const create = async (rest) => {
   try {
-    const result = await insertKeranjangProyek({ ...rest, conn: pool });
+    // return rest;
+    const result = await withTransaction(pool, async (conn) => {
+      const res = await insertKeranjangProyek({ ...rest, conn });
+      return res;
+    });
     return result;
   } catch (err) {
     console.log(err);

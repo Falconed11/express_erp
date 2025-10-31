@@ -1,6 +1,9 @@
 const { pool } = require("./db.2.0.0.cjs");
 const table = "produk";
-const { withTransaction } = require("./../helpers/transaction.cjs");
+const {
+  withTransaction,
+  assertTransaction,
+} = require("./../helpers/transaction.cjs");
 const { create: createKategori } = require("./kategoriproduk.cjs");
 const { create: createMerek } = require("./merek.cjs");
 const { create: createVendor } = require("./vendor.cjs");
@@ -115,11 +118,13 @@ const listKategori = async () => {
 // };
 
 /**
- * @returns {Promise<{ kategoriInsertId: number,
- * merekInsertId: number,
- * vendorInsertId: number,
- * produkInsertId: number,
- * produkMasukInsertId: number, }>}
+ * @returns {Promise<{
+ *   kategoriInsertId: number | null;
+ *   merekInsertId: number | null;
+ *   vendorInsertId: number | null;
+ *   produkInsertId: number;
+ *   produkMasukInsertId?: number;
+ * }>}
  */
 const insertProduk = async ({
   id_kategori = null,
@@ -132,7 +137,7 @@ const insertProduk = async ({
   satuan = "",
   hargamodal = 0,
   hargajual = 0,
-  tanggal = null,
+  tanggal = new Date(),
   jatuhtempo = null,
   terbayar = 0,
   lunas = 0,
@@ -145,10 +150,7 @@ const insertProduk = async ({
 }) => {
   let sql, values;
   try {
-    if (!conn && !conn.__inTransaction)
-      throw new Error(
-        "insertProduk() must be called inside transaction. Set conn.__inTransacation to true after transaction begin."
-      );
+    assertTransaction(conn, insertProduk.name);
     // if (!nama) throw new Error("Nama belum diisi.");
     if (!satuan) throw new Error("Satuan belum diisi.");
     if (kategoriproduk && !id_kategori) {

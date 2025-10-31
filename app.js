@@ -447,10 +447,12 @@ app.get("/api/versikeranjangproyek", async (req, res) => {
   res.json(await list);
 });
 app.post("/api/keranjangproyek", async (req, res) => {
-  const result = await keranjangproyek
-    .create(req.body)
-    .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    const result = await keranjangproyek.create(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
 });
 app.post("/api/versibarukeranjangproyek", async (req, res) => {
   const result = await keranjangproyek
@@ -459,10 +461,12 @@ app.post("/api/versibarukeranjangproyek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/keranjangproyek", async (req, res) => {
-  const result = await keranjangproyek
-    .update(req.body)
-    .then((result) => res.json({ message: "Produk berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    const result = await keranjangproyek.update(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
 });
 app.put("/api/keranjangproyekupdatehargabypersenprovit", async (req, res) => {
   const result = await keranjangproyek

@@ -18,7 +18,6 @@ const list = async ({ id, limit, columnName, sortOrder = "" }) => {
   ${columnName ? ` order by ${columnName} ${sortOrder} , v.id` : ""} ${
     limit ? "limit 0, ?" : ""
   }`;
-  console.log(sql);
   const values = [];
   if (id) values.push(id);
   if (limit) values.push(+limit);

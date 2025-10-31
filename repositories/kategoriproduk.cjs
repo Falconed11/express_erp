@@ -2,7 +2,10 @@ const { pool } = require("./db.2.0.0.cjs");
 const table = "kategoriproduk";
 
 const list = async () => {
-  const sql = `Select * From ${table} order by nama`;
+  const sql = `Select k.*, coalesce(count(p.id)) nproduk From ${table} k
+  left join produk p on p.id_kategori=k.id
+  group by k.id
+  order by nama`;
   const [result] = await pool.execute(sql);
   return result;
 };

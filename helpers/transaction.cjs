@@ -17,4 +17,10 @@ const withTransaction = async (pool, fn) => {
     conn.release();
   }
 };
-module.exports = { withTransaction };
+const assertTransaction = (conn, operation = "Operation") => {
+  if (!conn || !conn.__inTransaction)
+    throw new Error(
+      `${operation}() must be called inside transaction. Set conn.__inTransaction to true after transaction begin.`
+    );
+};
+module.exports = { withTransaction, assertTransaction };
