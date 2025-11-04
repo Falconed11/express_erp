@@ -71,9 +71,11 @@ import proyek_keteranganpenawaran from "./repositories/proyek_keteranganpenawara
 import rekapitulasiproyek from "./repositories/rekapitulasiproyek.cjs";
 import statuskaryawan from "./repositories/statuskaryawan.cjs";
 import statusproyek from "./repositories/statusproyek.cjs";
+import statustodolist from "./repositories/statustodolist.cjs";
 import stok from "./repositories/stok.cjs";
 import subkategoriproduk from "./repositories/subkategoriproduk.cjs";
 import subproyek from "./repositories/subproyek.cjs";
+import todolist from "./repositories/todolist.cjs";
 import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
@@ -1356,6 +1358,66 @@ app.delete("/api/merek", async (req, res) => {
 app.get("/api/statusproyek", async (req, res) => {
   const list = statusproyek.list(req.query);
   res.json(await list);
+});
+
+// statustodolist
+app.get("/api/statustodolist", async (req, res) => {
+  const list = statustodolist.list(req.query);
+  res.json(await list);
+});
+app.post("/api/statustodolist", async (req, res) => {
+  try {
+    const result = await statustodolist.create(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
+app.put("/api/statustodolist", async (req, res) => {
+  try {
+    const result = await statustodolist.update(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
+app.delete("/api/statustodolist", async (req, res) => {
+  try {
+    const result = await statustodolist.destroy(req.body);
+    res.json({ message: "Data berhasil dihapus", data: result });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Unknown Error" });
+  }
+});
+
+// todolist
+app.get("/api/todolist", async (req, res) => {
+  const list = todolist.list(req.query);
+  res.json(await list);
+});
+app.post("/api/todolist", async (req, res) => {
+  try {
+    const result = await todolist.create(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
+app.put("/api/todolist", async (req, res) => {
+  try {
+    const result = await todolist.update(req.body);
+    res.json({ message: "Data berhasil diubah", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
+app.delete("/api/todolist", async (req, res) => {
+  try {
+    const result = await todolist.destroy(req.body);
+    res.json({ message: "Data berhasil dihapus", data: result });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Unknown Error" });
+  }
 });
 
 app.listen(port, () => {
