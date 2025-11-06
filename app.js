@@ -332,6 +332,14 @@ app.put("/api/karyawan", async (req, res) => {
     .then((result) => res.json({ message: "karyawan berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/transfervendor", async (req, res) => {
+  try {
+    const result = await vendor.transfer(req.body);
+    res.json({ message: "Transfer vendor berhasil", result });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Unknown Error" });
+  }
+});
 app.delete("/api/karyawan", async (req, res) => {
   karyawan
     .destroy(req.body)
