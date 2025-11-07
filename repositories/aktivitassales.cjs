@@ -1,4 +1,5 @@
 const { withTransaction } = require("../helpers/transaction.cjs");
+const { create: insertInstansi } = require("./customer.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 
 const table = "aktivitassales";
@@ -62,22 +63,35 @@ const create = async ({
   catatan = "",
   output = "",
   tindakanselanjutnya = "",
+  instansi = null,
+  ...rest
 }) => {
-  if (!aktivitas || !id_karyawan)
-    throw new Error("Aktivitas dan Karyawan wajib diisi!");
-  const sql = `insert into ${table} (id_karyawan, id_proyek, id_instansi, pic, aktivitas, catatan, output, tindakanselanjutnya) values (?,?,?,?,?,?,?,?)`;
-  const values = [
-    id_karyawan,
-    id_proyek,
-    id_instansi,
-    pic,
-    aktivitas,
-    catatan,
-    output,
-    tindakanselanjutnya,
-  ];
-  const [rows] = await pool.execute(sql, values);
-  return rows;
+  try {
+    const result = withTransaction(pool, async (conn) => {
+      if (!aktivitas || !id_karyawan)
+        throw new Error("Aktivitas dan Karyawan wajib diisi!");
+      const sql = `insert into ${table} (id_karyawan, id_proyek, id_instansi, pic, aktivitas, catatan, output, tindakanselanjutnya) values (?,?,?,?,?,?,?,?)`;
+      if (!id_instansi && instansi) {
+      }
+      const values = [
+        id_karyawan,
+        id_proyek,
+        id_instansi,
+        pic,
+        aktivitas,
+        catatan,
+        output,
+        tindakanselanjutnya,
+      ];
+      const [rows] = await conn.execute(sql, values);
+      return rows;
+    });
+    console.log("Data berhasil ditambahkan.");
+    return result;
+  } catch (err) {
+    console.error("Error: ", err.message);
+    throw err;
+  }
 };
 
 const update = async ({ id, isSelesai = null, ...rest }) => {
