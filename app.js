@@ -332,10 +332,10 @@ app.put("/api/karyawan", async (req, res) => {
     .then((result) => res.json({ message: "karyawan berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.put("/api/transfervendor", async (req, res) => {
+app.put("/api/transferkaryawan", async (req, res) => {
   try {
-    const result = await vendor.transfer(req.body);
-    res.json({ message: "Transfer vendor berhasil", result });
+    const result = await karyawan.transfer(req.body);
+    res.json({ message: "Transfer data berhasil", result });
   } catch (err) {
     res.status(400).json({ message: err.message || "Unknown Error" });
   }
