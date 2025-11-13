@@ -67,11 +67,12 @@ const create = async ({
   ...rest
 }) => {
   try {
-    const result = withTransaction(pool, async (conn) => {
+    const result = await withTransaction(pool, async (conn) => {
       if (!aktivitas || !id_karyawan)
         throw new Error("Aktivitas dan Karyawan wajib diisi!");
       const sql = `insert into ${table} (id_karyawan, id_proyek, id_instansi, pic, aktivitas, catatan, output, tindakanselanjutnya) values (?,?,?,?,?,?,?,?)`;
       if (!id_instansi && instansi) {
+        id_instansi = await insertInstansi({ ...rest, nama: instansi, conn });
       }
       const values = [
         id_karyawan,
@@ -84,8 +85,12 @@ const create = async ({
         tindakanselanjutnya,
       ];
       const [rows] = await conn.execute(sql, values);
-      return rows;
+      return {
+        insertIdAktivitasSales: rows.insertId,
+        insertIdInstansi: id_instansi,
+      };
     });
+    console.log(result);
     console.log("Data berhasil ditambahkan.");
     return result;
   } catch (err) {
