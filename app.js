@@ -965,6 +965,79 @@ app.delete("/api/statuskaryawan", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
+// statusproyek
+app.get("/api/statusproyek", async (req, res) => {
+  try {
+    const list = statusproyek.list(req.query);
+    res.json(await list);
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Unknown Error" });
+  }
+});
+app.post("/api/statusproyek", async (req, res) => {
+  try {
+    const insertId = statusproyek.create(req.body);
+    res.json({
+      message: "Data berhasil ditambahkan",
+      insertId,
+    });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+app.put("/api/statusproyek", async (req, res) => {
+  try {
+    const data = statusproyek.update(req.body);
+    res.json({
+      message: "Data berhasil ditambahkan",
+      data,
+    });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+app.delete("/api/statusproyek", async (req, res) => {
+  try {
+    const data = statusproyek.destroy(req.body);
+    res.json({
+      message: "Data berhasil ditambahkan",
+      data,
+    });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// statustodolist
+app.get("/api/statustodolist", async (req, res) => {
+  const list = statustodolist.list(req.query);
+  res.json(await list);
+});
+app.post("/api/statustodolist", async (req, res) => {
+  try {
+    const result = await statustodolist.create(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
+app.put("/api/statustodolist", async (req, res) => {
+  try {
+    const result = await statustodolist.update(req.body);
+    res.json({ message: "Data berhasil ditambahkan", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
+app.delete("/api/statustodolist", async (req, res) => {
+  try {
+    const result = await statustodolist.destroy(req.body);
+    res.json({ message: "Data berhasil dihapus", data: result });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Unknown Error" });
+  }
+});
+
 // stok
 app.get("/api/stok", async (req, res) => {
   const list = stok.list(req.query);
@@ -1360,42 +1433,6 @@ app.delete("/api/merek", async (req, res) => {
     .destroy(req.body)
     .then((result) => res.json({ message: "merek berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// statusproyek
-app.get("/api/statusproyek", async (req, res) => {
-  const list = statusproyek.list(req.query);
-  res.json(await list);
-});
-
-// statustodolist
-app.get("/api/statustodolist", async (req, res) => {
-  const list = statustodolist.list(req.query);
-  res.json(await list);
-});
-app.post("/api/statustodolist", async (req, res) => {
-  try {
-    const result = await statustodolist.create(req.body);
-    res.json({ message: "Data berhasil ditambahkan", data: result });
-  } catch (e) {
-    res.status(400).json({ message: e.message || "Unknown Error" });
-  }
-});
-app.put("/api/statustodolist", async (req, res) => {
-  try {
-    const result = await statustodolist.update(req.body);
-    res.json({ message: "Data berhasil ditambahkan", data: result });
-  } catch (e) {
-    res.status(400).json({ message: e.message || "Unknown Error" });
-  }
-});
-app.delete("/api/statustodolist", async (req, res) => {
-  try {
-    const result = await statustodolist.destroy(req.body);
-    res.json({ message: "Data berhasil dihapus", data: result });
-  } catch (err) {
-    res.status(400).json({ message: err.message || "Unknown Error" });
-  }
 });
 
 // todolist
