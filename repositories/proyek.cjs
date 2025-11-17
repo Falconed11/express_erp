@@ -2,9 +2,7 @@ const { pool } = require("./db.2.0.0.cjs");
 const { create: customerCreate } = require("./customer.cjs");
 const { withTransaction } = require("./../helpers/transaction.cjs");
 const table = "proyek";
-
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
-
 const list = async ({
   id,
   id_instansi,
@@ -62,7 +60,6 @@ const list = async ({
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
-
 const create = async ({
   id_perusahaan = null,
   id_instansi = null,
@@ -120,6 +117,34 @@ const create = async ({
     console.error(err);
     throw err;
   }
+};
+const getNextProyekId = async (tanggal, conn) => {
+  const date = new Date(tanggal);
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const periode = year + month;
+  const [rows] = await conn.query(
+    `SELECT last_seq FROM proyek_sequences WHERE periode = ? FOR UPDATE`,
+    [periode]
+  );
+  let nextSeq;
+  if (rows.length) {
+    nextSeq = rows[0].last_seq + 1;
+    await conn.query(
+      `UPDATE proyek_sequences SET last_seq = ? WHERE periode = ?`,
+      [nextSeq, periode]
+    );
+  } else {
+    nextSeq = 1;
+    await conn.query(
+      `INSERT INTO proyek_sequences (periode, last_seq) VALUES (?, ?)`,
+      [periode, nextSeq]
+    );
+  }
+  return {
+    seq: nextSeq,
+    id_second: [year, month, String(nextSeq).padStart(2, "0")].join("."),
+  };
 };
 // const create = async ({
 //   id_perusahaan = null,
@@ -183,7 +208,6 @@ const create = async ({
 //     connection.release();
 //   }
 // };
-
 const update = async ({
   id,
   id_instansi = null,
@@ -192,18 +216,19 @@ const update = async ({
   kota,
   alamat,
   lastuser,
+  id_second,
+  id_statusproyek,
+  tanggal,
   ...rest
 }) => {
   if (!id) return new Error("Id harus diisi!");
   const allowedFields = [
     "id_instansi",
-    "id_second",
     "id_perusahaan",
     "nama",
     "klien",
     "id_karyawan",
-    "id_statusproyek",
-    "tanggal",
+    "tanggalpenawaran",
     "tanggalsuratjalan",
     "alamatsuratjalan",
     "id_po",
@@ -213,7 +238,7 @@ const update = async ({
   const values = [];
   const isExist = (v) => v != null;
   for (const [key, value] of Object.entries(rest)) {
-    if (allowedFields.includes(key) && value != null) {
+    if (allowedFields.includes(key) && value !== undefined) {
       fields.push(`${key == "tanggal" ? "tanggal_penawaran" : key}=?`);
       values.push(value);
     }
@@ -230,6 +255,20 @@ const update = async ({
           conn,
         });
         id_instansi = customerInsertId;
+      }
+      if (id_statusproyek == 2) {
+        const [row] = await list({ id });
+        if (row.size) throw new Error("Data not found");
+        const data = row[0];
+        const getYearMonth = (date) => {
+          date = new Date(date);
+          return `${date.getFullYear()}${date.getMonth()}`;
+        };
+        if (
+          !data.tanggal ||
+          getYearMonth(data.tanggal) != getYearMonth(tanggal)
+        ) {
+        }
       }
       fields.push("id_instansi=?");
       values.push(id_instansi);
@@ -250,7 +289,6 @@ const update = async ({
     throw err;
   }
 };
-
 const updateVersion = async ({
   id,
   versi = 0,
@@ -273,7 +311,6 @@ const updateVersion = async ({
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
-
 // const destroy = ({ id }) => {
 //   const sql = `delete from keranjangproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
 //   const values = [id, id, id,];
@@ -284,7 +321,6 @@ const updateVersion = async ({
 //     });
 //   });
 // };
-
 const destroy = async ({ id }) => {
   const connection = await pool.getConnection();
 
@@ -329,7 +365,6 @@ const destroy = async ({ id }) => {
     connection.release();
   }
 };
-
 const exportPenawaran = async ({ id, start, end }) => {
   const sql = `select p.id id_proyek, p.nama namaproyek, p.id_Perusahaan idperusahaan, p.klien, p.tanggal tanggalproyek, pr.nama namaproduk, pr.hargamodal, pr.hargajual, pr.tanggal tanggalproduk, pr.tipe, pr.stok, pr.satuan, i.nama namainstansi, i.swasta, i.kota, i.alamat alamatinstansi, m.nama namamerek, v.nama namavendor, v.alamat alamatvendor, kp.versi, kp.jumlah, kp.harga, kp.hargakustom, kp.instalasi, k.nama namakaryawan, kpr.nama namakategoriproduk, rp.versi versirekapitulasiproyek, rp.diskon, rp.pajak, rp.audio, rp.cctv, rp.multimedia from keranjangproyek kp left join proyek p on kp.id_proyek=p.id left join produk pr on kp.id_produk = pr.id left join merek m on pr.id_merek=m.id left join vendor v on pr.id_vendor=v.id left join instansi i on p.id_instansi=i.id left join karyawan k on p.id_karyawan=k.id left join kategoriproduk kpr on pr.id_kategori=kpr.id left join rekapitulasiproyek rp on p.id=rp.id_proyek where 1=1 ${
     id ? "and id_proyek = ?" : ""
@@ -341,7 +376,6 @@ const exportPenawaran = async ({ id, start, end }) => {
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
-
 module.exports = {
   list,
   create,
