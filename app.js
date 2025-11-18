@@ -971,7 +971,9 @@ app.get("/api/statusproyek", async (req, res) => {
     const list = statusproyek.list(req.query);
     res.json(await list);
   } catch (err) {
-    res.status(400).json({ message: err.message || "Unknown Error" });
+    const errMsg = err.message;
+    console.error("Error :", errMsg);
+    res.status(400).json({ message: errMsg });
   }
 });
 app.post("/api/statusproyek", async (req, res) => {

@@ -58,7 +58,7 @@ const insertKeranjangProyek = async ({
   jumlah,
   hargamodal = 0,
   harga = 0,
-  hargakustom = 0,
+  hargakustom = null,
   instalasi = 0,
   keterangan = "",
   versi = 1,
@@ -134,7 +134,6 @@ const update = ({
   showmerek,
   showtipe,
 }) => {
-  console.log(id_subproyek);
   const isExist = (v) => v !== undefined;
   const fields = [];
   const values = [];

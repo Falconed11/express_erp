@@ -19,7 +19,6 @@ const list = async ({
     } else {
       throw new Error("Kolom tidak valid");
     }
-
   const sql = `Select p.*, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
     process.env.MAIN_URL
   }logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p 
@@ -69,6 +68,7 @@ const create = async ({
   karyawan = "",
   id_statusproyek,
   tanggal = null,
+  tanggalpenawaran = null,
   keterangan = "",
   id_po = "",
   instansi,
@@ -95,15 +95,15 @@ const create = async ({
       }, ?, ?`;
       const values = [
         id_statusproyek,
-        tanggal,
-        tanggal,
+        tanggalpenawaran,
+        tanggalpenawaran,
         id_instansi,
         id_perusahaan,
         id_po,
         nama,
         klien,
         karyawan ?? id_karyawan,
-        tanggal,
+        tanggalpenawaran,
         keterangan ?? "",
       ];
       const [insertResult] = await conn.execute(sql, values);
@@ -118,12 +118,16 @@ const create = async ({
     throw err;
   }
 };
+/**
+ * Gets user data.
+ * @returns {Promise<{ seq: number, idCustom: string }>} Promise that resolves with user info.
+ */
 const getNextProyekId = async (tanggal, conn) => {
   const date = new Date(tanggal);
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const periode = year + month;
-  const [rows] = await conn.query(
+  const [rows] = await conn.execute(
     `SELECT last_seq FROM proyek_sequences WHERE periode = ? FOR UPDATE`,
     [periode]
   );
@@ -143,71 +147,9 @@ const getNextProyekId = async (tanggal, conn) => {
   }
   return {
     seq: nextSeq,
-    id_second: [year, month, String(nextSeq).padStart(2, "0")].join("."),
+    idCustom: [year, month, String(nextSeq).padStart(2, "0")].join("."),
   };
 };
-// const create = async ({
-//   id_perusahaan = null,
-//   id_instansi = null,
-//   nama = "",
-//   klien = "",
-//   id_karyawan = "",
-//   karyawan = "",
-//   id_statusproyek,
-//   tanggal = null,
-//   keterangan = "",
-//   id_po = "",
-//   instansi,
-//   swasta,
-//   kota,
-//   alamat,
-//   lastuser,
-// }) => {
-//   const connection = await pool.getConnection();
-//   try {
-//     await connection.beginTransaction();
-//     if (instansi && !id_instansi) {
-//       const customerResult = await db_customer.create({
-//         nama: instansi,
-//         swasta,
-//         kota,
-//         alamat,
-//         lastuser,
-//       });
-//       id_instansi = customerResult.insertId;
-//     }
-
-//     const sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
-//       karyawan ? `(select id from karyawan where nama = ?)` : "?"
-//     }, ?, ?`;
-//     const values = [
-//       id_statusproyek,
-//       tanggal,
-//       tanggal,
-//       id_instansi,
-//       id_perusahaan,
-//       id_po,
-//       nama,
-//       klien,
-//       karyawan ?? id_karyawan,
-//       tanggal,
-//       keterangan ?? "",
-//     ];
-//     [insertResult] = await connection.execute(sql, values);
-//     // If no errors, commit the transaction
-//     await connection.commit();
-//     console.log("Transaction committed successfully.");
-
-//     return { insertResult, message: "Sukses" };
-//   } catch (error) {
-//     // If any error occurs, rollback the transaction
-//     await connection.rollback();
-//     console.error("Transaction rolled back due to error:", error);
-//     throw error;
-//   } finally {
-//     connection.release();
-//   }
-// };
 const update = async ({
   id,
   id_instansi = null,
@@ -216,7 +158,6 @@ const update = async ({
   kota,
   alamat,
   lastuser,
-  id_second,
   id_statusproyek,
   tanggal,
   ...rest
@@ -228,15 +169,15 @@ const update = async ({
     "nama",
     "klien",
     "id_karyawan",
-    "tanggalpenawaran",
+    "tanggal_penawaran",
     "tanggalsuratjalan",
     "alamatsuratjalan",
     "id_po",
     "keterangan",
+    "versi",
   ];
   const fields = [];
   const values = [];
-  const isExist = (v) => v != null;
   for (const [key, value] of Object.entries(rest)) {
     if (allowedFields.includes(key) && value !== undefined) {
       fields.push(`${key == "tanggal" ? "tanggal_penawaran" : key}=?`);
@@ -256,36 +197,54 @@ const update = async ({
         });
         id_instansi = customerInsertId;
       }
+      if (id_instansi) {
+        fields.push("id_instansi=?");
+        values.push(id_instansi);
+      }
       if (id_statusproyek == 2) {
-        const [row] = await list({ id });
-        if (row.size) throw new Error("Data not found");
-        const data = row[0];
+        // Get proyek data
+        const [data] = await list({ id });
+        if (!data) throw new Error(`Data id: ${id} not found`);
         const getYearMonth = (date) => {
+          if (!date) return null;
           date = new Date(date);
           return `${date.getFullYear()}${date.getMonth()}`;
         };
+        // Cek if id_second already filled or current tanggal is different with new one
         if (
-          !data.tanggal ||
+          !data.id_second ||
           getYearMonth(data.tanggal) != getYearMonth(tanggal)
         ) {
+          const { idCustom, seq } = await getNextProyekId(tanggal, conn);
+          fields.push("id_second=?");
+          values.push(idCustom);
         }
       }
-      fields.push("id_instansi=?");
-      values.push(id_instansi);
+      if (id_statusproyek) {
+        fields.push("id_statusproyek=?");
+        values.push(id_statusproyek);
+      }
+      if (tanggal) {
+        fields.push("tanggal=?");
+        values.push(tanggal);
+      }
+      if (lastuser) {
+        fields.push("lastuser=?");
+        values.push(lastuser);
+      }
       if (fields.length === 0)
         return { affectedRows: 0, message: "No fields to update" };
       values.push(id);
-      console.log({ fields, values, rest });
       const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
       [updateResult] = await conn.execute(sql, values);
       return {
         customerInsertId: id_instansi,
-        proyekInsertId: updateResult.insertId,
+        updateResult,
       };
     });
     return result;
   } catch (err) {
-    console.error(err);
+    console.error("Error: ", err.message);
     throw err;
   }
 };
@@ -311,16 +270,6 @@ const updateVersion = async ({
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
-// const destroy = ({ id }) => {
-//   const sql = `delete from keranjangproyek where id_proyek = ?;delete from rekapitulasiproyek where id_proyek = ?; delete from ${table} where id = ?;`;
-//   const values = [id, id, id,];
-//   return new Promise((resolve, reject) => {
-//     connectionmq.query(sql, values, (err, res) => {
-//       if (err) reject(err);
-//       resolve(res);
-//     });
-//   });
-// };
 const destroy = async ({ id }) => {
   const connection = await pool.getConnection();
 

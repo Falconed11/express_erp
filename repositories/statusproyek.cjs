@@ -1,16 +1,23 @@
 const { pool } = require("./db.2.0.0.cjs");
 const table = "statusproyek";
 
-const list = async ({ ids }) => {
-  const placeholders = ids
+const list = async ({ ids, nids }) => {
+  const string2Array = (val) => (Array.isArray(val) ? val : [val]);
+  if (ids) ids = string2Array(ids);
+  if (nids) nids = string2Array(nids);
+  let placeholders = ids
     ? " and s.id in(" + ids.map(() => "?").join(",") + ")"
+    : "";
+  placeholders += nids
+    ? " and s.id not in(" + nids.map(() => "?").join(",") + ")"
     : "";
   const sql = `Select s.*, count(p.id) nproyek From ${table} s
   left join proyek p on p.id_statusproyek=s.id
   where 1=1${placeholders}
   group by s.id
   `;
-  const values = [...(ids ? ids : [])];
+  console.log(sql);
+  const values = [...(ids ? ids : []), ...(nids ? nids : [])];
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
