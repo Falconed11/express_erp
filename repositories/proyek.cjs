@@ -45,7 +45,7 @@ const list = async ({
       sort
         ? `,p.${sort} desc, p.${
             sort == "tanggal" ? "tanggal_penawaran" : "tanggal"
-          } desc, i.nama`
+          } desc, i.nama, p.id`
         : ""
     }`;
   const values = [
@@ -65,10 +65,10 @@ const create = async ({
   nama = "",
   klien = "",
   id_karyawan = "",
-  karyawan = "",
+  karyawan = null,
   id_statusproyek,
   tanggal = null,
-  tanggalpenawaran = null,
+  tanggal_penawaran = null,
   keterangan = "",
   id_po = "",
   instansi,
@@ -95,15 +95,15 @@ const create = async ({
       }, ?, ?`;
       const values = [
         id_statusproyek,
-        tanggalpenawaran,
-        tanggalpenawaran,
+        tanggal_penawaran,
+        tanggal_penawaran,
         id_instansi,
         id_perusahaan,
         id_po,
         nama,
         klien,
         karyawan ?? id_karyawan,
-        tanggalpenawaran,
+        tanggal_penawaran,
         keterangan ?? "",
       ];
       const [insertResult] = await conn.execute(sql, values);

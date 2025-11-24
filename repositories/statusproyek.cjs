@@ -16,7 +16,6 @@ const list = async ({ ids, nids }) => {
   where 1=1${placeholders}
   group by s.id
   `;
-  console.log(sql);
   const values = [...(ids ? ids : []), ...(nids ? nids : [])];
   const [rows] = await pool.execute(sql, values);
   return rows;
