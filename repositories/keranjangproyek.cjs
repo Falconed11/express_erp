@@ -60,7 +60,7 @@ const insertKeranjangProyek = async ({
   harga = 0,
   hargakustom = null,
   instalasi = 0,
-  keterangan = "",
+  namakustom = "",
   versi = 1,
   conn,
   ...rest
@@ -89,7 +89,7 @@ const insertKeranjangProyek = async ({
     harga ?? 0,
     hargakustom,
     instalasi ?? 0,
-    keterangan ?? "",
+    namakustom,
     versi,
   ];
   const [result] = await conn.execute(sql, values);
@@ -130,7 +130,7 @@ const update = ({
   hargamodal,
   harga,
   hargakustom,
-  keterangan,
+  namakustom,
   showmerek,
   showtipe,
 }) => {
@@ -158,9 +158,9 @@ const update = ({
     fields.push("hargakustom = ?");
     values.push(hargakustom === "" ? null : hargakustom);
   }
-  if (isExist(keterangan)) {
+  if (isExist(namakustom)) {
     fields.push("keterangan = ?");
-    values.push(keterangan);
+    values.push(namakustom);
   }
   if (isExist(showmerek)) {
     fields.push("showmerek = ?");

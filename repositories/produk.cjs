@@ -156,7 +156,7 @@ const insertProduk = async ({
     assertTransaction(conn, insertProduk.name);
     // if (!nama) throw new Error("Nama belum diisi.");
     if (!satuan) throw new Error("Satuan belum diisi.");
-    if (kategoriproduk && !id_kategori) {
+    if (kategoriproduk && id_kategori == null) {
       id_kategori = await createKategori({ nama: kategoriproduk, conn });
     }
     if (merek && !id_merek) {
@@ -244,7 +244,7 @@ const update = async ({ id, ...rest }) => {
   const isExist = (v) => v != null;
   try {
     const result = await withTransaction(pool, async (conn) => {
-      if (rest.kategoriproduk && !rest.id_kategori) {
+      if (rest.kategoriproduk && rest.id_kategori == null) {
         rest.id_kategori = await createKategori({
           nama: rest.kategoriproduk,
           conn,
