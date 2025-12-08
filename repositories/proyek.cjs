@@ -11,8 +11,10 @@ const list = async ({
   sort,
   id_karyawan,
   id_statusproyek,
+  id_produk = null,
   countProgressNoOffer,
 }) => {
+  console.log({ id_produk });
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort)
     if (validColumns.includes(sort)) {
@@ -21,11 +23,15 @@ const list = async ({
     }
   const sql = `Select p.*, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
     process.env.MAIN_URL
-  }logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran From ${table} p 
+  }logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
+  ${id_produk ? ", count(cp.id_produk) nproduk" : ""}
+  From ${table} p 
   left join statusproyek sp on p.id_statusproyek = sp.id 
   left join karyawan k on p.id_karyawan = k.id 
   left join perusahaan pr on p.id_perusahaan = pr.id 
   left join instansi i on p.id_instansi=i.id 
+  left join pembayaranproyek pp on pp.id_proyek=p.id
+  ${id_produk ? "left join keranjangproyek cp on cp.id_proyek = p.id" : ""}
   left join (SELECT id_proyek, sum(jumlah) jumlahbarangkeluar, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek 
   left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp 
   left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id 
@@ -36,9 +42,11 @@ const list = async ({
   }
   ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}
   ${id_statusproyek ? ` and id_statusproyek=? ` : ""}
+  ${id_produk ? "and cp.id_produk=?" : ""}
+  group by p.id
   order by 
     CASE 
-      WHEN versi <=0 and jumlahbarangkeluar>0
+      WHEN p.versi <=0 and jumlahbarangkeluar>0
       THEN 1
       ELSE 2 
     END ${
@@ -55,9 +63,15 @@ const list = async ({
     ...(end ? [end] : []),
     ...(id_karyawan ? [id_karyawan] : []),
     ...(id_statusproyek ? [id_statusproyek] : []),
+    ...(id_produk ? [id_produk] : []),
   ];
-  const [rows] = await pool.execute(sql, values);
-  return rows;
+  try {
+    const [rows] = await pool.execute(sql, values);
+    return rows;
+  } catch (err) {
+    console.error("Error : ", err.message);
+    throw err;
+  }
 };
 const create = async ({
   id_perusahaan = null,
