@@ -776,6 +776,14 @@ app.put("/api/produk", async (req, res) => {
     .then((result) => res.json({ message: "Data berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/transferproduk", async (req, res) => {
+  try {
+    const result = await produk.update(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 app.delete("/api/produk", async (req, res) => {
   produk
     .destroy(req.body)

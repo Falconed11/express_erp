@@ -1,129 +1,104 @@
+// produkkeluar.service.js
 const {
   withTransaction,
   assertTransaction,
 } = require("../helpers/transaction.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 
-const table = "produkkeluar";
+const OUTPUT_TABLE = "produkkeluar";
 
-const list = async ({ id_produk }) => {
-  const connection = await pool.getConnection();
+async function list({ id_produk }) {
+  const conn = await pool.getConnection();
   try {
-    let sql = `select p.nama produk, p.tipe tipe, p.stok, p.satuan, pm.harga hargaprodukmasuk, m.nama merek, v.nama vendor, pk.*, pr.id id_proyek, pr.nama nama_proyek, i.nama nama_instansi from ${table} pk 
-    left join produk p on p.id=pk.id_produk 
-    left join produkmasuk pm on pm.id=pk.id_produkmasuk 
-    left join merek m on m.id=p.id_merek 
-    left join vendor v on v.id=p.id_vendor 
-    left join proyek pr on pr.id=pk.id_proyek 
-    left join instansi i on i.id=pr.id_instansi where 1 ${
-      id_produk ? `and pk.id_produk=?` : ""
-    }`;
-    let values = [];
-    if (id_produk) values.push(id_produk);
-    const [result] = await connection.execute(sql, values);
-    return result;
-  } catch (error) {
-    throw error;
+    let sql = `
+      SELECT p.nama AS produk,
+             p.tipe AS tipe,
+             p.stok,
+             p.satuan,
+             pm.harga AS hargaprodukmasuk,
+             m.nama AS merek,
+             v.nama AS vendor,
+             pk.*,
+             pr.id AS id_proyek,
+             pr.nama AS nama_proyek,
+             i.nama AS nama_instansi
+      FROM ${OUTPUT_TABLE} pk
+      LEFT JOIN produk p           ON p.id = pk.id_produk
+      LEFT JOIN produkmasuk pm     ON pm.id = pk.id_produkmasuk
+      LEFT JOIN merek m            ON m.id = p.id_merek
+      LEFT JOIN vendor v           ON v.id = p.id_vendor
+      LEFT JOIN proyek pr          ON pr.id = pk.id_proyek
+      LEFT JOIN instansi i         ON i.id = pr.id_instansi
+      WHERE 1 = 1
+      ${id_produk ? "AND pk.id_produk = ?" : ""}
+    `;
+    const params = id_produk ? [id_produk] : [];
+    const [rows] = await conn.execute(sql, params);
+    return rows;
   } finally {
-    connection.release();
+    conn.release();
   }
-};
-const create = async (rest) => {
-  console.log(rest);
-  try {
-    const result = await withTransaction(pool, async (conn) => {
-      const res = await queryCreate({ ...rest, conn });
-      return res;
-    });
-    return result;
-  } catch (err) {
-    console.error("Error : ", err);
-    throw err;
-  }
-};
-const update = async ({
-  id,
-  sn = null,
-  id_produkmasuk,
-  id_produk,
-  oldJumlah,
-  harga = 0,
-  metodepengeluaran,
-  tanggal,
-  ...rest
-}) => {
-  try {
-    console.log({
+}
+async function create(data) {
+  return await withTransaction(pool, async (conn) => {
+    return await _createInTransaction({ ...data, conn });
+  });
+}
+async function update(params) {
+  return await withTransaction(pool, async (conn) => {
+    console.log({ conn });
+    const {
       id,
-      sn,
+      sn = null,
       id_produkmasuk,
       id_produk,
       oldJumlah,
-      harga,
+      harga = 0,
       metodepengeluaran,
       tanggal,
-      ...rest,
-    });
-    // throw new Error("Test");
-    const result = withTransaction(pool, async (conn) => {
-      if (metodepengeluaran != "proyek") {
-        let sql = `update ${table} set sn=?, harga=?, metodepengeluaran=?, tanggal=? where id=?`;
-        let values = [sn, harga, metodepengeluaran, tanggal, id];
-        const res = await conn.execute(sql, values);
-      } else {
-        console.log("start");
-        const isSelected = true;
-        let res = await queryDelete({
-          ...rest,
-          id,
-          id_produkmasuk,
-          id_produk,
-          metodepengeluaran,
-          jumlah: oldJumlah,
-          conn,
-        });
-        res = await queryCreate({
-          ...rest,
-          id_produk,
-          sn,
-          metodepengeluaran,
-          harga,
-          tanggal,
-          isSelected,
-          conn,
-        });
-      }
-    });
-    return result;
-  } catch (err) {
-    console.error("Error : ", err);
-    throw err;
-  }
-};
-// const update2 = async () => {};
-const destroy = async (rest) => {
-  try {
-    const result = await withTransaction(pool, async (conn) => {
-      const res = await queryDelete({ ...rest, conn });
-      return res;
-    });
-    return result;
-  } catch (err) {
-    console.error("Error : ", err);
-    throw err;
-  }
-};
+      ...rest
+    } = params;
 
-/**
- * @returns {Promise<{
- *   kategoriInsertId: number | null;
- *   merekInsertId: number | null;
- *   vendorInsertId: number | null;
- *   produkInsertId: number;
- *   produkMasukInsertId?: number;
- * }>}
- */
-const queryCreate = async ({
+    if (metodepengeluaran !== "proyek") {
+      // Simple update case
+      const sql = `UPDATE ${OUTPUT_TABLE}
+                   SET sn = ?, harga = ?, metodepengeluaran = ?, tanggal = ?
+                   WHERE id = ?`;
+      const values = [sn, harga, metodepengeluaran, tanggal, id];
+      await conn.execute(sql, values);
+      return { updated: true };
+    } else {
+      // Replace -> delete old, then create new
+      await _deleteInTransaction({
+        id,
+        id_produkmasuk,
+        id_produk,
+        metodepengeluaran,
+        jumlah: oldJumlah,
+        conn,
+      });
+      const result = await _createInTransaction({
+        ...rest,
+        id_produk,
+        sn,
+        metodepengeluaran,
+        harga,
+        tanggal,
+        isSelected: true,
+        conn,
+      });
+      return result;
+    }
+  });
+}
+async function destroy(params) {
+  return await withTransaction(pool, async (conn) => {
+    return await _deleteInTransaction({ ...params, conn });
+  });
+}
+
+// Internal helper: create inside transaction
+async function _createInTransaction({
   id_produk,
   sn,
   metodepengeluaran,
@@ -140,154 +115,193 @@ const queryCreate = async ({
   idproduk,
   status,
   conn,
-}) => {
-  assertTransaction(conn, queryCreate.name);
-  try {
-    if (!sn || sn == 0)
-      if (!jumlah || jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
-    // Start the transaction
+}) {
+  assertTransaction(conn, "_createInTransaction");
+  if ((!sn || sn === 0) && (!jumlah || jumlah === 0))
+    throw new Error("Jumlah tidak boleh 0!");
+  let [produkRows] = await conn.execute(
+    `SELECT stok, satuan FROM produk WHERE id = ? FOR UPDATE`,
+    [id_produk]
+  );
+  if (produkRows.length === 0) throw new Error("Produk tidak ditemukan");
+  const produk = produkRows[0];
+  if (jumlah > produk.stok)
+    throw new Error(
+      `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`
+    );
+  if (sn === 1) {
+    for (const snObj of serialnumbers) {
+      // Lock one eligible produkmasuk row
+      let [pmRows] = await conn.execute(
+        `SELECT id FROM produkmasuk
+         WHERE jumlah > keluar AND id_produk = ?
+         ORDER BY harga DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [id_produk]
+      );
+      if (pmRows.length === 0) {
+        throw new Error("Tidak ada produkmasuk tersedia");
+      }
+      const pm = pmRows[0];
 
-    let sql, values, result;
-    sql = "select stok, satuan from produk where id=?";
-    values = [id_produk];
-    [result] = await conn.execute(sql, values);
-    console.log(1);
-    const produk = result[0];
-    const stok = produk.stok;
-    const satuan = produk.satuan;
-    if (jumlah > stok)
-      throw new Error(`Stok tidak mencukupi. Maks. ${stok} ${satuan}.`);
-    if (sn == 1) {
-      for (let i = 0; i < serialnumbers.length; i++) {
-        let sql = `select id from produkmasuk where jumlah > keluar and id_produk = ? order by harga desc limit 1`;
-        let values = [id_produk];
-        let [value] = await conn.execute(sql, values);
-        console.log(2);
-        const produkmasuk = value[0];
-        sql = `update produkmasuk set keluar = keluar + 1 where id = ?`;
-        values = [produkmasuk.id];
-        [result] = await conn.execute(sql, values);
-        console.log(3);
-        sql = `update produk set stok = stok - 1 where id = ?`;
-        values = [id_produk];
-        [result] = await conn.execute(sql, values);
-        console.log(4);
-        sql = `insert into ${table} (id_produk, id_produkmasuk, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan) values (?,?,?,?,'1',?,?,?)`;
-        values = [
+      // Update produkmasuk
+      await conn.execute(
+        `UPDATE produkmasuk SET keluar = keluar + 1 WHERE id = ?`,
+        [pm.id]
+      );
+      // Update produk stock
+      await conn.execute(`UPDATE produk SET stok = stok - 1 WHERE id = ?`, [
+        id_produk,
+      ]);
+      // Insert into produkkeluar
+      await conn.execute(
+        `INSERT INTO ${OUTPUT_TABLE}
+         (id_produk, id_produkmasuk, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
           id_produk,
-          produkmasuk.id,
+          pm.id,
           metodepengeluaran,
-          serialnumbers[i].value,
+          snObj.value,
+          1,
           harga,
           tanggal,
           keterangan,
-        ];
-        console.log(values)[result] = await conn.execute(sql, values);
-        console.log(5);
+        ]
+      );
+    }
+  } else {
+    let sisa = jumlah;
+    while (sisa > 0) {
+      let [pmRows] = await conn.execute(
+        `SELECT id, (jumlah - keluar) AS available, harga, id_vendor
+         FROM produkmasuk
+         WHERE jumlah > keluar AND id_produk = ?
+         ORDER BY harga DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [id_produk]
+      );
+      if (pmRows.length === 0) {
+        throw new Error("Tidak ada produkmasuk tersedia");
       }
-    } else {
-      let sisa = jumlah;
-      while (sisa > 0) {
-        sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
-        values = [id_produk];
-        [result] = await conn.execute(sql, values);
-        console.log(6);
-        const produkmasuk = result[0];
-        const stok = produkmasuk.stok;
-        const keluar = sisa >= stok ? stok : sisa;
-        sisa -= keluar;
-        const idProdukMasuk = produkmasuk.id;
+      const pm = pmRows[0];
+      const available = pm.available;
+      const take = sisa >= available ? available : sisa;
+      sisa -= take;
 
-        sql = `update produkmasuk set keluar = keluar + ? where id = ?`;
-        values = [keluar, idProdukMasuk];
-        [result] = await conn.execute(sql, values);
-        console.log(7);
-
-        sql = `update produk set stok = stok - ? where id = ?`;
-        values = [keluar, id_produk];
-        [result] = await conn.execute(sql, values);
-        console.log(8);
-
-        sql = `insert into ${table} (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, jumlah, harga, tanggal, keterangan) values (?,?,?,?,${keluar},?,?,?)`;
-        values = [
+      // Update produkmasuk
+      await conn.execute(
+        `UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?`,
+        [take, pm.id]
+      );
+      // Update produk stock
+      await conn.execute(`UPDATE produk SET stok = stok - ? WHERE id = ?`, [
+        take,
+        id_produk,
+      ]);
+      // Insert into produkkeluar
+      const [insertRes] = await conn.execute(
+        `INSERT INTO ${OUTPUT_TABLE}
+         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
           metodepengeluaran ?? "proyek",
           id_produk,
-          idProdukMasuk,
+          pm.id,
           id_proyek || null,
-          isSelected == true ? produkmasuk.harga : harga ?? 0,
+          take,
+          isSelected ? pm.harga : harga,
           tanggal,
           keterangan,
-        ];
-        [result] = await conn.execute(sql, values);
-        console.log(9);
+        ]
+      );
 
-        if (isSelected == true) {
-          sql = `insert into pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, id_vendor, jumlah, harga, status, keterangan) values (${
-            idproyek ? `(select id from proyek where id_second=?)` : `?`
-          }, ?, ${karyawan ? `(select id from karyawan where nama=?)` : `?`}, ${
-            idproduk ? `(select id from produk where id_kustom=?)` : `?`
-          }, ${result.insertId}, ${produkmasuk.id_vendor}, ${keluar}, ?, 1, ?)`;
-          const values = [
+      if (isSelected) {
+        // Insert pengeluaranproyek
+        await conn.execute(
+          `INSERT INTO pengeluaranproyek
+           (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, id_vendor, jumlah, harga, status, keterangan)
+           VALUES (${
+             idproyek ? `(SELECT id FROM proyek WHERE id_second = ?)` : `?`
+           }, ?, ${
+            karyawan ? `(SELECT id FROM karyawan WHERE nama = ?)` : `?`
+          }, ${
+            idproduk ? `(SELECT id FROM produk WHERE id_kustom = ?)` : `?`
+          }, ?, ?, ?, ?, 1, ?)`,
+          [
             idproyek ?? id_proyek,
             tanggal,
             karyawan ?? id_karyawan,
-            idproduk ?? id_produk ?? "",
-            produkmasuk.harga,
+            idproduk ?? id_produk,
+            insertRes.insertId,
+            pm.id_vendor,
+            take,
+            pm.harga,
             keterangan ?? "",
-          ];
-          [result] = await conn.execute(sql, values);
-          console.log(10);
-        }
+          ]
+        );
       }
-    }
-  } catch (err) {
-    console.error("Error : ", err);
-    throw err;
+    } // end while
   }
-};
-const queryDelete = async ({
+
+  return { success: true };
+}
+// Internal helper: delete inside transaction
+async function _deleteInTransaction({
   id,
   jumlah,
   id_produkmasuk,
   id_produk,
   metodepengeluaran,
   conn,
-}) => {
-  assertTransaction(conn, queryDelete.name);
-  try {
-    let [sql, values] = ["", ""];
-    sql = `select * from ${table} where id = ?`;
-    values = [id];
-    const [test] = await conn.execute(sql, values);
-    console.log(1);
+}) {
+  assertTransaction(conn, "_deleteInTransaction");
 
-    if (test.length == 0) throw new Error("Produk masuk telah terhapus.");
-
-    sql = `delete from ${table} where id = ?`;
-    values = [id];
-    const [result1] = await conn.execute(sql, values);
-    console.log(2);
-
-    if (metodepengeluaran == "proyek") {
-      sql = `delete from pengeluaranproyek where id_produkkeluar = ?`;
-      values = [id];
-      const [result4] = await conn.execute(sql, values);
-      console.log(3);
-    }
-
-    sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
-    values = [jumlah, id_produkmasuk];
-    const [result2] = await conn.execute(sql, values);
-    console.log(4);
-
-    sql = `update produk set stok=stok + ? where id = ?`;
-    values = [jumlah, id_produk];
-    const [result3] = await conn.execute(sql, values);
-    console.log(5);
-  } catch (err) {
-    console.error("Error : ", err);
-    throw err;
+  // 1) lock the produkkeluar row
+  let [existing] = await conn.execute(
+    `SELECT * FROM ${OUTPUT_TABLE} WHERE id = ? FOR UPDATE`,
+    [id]
+  );
+  if (existing.length === 0) {
+    throw new Error("Produkkeluar record not found");
   }
-};
+
+  if (metodepengeluaran === "proyek") {
+    // lock related pengeluaranproyek row(s)
+    await conn.execute(
+      `SELECT id FROM pengeluaranproyek WHERE id_produkkeluar = ? FOR UPDATE`,
+      [id]
+    );
+    await conn.execute(
+      `DELETE FROM pengeluaranproyek WHERE id_produkkeluar = ?`,
+      [id]
+    );
+  }
+
+  // lock produkmasuk row
+  await conn.execute(
+    `SELECT id, keluar FROM produkmasuk WHERE id = ? FOR UPDATE`,
+    [id_produkmasuk]
+  );
+  // lock produk row
+  await conn.execute(`SELECT id, stok FROM produk WHERE id = ? FOR UPDATE`, [
+    id_produk,
+  ]);
+
+  // Perform deletion and stock revert
+  await conn.execute(`DELETE FROM ${OUTPUT_TABLE} WHERE id = ?`, [id]);
+  await conn.execute(
+    `UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?`,
+    [jumlah, id_produkmasuk]
+  );
+  await conn.execute(`UPDATE produk SET stok = stok + ? WHERE id = ?`, [
+    jumlah,
+    id_produk,
+  ]);
+
+  return { success: true };
+}
 
 module.exports = { list, create, update, destroy };

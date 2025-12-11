@@ -226,7 +226,51 @@ const create = async (rest, fn) => {
     throw err;
   }
 };
+const transfer = async ({ curId, newId }) => {
+  if (curId === newId) throw new Error("Cannot transfer to the same product");
+  try {
+    const result = withTransaction(pool, async (conn) => {
+      await conn.execute(
+        "select id_produk from produkmasuk where id_produkmasuk=? for update",
+        [curId]
+      );
+      await conn.execute(
+        "select id_produk from keranjangproyek where id_produk=? for update",
+        [curId]
+      );
+      const [products] = await conn.execute(
+        "SELECT id, stok FROM produk WHERE id IN (?, ?) FOR UPDATE",
+        [curId, newId]
+      );
+      const curProd = products.find((p) => p.id == curId);
+      const targetProd = products.find((p) => p.id == newId);
 
+      if (!curProd) throw new Error("Current product not found");
+      if (!targetProd) throw new Error("Target product not found");
+
+      const amountToTransfer = curProd.stok;
+
+      await conn.execute(
+        "update produkmasuk set id_produk=? where id_produk=?",
+        [newId, curId]
+      );
+      await conn.execute(
+        "update keranjangproyek set id_produk=? where id_produk=?",
+        [newId, curId]
+      );
+      await conn.execute("update produk set stok=stok+? where id=?", [
+        amountToTransfer,
+        newId,
+      ]);
+      await conn.execute("update produk set stok=0 where id=?", [curId]);
+      return { message: "Transfer Sukses" };
+    });
+    return result;
+  } catch (err) {
+    console.error("Error : ", err.message);
+    throw err;
+  }
+};
 const update = async ({ id, ...rest }) => {
   const allowedFields = [
     "id_kustom",
@@ -284,4 +328,12 @@ const destroy = async ({ id }) => {
   return results;
 };
 
-module.exports = { list, insertProduk, create, update, destroy, listKategori };
+module.exports = {
+  list,
+  insertProduk,
+  create,
+  transfer,
+  update,
+  destroy,
+  listKategori,
+};
