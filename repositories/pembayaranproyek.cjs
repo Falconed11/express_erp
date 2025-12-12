@@ -47,8 +47,8 @@ const total = async ({ id_proyek, monthyear }) => {
 const create = async ({
   id_proyek,
   idproyek,
-  nominal,
-  id_metodepembayaran,
+  nominal = 0,
+  id_metodepembayaran = null,
   id_karyawaninvoice = null,
   id_karyawankwitansi = null,
   pembayar = "",
@@ -56,6 +56,7 @@ const create = async ({
   tanggal = "",
   keterangan = "",
 }) => {
+  if (!id_metodepembayaran) throw new Error("Metode Pembayaran wajib diisi!");
   const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, id_karyawaninvoice, id_karyawankwitansi, pembayar, untukpembayaran, tanggal, keterangan) values (${
     idproyek ? `(select id from proyek where id_second=?)` : `?`
   }, ?, ?, ?, ?, ?, ?, ?, ?)`;

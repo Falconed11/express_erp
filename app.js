@@ -778,7 +778,7 @@ app.put("/api/produk", async (req, res) => {
 });
 app.put("/api/transferproduk", async (req, res) => {
   try {
-    const result = await produk.update(req.body);
+    const result = await produk.transfer(req.body);
     res.json(result);
   } catch (err) {
     res.status(400).json({ message: err.message });

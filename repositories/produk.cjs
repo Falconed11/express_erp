@@ -230,14 +230,18 @@ const transfer = async ({ curId, newId }) => {
   if (curId === newId) throw new Error("Cannot transfer to the same product");
   try {
     const result = withTransaction(pool, async (conn) => {
-      await conn.execute(
-        "select id_produk from produkmasuk where id_produkmasuk=? for update",
+      const [produkMasuk] = await conn.execute(
+        "select id_produk from produkmasuk where id_produk=? for update",
         [curId]
       );
-      await conn.execute(
+      const [keranjangProyek] = await conn.execute(
         "select id_produk from keranjangproyek where id_produk=? for update",
         [curId]
       );
+      if (!(produkMasuk.length && keranjangProyek.length))
+        throw new Error(
+          "Operasi dibatalkan! Produk tidak memiliki stok dan penawaran."
+        );
       const [products] = await conn.execute(
         "SELECT id, stok FROM produk WHERE id IN (?, ?) FOR UPDATE",
         [curId, newId]
