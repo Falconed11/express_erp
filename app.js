@@ -1,5 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
@@ -7,6 +6,8 @@ import multer from "multer";
 
 const app = express();
 const port = 3001;
+import proyekRoutes from "./src/routes/proyek.routes.js";
+import errorMiddleware from "./src/middlewares/error.middleware.js";
 
 // set up cors
 app.use(cors());
@@ -104,6 +105,8 @@ app.use("/logo", express.static("logo"));
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
+
+app.use("/api/v2/proyek", proyekRoutes);
 
 //tes
 app.get("/api/test", async (req, res) => {
@@ -1474,6 +1477,8 @@ app.delete("/api/todolist", async (req, res) => {
     res.status(400).json({ message: err.message || "Unknown Error" });
   }
 });
+
+app.use(errorMiddleware);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);

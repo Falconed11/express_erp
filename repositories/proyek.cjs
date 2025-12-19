@@ -14,7 +14,6 @@ const list = async ({
   id_produk = null,
   countProgressNoOffer,
 }) => {
-  console.log({ id_produk });
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort)
     if (validColumns.includes(sort)) {
