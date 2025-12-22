@@ -148,7 +148,7 @@ const queryCreate = async ({
     // Start the transaction
 
     let sql, values, result;
-    sql = "select stok, satuan from produk where id=?";
+    sql = "select stok, satuan from produk where id=? for update";
     values = [id_produk];
     [result] = await conn.execute(sql, values);
     console.log(1);
@@ -188,7 +188,7 @@ const queryCreate = async ({
     } else {
       let sisa = jumlah;
       while (sisa > 0) {
-        sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1`;
+        sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1 for update`;
         values = [id_produk];
         [result] = await conn.execute(sql, values);
         console.log(6);
@@ -256,10 +256,14 @@ const queryDelete = async ({
   assertTransaction(conn, queryDelete.name);
   try {
     let [sql, values] = ["", ""];
-    sql = `select * from ${table} where id = ?`;
+    sql = `select * from ${table} where id = ? for update`;
     values = [id];
     const [test] = await conn.execute(sql, values);
     console.log(1);
+    await conn.execute(`select produkmasuk where id = ? for update`, [
+      id_produkmasuk,
+    ]);
+    await conn.execute(`select produk where id = ? for update`, [id_produk]);
 
     if (test.length == 0) throw new Error("Produk masuk telah terhapus.");
 

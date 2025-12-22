@@ -45,8 +45,10 @@ const create = ({
   jumlah,
   harga,
   status,
-  keterangan,
+  keterangan = "",
 }) => {
+  if (idproduk) console.log("id_produk : " + idproduk);
+  console.log({ id_produk });
   const sql = `insert into ${table} (id_proyek, tanggal, id_karyawan, id_produk, id_vendor, jumlah, harga, status, keterangan) values (${
     idproyek ? `(select id from proyek where id_second=?)` : `?`
   }, ?, ${karyawan ? `(select id from karyawan where nama=?)` : `?`}, ${
