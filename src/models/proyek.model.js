@@ -25,7 +25,8 @@ export const findStagedProductByProjectId = async (id) => {
         left join sumpengeluaranproyek p on p.id_produk=k.id_produk
         left join produk pr on pr.id=k.id_produk
         left join merek m on m.id=pr.id_merek
-        left join kategoriproduk kp on kp.id = pr.id_kategori`,
+        left join kategoriproduk kp on kp.id = pr.id_kategori
+        order by kp.nama, pr.nama, m.nama, pr.tipe`,
     [id, id]
   );
   return rows;
