@@ -979,8 +979,8 @@ app.delete("/api/statuskaryawan", async (req, res) => {
 // statusproyek
 app.get("/api/statusproyek", async (req, res) => {
   try {
-    const list = statusproyek.list(req.query);
-    res.json(await list);
+    const list = await statusproyek.list(req.query);
+    res.json(list);
   } catch (err) {
     const errMsg = err.message;
     console.error("Error :", errMsg);
@@ -989,7 +989,7 @@ app.get("/api/statusproyek", async (req, res) => {
 });
 app.post("/api/statusproyek", async (req, res) => {
   try {
-    const insertId = statusproyek.create(req.body);
+    const insertId = await statusproyek.create(req.body);
     res.json({
       message: "Data berhasil ditambahkan",
       insertId,
@@ -1000,7 +1000,7 @@ app.post("/api/statusproyek", async (req, res) => {
 });
 app.put("/api/statusproyek", async (req, res) => {
   try {
-    const data = statusproyek.update(req.body);
+    const data = await statusproyek.update(req.body);
     res.json({
       message: "Data berhasil ditambahkan",
       data,
@@ -1011,7 +1011,7 @@ app.put("/api/statusproyek", async (req, res) => {
 });
 app.delete("/api/statusproyek", async (req, res) => {
   try {
-    const data = statusproyek.destroy(req.body);
+    const data = await statusproyek.destroy(req.body);
     res.json({
       message: "Data berhasil ditambahkan",
       data,
