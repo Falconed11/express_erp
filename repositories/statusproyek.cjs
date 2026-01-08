@@ -21,9 +21,10 @@ const list = async ({ ids, nids }) => {
   return rows;
 };
 const create = async ({ nama, progress = 0 }) => {
+  console.log(progress);
   if (!nama) throw new Error("Nama wajib diisi!");
   const sql = `insert into ${table} (nama,progress) values (?,?)`;
-  const values = [nama, progress];
+  const values = [nama, progress || 0];
   const [result] = await pool.execute(sql, values);
   return result.insertId;
 };
