@@ -176,6 +176,9 @@ const update = async ({
   ...rest
 }) => {
   if (!id) return new Error("Id harus diisi!");
+  // Get proyek data
+  const [data] = await list({ id });
+  if (!data) throw new Error(`Data id: ${id} not found`);
   const allowedFields = [
     "id_instansi",
     "id_perusahaan",
@@ -214,26 +217,27 @@ const update = async ({
         fields.push("id_instansi=?");
         values.push(id_instansi);
       }
-      if (id_statusproyek == 2) {
-        // Get proyek data
-        const [data] = await list({ id });
-        if (!data) throw new Error(`Data id: ${id} not found`);
-        const getYearMonth = (date) => {
-          if (!date) return null;
-          date = new Date(date);
-          return `${date.getFullYear()}${date.getMonth()}`;
-        };
-        // Cek if id_second already filled or current tanggal is different with new one
-        if (
-          !data.id_second ||
-          getYearMonth(data.tanggal) != getYearMonth(tanggal)
-        ) {
-          const { idCustom, seq } = await getNextProyekId(tanggal, conn);
-          fields.push("id_second=?");
-          values.push(idCustom);
-        }
-      }
       if (id_statusproyek) {
+        if (id_statusproyek == -1) {
+          fields.push("tanggal_reject=?");
+          values.push(new Date());
+        }
+        if (id_statusproyek == 2) {
+          const getYearMonth = (date) => {
+            if (!date) return null;
+            date = new Date(date);
+            return `${date.getFullYear()}${date.getMonth()}`;
+          };
+          // Cek if id_second already filled or current tanggal is different with new one
+          if (
+            !data.id_second ||
+            getYearMonth(data.tanggal) != getYearMonth(tanggal)
+          ) {
+            const { idCustom, seq } = await getNextProyekId(tanggal, conn);
+            fields.push("id_second=?");
+            values.push(idCustom);
+          }
+        }
         fields.push("id_statusproyek=?");
         values.push(id_statusproyek);
       }
