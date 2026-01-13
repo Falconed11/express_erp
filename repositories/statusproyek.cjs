@@ -1,25 +1,37 @@
 const { pool } = require("./db.2.0.0.cjs");
 const table = "statusproyek";
 
-const list = async ({ ids, nids }) => {
+const list = async ({ ids, nids, limit, offset }) => {
   const string2Array = (val) => (Array.isArray(val) ? val : [val]);
+  const isPagination = limit != null && offset != null;
   if (ids) ids = string2Array(ids);
   if (nids) nids = string2Array(nids);
-  let placeholders = ids
-    ? " and s.id in(" + ids.map(() => "?").join(",") + ")"
-    : "";
-  placeholders += nids
-    ? " and s.id not in(" + nids.map(() => "?").join(",") + ")"
-    : "";
-  const sql = `Select s.*, count(p.id) nproyek From ${table} s
-  left join proyek p on p.id_statusproyek=s.id
-  where 1=1${placeholders}
-  group by s.id
+  let placeholders = "";
+  if (ids) {
+    placeholders += ` AND s.id IN (${ids.map(() => "?").join(",")})`;
+  }
+  if (nids) {
+    placeholders += ` AND s.id NOT IN (${nids.map(() => "?").join(",")})`;
+  }
+  const sql = `
+    SELECT s.id, s.nama, s.progress, COUNT(p.id) AS nproyek, COUNT(*) OVER () AS nstatusproyek
+    FROM ${table} s
+    LEFT JOIN proyek p ON p.id_statusproyek = s.id
+    WHERE 1=1
+      ${placeholders}
+    GROUP BY s.id, s.nama, s.progress
+    ORDER BY s.progress, s.nama
+    ${isPagination ? "LIMIT ?, ?" : ""}
   `;
-  const values = [...(ids ? ids : []), ...(nids ? nids : [])];
+  const values = [
+    ...(ids ?? []),
+    ...(nids ?? []),
+    ...(isPagination ? [offset, limit] : []),
+  ];
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
+
 const create = async ({ nama, progress = 0 }) => {
   console.log(progress);
   if (!nama) throw new Error("Nama wajib diisi!");
