@@ -1,11 +1,11 @@
-import JenisProyek from "../models/jenis-proyek.model.js";
-
-const JenisProyekService = {
+import JenisInstansi from "../models/jenis-instansi.model.js";
+const NAME = "jenis proyek";
+const JenisInstansiService = {
   async create(data) {
     if (!data.nama) {
-      throw new Error("Nama jenis proyek is required");
+      throw new Error(`Nama ${NAME} is required`);
     }
-    return await JenisProyek.create({
+    return await JenisInstansi.create({
       nama: data.nama,
       keterangan: data.keterangan || "",
       authorid_karyawan: data.authorid_karyawan,
@@ -14,13 +14,13 @@ const JenisProyekService = {
   },
 
   async getAll(data) {
-    return await JenisProyek.getAll(data);
+    return await JenisInstansi.getAll(data);
   },
 
   async getById(id) {
-    const result = await JenisProyek.getById(id);
+    const result = await JenisInstansi.getById(id);
     if (!result) {
-      throw new Error("Jenis proyek not found");
+      throw new Error(`Id ${NAME} not found`);
     }
     return result;
   },
@@ -29,7 +29,7 @@ const JenisProyekService = {
     if (!id) {
       throw new Error("ID is required");
     }
-    const result = await JenisProyek.patch(id, data);
+    const result = await JenisInstansi.patch(id, data);
     if (result.affectedRows === 0) {
       throw new Error("No data updated");
     }
@@ -37,11 +37,11 @@ const JenisProyekService = {
   },
 
   async delete(id) {
-    const result = await JenisProyek.delete(id);
+    const result = await JenisInstansi.delete(id);
     if (result.affectedRows === 0) {
-      throw new Error("Jenis proyek not found");
+      throw new Error(`Id ${NAME} not found`);
     }
     return result;
   },
 };
-export default JenisProyekService;
+export default JenisInstansiService;

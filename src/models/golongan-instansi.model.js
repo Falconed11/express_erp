@@ -1,8 +1,8 @@
 import db from "../config/db.js";
 
-const TABEL = "jenisproyek";
+const TABEL = "golonganinstansi";
 
-const JenisProyek = {
+const GolonganInstansi = {
   async create({
     nama,
     keterangan = "",
@@ -36,16 +36,6 @@ const JenisProyek = {
     const [rows] = await db.execute(sql, [id]);
     return rows[0];
   },
-
-  // async update(id, data) {
-  //   const sql = `
-  //     UPDATE users
-  //     SET name = ?, email = ?
-  //     WHERE id = ?
-  //   `;
-  //   const [result] = await db.execute(sql, [data.name, data.email, id]);
-  //   return result;
-  // },
 
   async patch(id, data) {
     const fields = [];
@@ -81,4 +71,4 @@ const JenisProyek = {
     return result;
   },
 };
-export default JenisProyek;
+export default GolonganInstansi;

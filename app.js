@@ -6,9 +6,6 @@ import multer from "multer";
 
 const app = express();
 const port = 3001;
-import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
-import proyekRoutes from "./src/routes/proyek.routes.js";
-import errorMiddleware from "./src/middlewares/error.middleware.js";
 
 // set up cors
 app.use(cors());
@@ -81,6 +78,12 @@ import todolist from "./repositories/todolist.cjs";
 import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
+import golonganInstansiRoutes from "./src/routes/golongan-instansi.routes.js";
+import jenisInstansiRoutes from "./src/routes/jenis-instansi.routes.js";
+import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
+import proyekRoutes from "./src/routes/proyek.routes.js";
+import errorMiddleware from "./src/middlewares/error.middleware.js";
+
 app.use((req, res, next) => {
   if (req.is("application/json")) {
     bodyParser.json({ limit: "50mb" })(req, res, next);
@@ -107,8 +110,10 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-app.use("/api/v2/proyek", proyekRoutes);
+app.use("/api/v2/golongan-instansi", golonganInstansiRoutes);
+app.use("/api/v2/jenis-instansi", jenisInstansiRoutes);
 app.use("/api/v2/jenis-proyek", jenisProyekRoutes);
+app.use("/api/v2/proyek", proyekRoutes);
 
 //tes
 app.get("/api/test", async (req, res) => {

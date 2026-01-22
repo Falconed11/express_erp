@@ -1,12 +1,12 @@
-import JenisProyekService from "../services/jenis-proyek.service.js";
+import GolonganInstansiService from "../services/golongan-instansi.service.js";
 import { successResponse } from "../utils/response.js";
 
-const NAME = "Jenis Proyek";
+const NAME = "Golongan Instansi";
 
-const JenisProyekController = {
+const GolonganInstansiController = {
   async create(req, res, next) {
     try {
-      const result = await JenisProyekService.create(req.body);
+      const result = await GolonganInstansiService.create(req.body);
       successResponse(res, result, `${NAME} created`, 201);
     } catch (err) {
       next(err);
@@ -15,7 +15,7 @@ const JenisProyekController = {
 
   async getAll(req, res, next) {
     try {
-      const data = await JenisProyekService.getAll(req.query);
+      const data = await GolonganInstansiService.getAll(req.query);
       successResponse(res, data);
     } catch (err) {
       next(err);
@@ -24,7 +24,7 @@ const JenisProyekController = {
 
   async getById(req, res, next) {
     try {
-      const data = await JenisProyekService.getById(req.params.id);
+      const data = await GolonganInstansiService.getById(req.params.id);
       successResponse(res, data);
     } catch (err) {
       next(err);
@@ -33,7 +33,10 @@ const JenisProyekController = {
 
   async patch(req, res, next) {
     try {
-      const result = await JenisProyekService.patch(req.params.id, req.body);
+      const result = await GolonganInstansiService.patch(
+        req.params.id,
+        req.body,
+      );
       successResponse(res, result, `${NAME} updated`);
     } catch (err) {
       next(err);
@@ -42,11 +45,11 @@ const JenisProyekController = {
 
   async delete(req, res, next) {
     try {
-      const result = await JenisProyekService.delete(req.params.id);
+      const result = await GolonganInstansiService.delete(req.params.id);
       successResponse(res, result, `${NAME} deleted`);
     } catch (err) {
       next(err);
     }
   },
 };
-export default JenisProyekController;
+export default GolonganInstansiController;
