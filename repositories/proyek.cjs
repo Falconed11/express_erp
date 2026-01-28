@@ -12,6 +12,7 @@ const list = async ({
   id_karyawan,
   id_statusproyek,
   id_produk = null,
+  id_jenisproyek,
   countProgressNoOffer,
 }) => {
   const validColumns = ["tanggal", "tanggal_penawaran"];
@@ -20,7 +21,7 @@ const list = async ({
     } else {
       throw new Error("Kolom tidak valid");
     }
-  const sql = `Select p.*, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
+  const sql = `Select p.*, jp.nama jenisproyek, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
     process.env.MAIN_URL
   }logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
   ${id_produk ? ", count(cp.id_produk) nproduk" : ""}
@@ -30,6 +31,7 @@ const list = async ({
   left join perusahaan pr on p.id_perusahaan = pr.id 
   left join instansi i on p.id_instansi=i.id 
   left join pembayaranproyek pp on pp.id_proyek=p.id
+  left join jenisproyek jp on p.id_jenisproyek=jp.id
   ${id_produk ? "left join keranjangproyek cp on cp.id_proyek = p.id" : ""}
   left join (SELECT id_proyek, sum(jumlah) jumlahbarangkeluar, sum(jumlah*harga) pengeluaranproyek FROM pengeluaranproyek group BY id_proyek) mp on p.id=mp.id_proyek 
   left join (select id_proyek, sum(kp.jumlah*kp.harga) totalpenawaran, sum(kp.jumlah*p.hargamodal) totalmodal from keranjangproyek kp 
@@ -38,7 +40,7 @@ const list = async ({
     id_instansi ? "and id_instansi=?" : ""
   } ${start ? `and p.${sort}>=?` : ""} ${end ? `and p.${sort}<=?` : ""} ${
     id_karyawan ? `and id_karyawan=?` : ""
-  }
+  } ${id_jenisproyek ? "and id_jenisproyek=?" : ""}
   ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}
   ${id_statusproyek ? ` and id_statusproyek=? ` : ""}
   ${id_produk ? "and cp.id_produk=?" : ""}
@@ -61,6 +63,7 @@ const list = async ({
     ...(start ? [start] : []),
     ...(end ? [end] : []),
     ...(id_karyawan ? [id_karyawan] : []),
+    ...(id_jenisproyek ? [id_jenisproyek] : []),
     ...(id_statusproyek ? [id_statusproyek] : []),
     ...(id_produk ? [id_produk] : []),
   ];
@@ -80,6 +83,7 @@ const create = async ({
   id_karyawan = "",
   karyawan = null,
   id_statusproyek,
+  id_jenisproyek = null,
   tanggal = null,
   tanggal_penawaran = null,
   keterangan = "",
@@ -103,7 +107,7 @@ const create = async ({
         });
         id_instansi = customerInsertId;
       }
-      const sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ${
+      const sql = `insert into ${table} (id_statusproyek, id_penawaran, id_instansi, id_perusahaan, id_po, nama, klien, id_karyawan, id_jenisproyek, tanggal_penawaran, keterangan) select ?, ${sqlIdPenawaran}, ?, ?, ?, ?, ?, ?, ${
         karyawan ? `(select id from karyawan where nama = ?)` : "?"
       }, ?, ?`;
       const values = [
@@ -116,6 +120,7 @@ const create = async ({
         nama,
         klien,
         karyawan ?? id_karyawan,
+        id_jenisproyek,
         tanggal_penawaran,
         keterangan ?? "",
       ];
@@ -142,20 +147,20 @@ const getNextProyekId = async (tanggal, conn) => {
   const periode = year + month;
   const [rows] = await conn.execute(
     `SELECT last_seq FROM proyek_sequences WHERE periode = ? FOR UPDATE`,
-    [periode]
+    [periode],
   );
   let nextSeq;
   if (rows.length) {
     nextSeq = rows[0].last_seq + 1;
     await conn.query(
       `UPDATE proyek_sequences SET last_seq = ? WHERE periode = ?`,
-      [nextSeq, periode]
+      [nextSeq, periode],
     );
   } else {
     nextSeq = 1;
     await conn.query(
       `INSERT INTO proyek_sequences (periode, last_seq) VALUES (?, ?)`,
-      [periode, nextSeq]
+      [periode, nextSeq],
     );
   }
   return {
@@ -185,6 +190,7 @@ const update = async ({
     "nama",
     "klien",
     "id_karyawan",
+    "id_jenisproyek",
     "tanggal_penawaran",
     "tanggalsuratjalan",
     "alamatsuratjalan",

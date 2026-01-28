@@ -1,5 +1,5 @@
 import { Router } from "express";
-import GolonganInstansiController from "../controllers/jenis-proyek.controller.js";
+import GolonganInstansiController from "../controllers/golongan-instansi.controller.js";
 
 const router = Router();
 
