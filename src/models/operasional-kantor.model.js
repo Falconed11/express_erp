@@ -23,13 +23,33 @@ const OperasionalKantor = {
   },
 
   async sumByKategoriOperasional({ start, end }) {
-    const sql = `SELECT ko.nama, sum(ok.biaya) pengeluaran, COUNT(ok.id) total FROM ${TABEL} ok
-    left join kategorioperasionalkantor ko on ko.id=ok.id_kategorioperasionalkantor
-    where ok.tanggal >= ?
-    AND ok.tanggal <  ?
-    group by ok.id_kategorioperasionalkantor, ko.nama`;
+    const sql = `
+      SELECT 
+          ko.nama,
+          COALESCE(SUM(ok.biaya), 0) AS pengeluaran,
+          COALESCE(COUNT(ok.id), 0) AS total
+      FROM kategorioperasionalkantor ko
+      LEFT JOIN ${TABEL} ok ON ko.id = ok.id_kategorioperasionalkantor
+      AND ok.tanggal >= ?
+      AND ok.tanggal < ?
+      GROUP BY ko.id, ko.nama
+      `;
     const [rows] = await db.execute(sql, [start, end]);
     return rows;
+  },
+
+  async calculateOperasionalKantor({ start, end, aggregate }) {
+    const validAggregate = ["sum"];
+    if (!validAggregate.includes(aggregate))
+      throw new Error("Aggregate tidak valid!");
+    const sql = `
+      SELECT COUNT(biaya) AS total, COALESCE(${aggregate}(biaya), 0) AS pengeluaran FROM ${TABEL}
+      where 1=1
+      AND tanggal >= ?
+      AND tanggal < ?
+      `;
+    const [rows] = await db.execute(sql, [start, end]);
+    return rows[0];
   },
 
   async getById(id) {
