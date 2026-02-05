@@ -15,6 +15,7 @@ const OperasionalKantorService = {
   },
 
   async getAll({ periode, aggregate }) {
+    console.log(periode);
     const { year, month } = parsePeriode(periode);
     const { start, end } = buildMonthlyRange(year, month);
     if (aggregate) {

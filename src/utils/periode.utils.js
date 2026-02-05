@@ -1,6 +1,6 @@
 export const parsePeriode = (periode) => {
-  if (!periode || typeof periode !== "string") {
-    throw new Error("Periode is required");
+  if (typeof periode !== "string") {
+    throw new Error("Periode is required and must be a string");
   }
 
   const match = /^(\d{4})-(\d{2})$/.exec(periode);
@@ -12,7 +12,7 @@ export const parsePeriode = (periode) => {
   const month = Number(match[2]);
 
   if (month < 1 || month > 12) {
-    throw new Error("Periode must be in YYYY-MM format");
+    throw new Error("Month must be between 01 and 12");
   }
 
   return { year, month };
@@ -27,4 +27,9 @@ export const buildMonthlyRange = (year, month) => {
   const end = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
 
   return { start, end };
+};
+
+export const buildMonthlyDateRangeFromPeriod = (periode) => {
+  const { year, month } = parsePeriode(periode);
+  return buildMonthlyRange(year, month);
 };
