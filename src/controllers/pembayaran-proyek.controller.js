@@ -1,14 +1,16 @@
+import { defaultAsyncController } from "../helpers/default.js";
 import PembayaranProyekService from "../services/pembayaran-proyek.service.js";
-import { successResponse } from "../utils/response.js";
 
 const PembayaranProyekController = {
   async get(req, res, next) {
-    try {
-      const data = await PembayaranProyekService.get(req.query);
-      successResponse(res, data);
-    } catch (err) {
-      next(err);
-    }
+    defaultAsyncController(
+      async (req) => PembayaranProyekService.get(req.query),
+      {
+        req,
+        res,
+        next,
+      },
+    );
   },
 };
 export default PembayaranProyekController;

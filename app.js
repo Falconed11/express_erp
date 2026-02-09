@@ -83,6 +83,7 @@ import jenisInstansiRoutes from "./src/routes/jenis-instansi.routes.js";
 import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
 import operasionalKantorRoutes from "./src/routes/operasional-kantor.routes.js";
 import pembayaranProyekRoutes from "./src/routes/pembayaran-proyek.routes.js";
+import pengeluaranProyekRoutes from "./src/routes/pengeluaran-proyek.routes.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 
@@ -119,6 +120,7 @@ app.use("/api/v2/jenis-instansi", jenisInstansiRoutes);
 app.use("/api/v2/jenis-proyek", jenisProyekRoutes);
 app.use("/api/v2/operasional-kantor", operasionalKantorRoutes);
 app.use("/api/v2/pembayaran-proyek", pembayaranProyekRoutes);
+app.use("/api/v2/pengeluaran-proyek", pengeluaranProyekRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
 
@@ -1464,8 +1466,13 @@ app.delete("/api/merek", async (req, res) => {
 
 // todolist
 app.get("/api/todolist", async (req, res) => {
-  const list = todolist.list(req.query);
-  res.json(await list);
+  try {
+    const list = todolist.list(req.query);
+    res.json(await list);
+  } catch (err) {
+    console.error("Error : ", err);
+    res.status(400).json({ message: err.message });
+  }
 });
 app.post("/api/todolist", async (req, res) => {
   try {
