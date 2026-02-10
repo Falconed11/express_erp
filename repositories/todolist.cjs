@@ -8,7 +8,6 @@ const list = async ({ id, id_user }) => {
   where 1=1${id ? " and id=?" : ""}${id_user ? " and id_user=?" : ""}
   order by deadlinedate`;
   const values = [...(id ? [id] : []), ...(id_user ? [id_user] : [])];
-  console.log({ sql, values });
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
