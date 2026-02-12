@@ -5,6 +5,8 @@ export const calculate = async ({
   start,
   end,
   aggregate,
+  customWhere = "",
+  customVal = [],
   columnName,
 }) => {
   const sql = `
@@ -12,8 +14,9 @@ export const calculate = async ({
       where 1=1
       AND tanggal >= ?
       AND tanggal < ?
+      ${customWhere}
       `;
-  const [rows] = await db.execute(sql, [start, end]);
+  const [rows] = await db.execute(sql, [start, end, ...customVal]);
   return rows[0];
 };
 

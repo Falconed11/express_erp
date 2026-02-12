@@ -1,15 +1,16 @@
-import { calculateService } from "./default.service.js";
+import { defaultCalculateFilterByIdPerusahaanService } from "../helpers/default.js";
 
 const table = "pembayaranproyek";
 
 const PembayaranProyekService = {
-  async get({ periode, aggregate }) {
-    return calculateService({
+  async get({ periode, aggregate, idPerusahaan }) {
+    return defaultCalculateFilterByIdPerusahaanService({
       periode,
       aggregate,
       columnName: "nominal",
       allowedAggregate: ["sum"],
       table,
+      idPerusahaan,
     });
   },
 };

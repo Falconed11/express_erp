@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { conditionalArrayBuilder, qWhereIdPerusahaan } from "../utils/tools.js";
 
 const TABEL = "operasionalkantor";
 
@@ -22,7 +23,32 @@ const OperasionalKantor = {
     return result;
   },
 
-  async sumByKategoriOperasional({ start, end }) {
+  async get({ start, end, idPerusahaan }) {
+    const sql = `
+      SELECT ok.*, ko.nama kategorioperasionalkantor, p.nama perusahaan FROM ${TABEL} ok 
+      LEFT JOIN kategorioperasionalkantor ko ON ko.id = ok.id_kategorioperasionalkantor
+      left join perusahaan p on p.id = ok.id_perusahaan
+      WHERE ok.tanggal >= ?
+      AND ok.tanggal < ?
+      ${qWhereIdPerusahaan(idPerusahaan)}
+      order by tanggal desc
+      `;
+    const [rows] = await db.execute(sql, [
+      start,
+      end,
+      ...conditionalArrayBuilder(idPerusahaan),
+    ]);
+    return rows;
+  },
+
+  async getGroupBy({ start, end, groupBy, idPerusahaan }) {
+    const validGroupBy = ["kategorioperasionalkantor"];
+    if (!validGroupBy.includes(groupBy))
+      throw new Error("Group By tidak valid!");
+    const queryGroupBy =
+      groupBy === "kategorioperasionalkantor"
+        ? "group by " + ["ko.id", "ko.nama"].join(", ")
+        : "";
     const sql = `
       SELECT 
           ko.nama,
@@ -32,13 +58,19 @@ const OperasionalKantor = {
       LEFT JOIN ${TABEL} ok ON ko.id = ok.id_kategorioperasionalkantor
       AND ok.tanggal >= ?
       AND ok.tanggal < ?
-      GROUP BY ko.id, ko.nama
+      where 1=1
+      ${qWhereIdPerusahaan(idPerusahaan)}
+      ${queryGroupBy}
       `;
-    const [rows] = await db.execute(sql, [start, end]);
+    const [rows] = await db.execute(sql, [
+      start,
+      end,
+      ...conditionalArrayBuilder(idPerusahaan),
+    ]);
     return rows;
   },
 
-  async calculateOperasionalKantor({ start, end, aggregate }) {
+  async calculateOperasionalKantor({ start, end, aggregate, idPerusahaan }) {
     const validAggregate = ["sum"];
     if (!validAggregate.includes(aggregate))
       throw new Error("Aggregate tidak valid!");
@@ -47,8 +79,13 @@ const OperasionalKantor = {
       where 1=1
       AND tanggal >= ?
       AND tanggal < ?
+      ${qWhereIdPerusahaan(idPerusahaan)}
       `;
-    const [rows] = await db.execute(sql, [start, end]);
+    const [rows] = await db.execute(sql, [
+      start,
+      end,
+      ...conditionalArrayBuilder(idPerusahaan),
+    ]);
     return rows[0];
   },
 

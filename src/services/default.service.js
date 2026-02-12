@@ -7,6 +7,8 @@ export const calculateService = async ({
   aggregate,
   columnName,
   allowedAggregate,
+  customVal,
+  customWhere,
   table,
 }) => {
   if (periode && aggregate) {
@@ -18,6 +20,8 @@ export const calculateService = async ({
       end,
       start,
       table,
+      customVal,
+      customWhere,
     });
   }
   return getAll(table);

@@ -84,6 +84,7 @@ import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
 import operasionalKantorRoutes from "./src/routes/operasional-kantor.routes.js";
 import pembayaranProyekRoutes from "./src/routes/pembayaran-proyek.routes.js";
 import pengeluaranProyekRoutes from "./src/routes/pengeluaran-proyek.routes.js";
+import perusahaanRoutes from "./src/routes/perusahaan.routes.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 
@@ -121,6 +122,7 @@ app.use("/api/v2/jenis-proyek", jenisProyekRoutes);
 app.use("/api/v2/operasional-kantor", operasionalKantorRoutes);
 app.use("/api/v2/pembayaran-proyek", pembayaranProyekRoutes);
 app.use("/api/v2/pengeluaran-proyek", pengeluaranProyekRoutes);
+app.use("/api/v2/perusahaan", perusahaanRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
 

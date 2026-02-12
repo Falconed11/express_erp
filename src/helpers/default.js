@@ -1,4 +1,6 @@
+import { calculateService } from "../services/default.service.js";
 import { successResponse } from "../utils/response.js";
+import { conditionalArrayBuilder, qWhereIdPerusahaan } from "../utils/tools.js";
 
 export const defaultAsyncController = async (serviceFn, { req, res, next }) => {
   try {
@@ -7,4 +9,15 @@ export const defaultAsyncController = async (serviceFn, { req, res, next }) => {
   } catch (err) {
     next(err);
   }
+};
+
+export const defaultCalculateFilterByIdPerusahaanService = ({
+  id_perusahaan,
+  ...rest
+}) => {
+  calculateService({
+    ...rest,
+    customVal: conditionalArrayBuilder(id_perusahaan),
+    customWhere: qWhereIdPerusahaan(id_perusahaan),
+  });
 };

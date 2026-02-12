@@ -1,3 +1,4 @@
+import { defaultAsyncController } from "../helpers/default.js";
 import OperasionalKantorService from "../services/operasional-kantor.service.js";
 import { successResponse } from "../utils/response.js";
 
@@ -14,12 +15,14 @@ const OperasionalKantorController = {
   },
 
   async getAll(req, res, next) {
-    try {
-      const data = await OperasionalKantorService.getAll(req.query);
-      successResponse(res, data);
-    } catch (err) {
-      next(err);
-    }
+    defaultAsyncController(
+      async (req) => OperasionalKantorService.getAll(req.query),
+      {
+        req,
+        res,
+        next,
+      },
+    );
   },
 
   async getById(req, res, next) {

@@ -1,5 +1,5 @@
 import OperasionalKantor from "../models/operasional-kantor.model.js";
-import { buildMonthlyRange, parsePeriode } from "../utils/periode.utils.js";
+import { buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
 const NAME = "golongan instansi";
 const OperasionalKantorService = {
   async create(data) {
@@ -14,21 +14,20 @@ const OperasionalKantorService = {
     });
   },
 
-  async getAll({ periode, aggregate }) {
-    console.log(periode);
-    const { year, month } = parsePeriode(periode);
-    const { start, end } = buildMonthlyRange(year, month);
-    if (aggregate) {
+  async getAll({ periode, aggregate, groupBy, idPerusahaan }) {
+    const { start, end } = buildMonthlyDateRangeFromPeriod(periode);
+    const defaultParam = { start, end, idPerusahaan };
+    if (aggregate)
       return OperasionalKantor.calculateOperasionalKantor({
-        start,
-        end,
+        ...defaultParam,
         aggregate,
       });
-    }
-    return OperasionalKantor.sumByKategoriOperasional({
-      start,
-      end,
-    });
+    if (groupBy)
+      return OperasionalKantor.getGroupBy({
+        ...defaultParam,
+        groupBy,
+      });
+    return OperasionalKantor.get({ ...defaultParam });
   },
 
   async getById(id) {
