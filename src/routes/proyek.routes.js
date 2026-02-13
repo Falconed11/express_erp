@@ -1,14 +1,14 @@
 import { Router } from "express";
-import * as controller from "../controllers/proyek.controller.js";
+import ProyekController from "../controllers/proyek.controller.js";
 
 const router = Router();
 
-router.get("/", controller.getAllUsers);
-// router.get('/:id', controller.getUserById);
-// router.post('/', controller.createUser);
-// router.put('/:id', controller.updateUser);
-// router.delete('/:id', controller.deleteUser);
+router.get("/", ProyekController.get);
+// router.get('/:id', ProyekController.getUserById);
+// router.post('/', ProyekController.createUser);
+// router.put('/:id', ProyekController.updateUser);
+// router.delete('/:id', ProyekController.deleteUser);
 
-router.get("/:id/produkmenunggu", controller.getStagedProductByProjectId);
+router.get("/:id/produkmenunggu", ProyekController.getStagedProductByProjectId);
 
 export default router;

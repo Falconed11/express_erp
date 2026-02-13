@@ -1,8 +1,14 @@
-import * as model from "../models/proyek.model.js";
+import ProyekModel from "../models/proyek.model.js";
+import { getByPeriodeService } from "./default.service.js";
 
-export const getAll = async () => {
-  return model.findAll();
+const ProyekService = {
+  async get({ periode, idPerusahaan }) {
+    if (periode) return getByPeriodeService("proyek", periode, idPerusahaan);
+    return ProyekModel.findAll();
+  },
+  async getStagedProductByProjectId(id) {
+    return ProyekModel.findStagedProductByProjectId(id);
+  },
 };
-export const getStagedProductByProjectId = async (id) => {
-  return model.findStagedProductByProjectId(id);
-};
+
+export default ProyekService;

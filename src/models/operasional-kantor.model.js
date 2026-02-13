@@ -58,8 +58,8 @@ const OperasionalKantor = {
       LEFT JOIN ${TABEL} ok ON ko.id = ok.id_kategorioperasionalkantor
       AND ok.tanggal >= ?
       AND ok.tanggal < ?
-      where 1=1
       ${qWhereIdPerusahaan(idPerusahaan)}
+      where 1=1
       ${queryGroupBy}
       `;
     const [rows] = await db.execute(sql, [

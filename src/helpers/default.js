@@ -11,13 +11,13 @@ export const defaultAsyncController = async (serviceFn, { req, res, next }) => {
   }
 };
 
-export const defaultCalculateFilterByIdPerusahaanService = ({
-  id_perusahaan,
+export const defaultCalculateFilterByIdPerusahaanService = async ({
+  idPerusahaan,
   ...rest
-}) => {
+}) =>
   calculateService({
     ...rest,
-    customVal: conditionalArrayBuilder(id_perusahaan),
-    customWhere: qWhereIdPerusahaan(id_perusahaan),
+    customVal: conditionalArrayBuilder(idPerusahaan),
+    customWhere: qWhereIdPerusahaan(idPerusahaan),
+    buildCustomJoin: (main) => `left join proyek p on p.id = ${main}.id_proyek`,
   });
-};

@@ -1,14 +1,13 @@
 import db from "../config/db.js";
-import { withTransaction } from "../helpers/transaction.js";
 
-export const findAll = async () => {
-  const [rows] = await db.execute("SELECT * FROM proyek");
-  return rows;
-};
-
-export const findStagedProductByProjectId = async (id) => {
-  const [rows] = await db.execute(
-    `With sumkeranjangproyek as (
+const ProyekModel = {
+  async findAll() {
+    const [rows] = await db.execute("SELECT * FROM proyek");
+    return rows;
+  },
+  async findStagedProductByProjectId(id) {
+    const [rows] = await db.execute(
+      `With sumkeranjangproyek as (
         select id_produk, sum(jumlah) total
         from keranjangproyek
         where id_proyek=?
@@ -27,7 +26,9 @@ export const findStagedProductByProjectId = async (id) => {
         left join merek m on m.id=pr.id_merek
         left join kategoriproduk kp on kp.id = pr.id_kategori
         order by kp.nama, pr.nama, m.nama, pr.tipe`,
-    [id, id]
-  );
-  return rows;
+      [id, id],
+    );
+    return rows;
+  },
 };
+export default ProyekModel;

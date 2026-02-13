@@ -1,21 +1,23 @@
-import * as service from "../services/proyek.service.js";
-import { successResponse } from "../utils/response.js";
+import { defaultAsyncController } from "../helpers/default.js";
+import ProyekService from "../services/proyek.service.js";
 
-export const getAllUsers = async (req, res, next) => {
-  try {
-    const data = await service.getAll();
-    successResponse(res, data);
-  } catch (err) {
-    next(err);
-  }
+const ProyekController = {
+  async get(req, res, next) {
+    defaultAsyncController(async (req) => ProyekService.get(req.query), {
+      req,
+      res,
+      next,
+    });
+  },
+  async getStagedProductByProjectId(req, res, next) {
+    defaultAsyncController(
+      async (req) => ProyekService.getStagedProductByProjectId(req.query.id),
+      {
+        req,
+        res,
+        next,
+      },
+    );
+  },
 };
-
-export const getStagedProductByProjectId = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const data = await service.getStagedProductByProjectId(id);
-    successResponse(res, data);
-  } catch (err) {
-    next(err);
-  }
-};
+export default ProyekController;
