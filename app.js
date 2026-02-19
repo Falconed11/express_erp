@@ -81,6 +81,7 @@ import vendor from "./repositories/vendor.cjs";
 import golonganInstansiRoutes from "./src/routes/golongan-instansi.routes.js";
 import jenisInstansiRoutes from "./src/routes/jenis-instansi.routes.js";
 import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
+import keranjangProyekRoutes from "./src/routes/keranjang-proyek.routes.js";
 import operasionalKantorRoutes from "./src/routes/operasional-kantor.routes.js";
 import pembayaranProyekRoutes from "./src/routes/pembayaran-proyek.routes.js";
 import pengeluaranProyekRoutes from "./src/routes/pengeluaran-proyek.routes.js";
@@ -119,6 +120,7 @@ app.get("/", (req, res) => {
 app.use("/api/v2/golongan-instansi", golonganInstansiRoutes);
 app.use("/api/v2/jenis-instansi", jenisInstansiRoutes);
 app.use("/api/v2/jenis-proyek", jenisProyekRoutes);
+app.use("/api/v2/keranjang-proyek", keranjangProyekRoutes);
 app.use("/api/v2/operasional-kantor", operasionalKantorRoutes);
 app.use("/api/v2/pembayaran-proyek", pembayaranProyekRoutes);
 app.use("/api/v2/pengeluaran-proyek", pengeluaranProyekRoutes);

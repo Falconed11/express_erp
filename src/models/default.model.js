@@ -1,6 +1,8 @@
 import db from "../config/db.js";
 import { conditionalArrayBuilder, qWhereIdPerusahaan } from "../utils/tools.js";
 
+const mainTableAlias = "main";
+
 export const calculate = async ({
   table,
   start,
@@ -19,7 +21,6 @@ export const calculate = async ({
       AND main.tanggal < ?
       ${customWhere}
       `;
-  console.log(sql, customVal, customWhere);
   const [rows] = await db.execute(sql, [start, end, ...customVal]);
   return rows[0];
 };
@@ -30,14 +31,23 @@ export const getAll = async (table) => {
   return rows;
 };
 
-export const getByPeriode = async (table, start, end, idPerusahaan) => {
+export const getByPeriode = async (
+  table,
+  start,
+  end,
+  idPerusahaan,
+  buildLeftJoin = () => "",
+  select = "",
+) => {
   const sql = `
-      SELECT main.* FROM ${table} main
+      SELECT ${mainTableAlias}.*${select ? `, ${select}` : ""} FROM ${table} ${mainTableAlias}
+      ${buildLeftJoin(mainTableAlias)}
       where 1=1
-      AND main.tanggal >= ?
-      AND main.tanggal < ?
+      AND ${mainTableAlias}.tanggal >= ?
+      AND ${mainTableAlias}.tanggal < ?
       ${qWhereIdPerusahaan(idPerusahaan)}
       `;
+  console.log(sql);
   const [rows] = await db.execute(sql, [
     start,
     end,

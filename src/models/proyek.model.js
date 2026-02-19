@@ -1,5 +1,11 @@
 import db from "../config/db.js";
 
+const buildLeftJoin = (
+  mainTable,
+) => `left join instansi i on i.id=${mainTable}.id_instansi
+left join perusahaan p on p.id=${mainTable}.id_perusahaan`;
+const select = "i.nama instansi, i.swasta, p.nama perusahaan";
+
 const ProyekModel = {
   async findAll() {
     const [rows] = await db.execute("SELECT * FROM proyek");
@@ -30,5 +36,7 @@ const ProyekModel = {
     );
     return rows;
   },
+  buildLeftJoin,
+  select,
 };
 export default ProyekModel;

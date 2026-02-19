@@ -29,7 +29,13 @@ export const calculateService = async ({
   return getAll(table);
 };
 
-export const getByPeriodeService = (table, periode, idPerusahaan) => {
+export const getByPeriodeService = (
+  table,
+  periode,
+  idPerusahaan,
+  buildLeftJoin,
+  select,
+) => {
   const { start, end } = buildMonthlyDateRangeFromPeriod(periode);
-  return getByPeriode(table, start, end, idPerusahaan);
+  return getByPeriode(table, start, end, idPerusahaan, buildLeftJoin, select);
 };
