@@ -11,7 +11,7 @@ const ProyekController = {
   },
   async getStagedProductByProjectId(req, res, next) {
     defaultAsyncController(
-      async (req) => ProyekService.getStagedProductByProjectId(req.query.id),
+      async (req) => ProyekService.getStagedProductByProjectId(req.params.id),
       {
         req,
         res,

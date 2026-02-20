@@ -124,6 +124,7 @@ const create = async ({
         tanggal_penawaran,
         keterangan ?? "",
       ];
+      console.log(values);
       const [insertResult] = await conn.execute(sql, values);
       return {
         customerInsertId: id_instansi,
