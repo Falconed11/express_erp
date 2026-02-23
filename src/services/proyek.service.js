@@ -16,6 +16,12 @@ const ProyekService = {
   async getStagedProductByProjectId(id) {
     return ProyekModel.findStagedProductByProjectId(id);
   },
+  async calculatePengeluaranById(param) {
+    return ProyekModel.calculatePengeluaranById(param);
+  },
+  async calculatePembayaranById(param) {
+    return ProyekModel.calculatePembayaranById(param);
+  },
 };
 
 export default ProyekService;

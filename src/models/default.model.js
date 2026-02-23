@@ -47,7 +47,6 @@ export const getByPeriode = async (
       AND ${mainTableAlias}.tanggal < ?
       ${qWhereIdPerusahaan(idPerusahaan)}
       `;
-  console.log(sql);
   const [rows] = await db.execute(sql, [
     start,
     end,

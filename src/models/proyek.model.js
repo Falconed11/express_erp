@@ -1,4 +1,5 @@
 import db from "../config/db.js";
+import { conditionalArrayBuilder, queryWhereBuilder } from "../utils/tools.js";
 
 const buildLeftJoin = (
   mainTable,
@@ -35,6 +36,21 @@ const ProyekModel = {
       [id, id],
     );
     return rows;
+  },
+  async calculatePengeluaranById({ id, aggregate, lunas = null }) {
+    const query = `select ${aggregate}(pp.jumlah*if(pp.id_produkkeluar,ifnull(pm.harga,0),pp.harga)) totalpengeluaran from pengeluaranproyek pp
+    left join produkkeluar pk on pk.id=pp.id_produkkeluar
+    left join produkmasuk pm on pm.id=pk.id_produkmasuk
+    where pp.id_proyek=? ${queryWhereBuilder(lunas, "lunas")}`;
+    const values = [id, ...conditionalArrayBuilder(lunas)];
+    const [rows] = await db.execute(query, values);
+    return rows[0];
+  },
+  async calculatePembayaranById({ id, aggregate }) {
+    const query = `select ${aggregate}(nominal) totalpembayaran from pembayaranproyek where id_proyek=?`;
+    const values = [id];
+    const [rows] = await db.execute(query, values);
+    return rows[0];
   },
   buildLeftJoin,
   select,
