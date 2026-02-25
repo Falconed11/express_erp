@@ -1,5 +1,6 @@
 import { defaultAsyncController } from "../helpers/default.js";
 import ProyekService from "../services/proyek.service.js";
+import { buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
 import { assertAllowedValues } from "../utils/validation.js";
 
 const ProyekController = {
@@ -49,6 +50,25 @@ const ProyekController = {
         return ProyekService.calculatePembayaranById({
           id,
           aggregate,
+        });
+      },
+      {
+        req,
+        res,
+        next,
+      },
+    );
+  },
+  async calculatePembayaranById(req, res, next) {
+    defaultAsyncController(
+      async (req) => {
+        const { periode } = req.query;
+        const { end: to, start: from } =
+          buildMonthlyDateRangeFromPeriod(periode);
+        assertAllowedValues(aggregate, ["sum"], "Aggregate");
+        return ProyekService.getMonthlyReport({
+          from,
+          to,
         });
       },
       {
