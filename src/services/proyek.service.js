@@ -22,21 +22,29 @@ const ProyekService = {
   async calculatePembayaranById(param) {
     return ProyekModel.calculatePembayaranById(param);
   },
-  async getMonthlyReport(param) {
-    const rows = await ProyekModel.getMonthlyReport(param);
+  async getMonthlyReports(param) {
+    const rows = await ProyekModel.getMonthlyReports(param);
     const proyekMap = {};
 
     rows.forEach((r) => {
       if (!proyekMap[r.id]) {
         proyekMap[r.id] = {
+          id: r.id,
+          tanggal: r.tanggal,
           id_second: r.id_second,
           nama: r.nama,
-          jeniproyek: r.jeniproyek,
+          perusahaan: r.perusahaan,
+          karyawan: r.karyawan,
+          jenisproyek: r.jenisproyek,
           swasta: r.swasta,
+          instansi: r.instansi,
+          jenisinstansi: r.jenisinstansi,
+          golonganinstansi: r.golonganinstansi,
           totalpengeluaran: r.totalpengeluaran,
-          totalpembayaran: r.totalpembayaran,
+          totalpembayaran: +r.totalpembayaran,
           profit: r.profit,
           bank: r.bank,
+          metodepembayaran: r.metodepembayaran,
           pembayaran: [],
         };
       }
@@ -45,12 +53,13 @@ const ProyekService = {
         proyekMap[r.id].pembayaran.push({
           id: r.id_pembayaran,
           nominal: r.nominal,
-          tanggal: r.tanggal_bayar,
+          tanggal: r.tanggal_pembayaran,
         });
       }
     });
 
     const result = Object.values(proyekMap);
+    return result;
   },
 };
 

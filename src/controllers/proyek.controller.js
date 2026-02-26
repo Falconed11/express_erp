@@ -59,17 +59,13 @@ const ProyekController = {
       },
     );
   },
-  async calculatePembayaranById(req, res, next) {
+  async getMonthlyReports(req, res, next) {
     defaultAsyncController(
       async (req) => {
-        const { periode } = req.query;
-        const { end: to, start: from } =
-          buildMonthlyDateRangeFromPeriod(periode);
-        assertAllowedValues(aggregate, ["sum"], "Aggregate");
-        return ProyekService.getMonthlyReport({
-          from,
-          to,
-        });
+        const query = req.query;
+        const from = new Date(query.from);
+        const to = new Date(query.to);
+        return ProyekService.getMonthlyReports({ from, to });
       },
       {
         req,

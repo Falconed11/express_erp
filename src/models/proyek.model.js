@@ -13,16 +13,19 @@ const buildCalculatePengeluaranById = ({
 }) => `select pp.id_proyek, ${aggregate}(pp.jumlah*if(pp.id_produkkeluar,ifnull(pm.harga,0),pp.harga)) totalpengeluaran from pengeluaranproyek pp
 left join produkkeluar pk on pk.id=pp.id_produkkeluar
 left join produkmasuk pm on pm.id=pk.id_produkmasuk
+where 1=1 ${queryWhereBuilder(id, "pp.id_proyek")} ${queryWhereBuilder(lunas, "lunas")}
 group by pp.id_proyek
-where 1=1 ${queryWhereBuilder(id, "pp.id_proyek")} ${queryWhereBuilder(lunas, "lunas")}`;
+`;
 const buildCalculatePembayaranProyekById = ({ id = null, aggregate }) =>
   `select id_proyek, ${aggregate}(nominal) totalpembayaran from pembayaranproyek
+where 1=1 ${queryWhereBuilder(id, "id_proyek")}
 group by id_proyek
-where 1=1 ${queryWhereBuilder(id, "id_proyek")}`;
+`;
+const table = "proyek";
 
 const ProyekModel = {
   async findAll() {
-    const [rows] = await db.execute("SELECT * FROM proyek");
+    const [rows] = await db.execute(`SELECT * FROM ${table}`);
     return rows;
   },
   async findStagedProductByProjectId(id) {
@@ -65,19 +68,26 @@ const ProyekModel = {
     const [rows] = await db.execute(query, values);
     return rows[0];
   },
-  async getMonthlyReport({ from, to }) {
+  async getMonthlyReports({ from, to }) {
     const aggregate = "sum";
-    const sql = `select p.*, pm.totalpembayaran, pn.totalpengeluaran, pm.totalpembayaran - pn.pengeluaran profit, pp.nominal, pp.tanggal, mp.nama metodepembayaran, b.nama bank from ${mainTable} p
+    const sql = `select p.*, jp.nama jenisproyek, pr.nama perusahaan, k.nama karyawan, i.nama instansi, i.swasta, ji.nama jenisinstansi, gi.nama golonganinstansi, pm.totalpembayaran, pn.totalpengeluaran, pm.totalpembayaran - pn.totalpengeluaran profit, pp.nominal, pp.tanggal tanggal_pembayaran, mp.nama metodepembayaran, b.nama bank from ${table} p
+    left join jenisproyek jp on jp.id=p.id_jenisproyek
+    left join perusahaan pr on pr.id=p.id_perusahaan
+    left join karyawan k on k.id=p.id_karyawan
+    left join instansi i on i.id=p.id_instansi
+    left join jenisinstansi ji on ji.id=i.id_jenisinstansi
+    left join golonganinstansi gi on gi.id=i.id_golonganinstansi
     left join (${buildCalculatePengeluaranById({ aggregate })}) pn on pn.id_proyek=p.id
     left join (${buildCalculatePembayaranProyekById({ aggregate })}) pm on pm.id_proyek=p.id
     left join pembayaranproyek pp on pp.id_proyek=p.id
     left join metodepembayaran mp on mp.id=pp.id_metodepembayaran
-    left join bank b on b.id=pp.id_bank
+    left join bank b on b.id=mp.id_bank
     where p.tanggal >= ?
     AND p.tanggal < ?
     `;
     const values = [from, to];
-    const [rows] = db.execute(sql, values);
+    console.log(values);
+    const [rows] = await db.execute(sql, values);
     return rows;
   },
   buildLeftJoin,
