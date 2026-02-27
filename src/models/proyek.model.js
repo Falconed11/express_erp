@@ -68,7 +68,14 @@ const ProyekModel = {
     const [rows] = await db.execute(query, values);
     return rows[0];
   },
-  async getMonthlyReports({ from, to }) {
+  async getMonthlyReports({
+    from,
+    to,
+    jenisproyek,
+    jenisinstansi,
+    golonganinstansi,
+    perusahaan,
+  }) {
     const aggregate = "sum";
     const sql = `select p.*, jp.nama jenisproyek, pr.nama perusahaan, k.nama karyawan, i.nama instansi, i.swasta, ji.nama jenisinstansi, gi.nama golonganinstansi, pm.totalpembayaran, pn.totalpengeluaran, pm.totalpembayaran - pn.totalpengeluaran profit, pp.nominal, pp.tanggal tanggal_pembayaran, mp.nama metodepembayaran, b.nama bank from ${table} p
     left join jenisproyek jp on jp.id=p.id_jenisproyek
@@ -82,11 +89,23 @@ const ProyekModel = {
     left join pembayaranproyek pp on pp.id_proyek=p.id
     left join metodepembayaran mp on mp.id=pp.id_metodepembayaran
     left join bank b on b.id=mp.id_bank
+    left join statusproyek sp on sp.id=p.id_statusproyek
     where p.tanggal >= ?
     AND p.tanggal < ?
+    and sp.progress=100
+    ${queryWhereBuilder(jenisproyek, "p.id_jenisproyek")}
+    ${queryWhereBuilder(jenisinstansi, "i.id_jenisinstansi")}
+    ${queryWhereBuilder(golonganinstansi, "i.id_golonganinstansi")}
+    ${queryWhereBuilder(perusahaan, "p.id_perusahaan")}
     `;
-    const values = [from, to];
-    console.log(values);
+    const values = [
+      from,
+      to,
+      ...conditionalArrayBuilder(jenisproyek),
+      ...conditionalArrayBuilder(jenisinstansi),
+      ...conditionalArrayBuilder(golonganinstansi),
+      ...conditionalArrayBuilder(perusahaan),
+    ];
     const [rows] = await db.execute(sql, values);
     return rows;
   },

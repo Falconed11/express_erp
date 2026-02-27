@@ -65,7 +65,7 @@ const ProyekController = {
         const query = req.query;
         const from = new Date(query.from);
         const to = new Date(query.to);
-        return ProyekService.getMonthlyReports({ from, to });
+        return ProyekService.getMonthlyReports({ ...query, from, to });
       },
       {
         req,
