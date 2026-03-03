@@ -53,17 +53,6 @@ const update = async ({
   ...rest
 }) => {
   try {
-    console.log({
-      id,
-      sn,
-      id_produkmasuk,
-      id_produk,
-      oldJumlah,
-      harga,
-      metodepengeluaran,
-      tanggal,
-      ...rest,
-    });
     // throw new Error("Test");
     const result = withTransaction(pool, async (conn) => {
       if (metodepengeluaran != "proyek") {
@@ -71,7 +60,6 @@ const update = async ({
         let values = [sn, harga, metodepengeluaran, tanggal, id];
         const res = await conn.execute(sql, values);
       } else {
-        console.log("start");
         const isSelected = true;
         let res = await queryDelete({
           ...rest,
@@ -141,6 +129,7 @@ const queryCreate = async ({
   status,
   conn,
 }) => {
+  console.log({ keterangan });
   assertTransaction(conn, queryCreate.name);
   try {
     if (!sn || sn == 0)
@@ -151,7 +140,6 @@ const queryCreate = async ({
     sql = "select stok, satuan from produk where id=? for update";
     values = [id_produk];
     [result] = await conn.execute(sql, values);
-    console.log(1);
     const produk = result[0];
     const stok = produk.stok;
     const satuan = produk.satuan;
@@ -191,7 +179,6 @@ const queryCreate = async ({
         sql = `select id, (jumlah - keluar) stok, harga, id_vendor from produkmasuk where jumlah > keluar and id_produk = ?  order by harga desc limit 1 for update`;
         values = [id_produk];
         [result] = await conn.execute(sql, values);
-        console.log(6);
         const produkmasuk = result[0];
         const stok = produkmasuk.stok;
         const keluar = sisa >= stok ? stok : sisa;
@@ -201,12 +188,10 @@ const queryCreate = async ({
         sql = `update produkmasuk set keluar = keluar + ? where id = ?`;
         values = [keluar, idProdukMasuk];
         [result] = await conn.execute(sql, values);
-        console.log(7);
 
         sql = `update produk set stok = stok - ? where id = ?`;
         values = [keluar, id_produk];
         [result] = await conn.execute(sql, values);
-        console.log(8);
 
         sql = `insert into ${table} (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, jumlah, harga, tanggal, keterangan) values (?,?,?,?,${keluar},?,?,?)`;
         values = [
@@ -214,12 +199,11 @@ const queryCreate = async ({
           id_produk,
           idProdukMasuk,
           id_proyek || null,
-          isSelected == true ? produkmasuk.harga : harga ?? 0,
+          isSelected == true ? produkmasuk.harga : (harga ?? 0),
           tanggal,
           keterangan,
         ];
         [result] = await conn.execute(sql, values);
-        console.log(9);
 
         if (isSelected == true) {
           sql = `insert into pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, id_vendor, jumlah, harga, status, keterangan) values (${
@@ -236,7 +220,6 @@ const queryCreate = async ({
             keterangan ?? "",
           ];
           [result] = await conn.execute(sql, values);
-          console.log(10);
         }
       }
     }
@@ -259,7 +242,6 @@ const queryDelete = async ({
     sql = `select * from ${table} where id = ? for update`;
     values = [id];
     const [test] = await conn.execute(sql, values);
-    console.log(1);
     await conn.execute(`select produkmasuk where id = ? for update`, [
       id_produkmasuk,
     ]);
@@ -270,24 +252,20 @@ const queryDelete = async ({
     sql = `delete from ${table} where id = ?`;
     values = [id];
     const [result1] = await conn.execute(sql, values);
-    console.log(2);
 
     if (metodepengeluaran == "proyek") {
       sql = `delete from pengeluaranproyek where id_produkkeluar = ?`;
       values = [id];
       const [result4] = await conn.execute(sql, values);
-      console.log(3);
     }
 
     sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
     values = [jumlah, id_produkmasuk];
     const [result2] = await conn.execute(sql, values);
-    console.log(4);
 
     sql = `update produk set stok=stok + ? where id = ?`;
     values = [jumlah, id_produk];
     const [result3] = await conn.execute(sql, values);
-    console.log(5);
   } catch (err) {
     console.error("Error : ", err);
     throw err;

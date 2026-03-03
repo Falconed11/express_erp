@@ -11,11 +11,13 @@ export const calculateService = async ({
   customWhere,
   buildCustomJoin,
   table,
+  ...rest
 }) => {
   if (periode && aggregate) {
     const { start, end } = buildMonthlyDateRangeFromPeriod(periode);
     assertAllowedValues(aggregate, allowedAggregate, "Aggregate");
     return calculate({
+      ...rest,
       aggregate,
       columnName,
       end,

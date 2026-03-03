@@ -70,7 +70,13 @@ const OperasionalKantor = {
     return rows;
   },
 
-  async calculateOperasionalKantor({ start, end, aggregate, idPerusahaan }) {
+  async calculateOperasionalKantor({
+    start,
+    end,
+    aggregate,
+    idPerusahaan,
+    conn = db,
+  }) {
     const validAggregate = ["sum"];
     if (!validAggregate.includes(aggregate))
       throw new Error("Aggregate tidak valid!");
@@ -81,7 +87,7 @@ const OperasionalKantor = {
       AND tanggal < ?
       ${qWhereIdPerusahaan(idPerusahaan)}
       `;
-    const [rows] = await db.execute(sql, [
+    const [rows] = await conn.execute(sql, [
       start,
       end,
       ...conditionalArrayBuilder(idPerusahaan),

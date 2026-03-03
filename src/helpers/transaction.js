@@ -1,4 +1,5 @@
-export const withTransaction = async (pool, fn) => {
+import pool from "../config/db.js";
+export const withTransaction = async (fn) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -20,6 +21,6 @@ export const withTransaction = async (pool, fn) => {
 export const assertTransaction = (conn, operation = "Operation") => {
   if (!conn || !conn.__inTransaction)
     throw new Error(
-      `${operation}() must be called inside transaction. Set conn.__inTransaction to true after transaction begin.`
+      `${operation}() must be called inside transaction. Set conn.__inTransaction to true after transaction begin.`,
     );
 };

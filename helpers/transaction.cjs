@@ -1,4 +1,6 @@
-const withTransaction = async (pool, fn) => {
+const defPool = require("../repositories/db.2.0.0.cjs");
+
+const withTransaction = async (pool = defPool, fn) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -20,7 +22,7 @@ const withTransaction = async (pool, fn) => {
 const assertTransaction = (conn, operation = "Operation") => {
   if (!conn || !conn.__inTransaction)
     throw new Error(
-      `${operation}() must be called inside transaction. Set conn.__inTransaction to true after transaction begin.`
+      `${operation}() must be called inside transaction. Set conn.__inTransaction to true after transaction begin.`,
     );
 };
 module.exports = { withTransaction, assertTransaction };

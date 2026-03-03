@@ -9,5 +9,16 @@ const PerusahaanController = {
       next,
     });
   },
+  async getMonthlyReport(req, res, next) {
+    defaultAsyncController(
+      async (req) =>
+        PerusahaanService.getMonthlyReport({ ...req.query, ...req.params }),
+      {
+        req,
+        res,
+        next,
+      },
+    );
+  },
 };
 export default PerusahaanController;

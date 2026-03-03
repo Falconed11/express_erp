@@ -4,6 +4,7 @@ import { conditionalArrayBuilder, qWhereIdPerusahaan } from "../utils/tools.js";
 const mainTableAlias = "main";
 
 export const calculate = async ({
+  conn = db,
   table,
   start,
   end,
@@ -21,7 +22,7 @@ export const calculate = async ({
       AND main.tanggal < ?
       ${customWhere}
       `;
-  const [rows] = await db.execute(sql, [start, end, ...customVal]);
+  const [rows] = await conn.execute(sql, [start, end, ...customVal]);
   return rows[0];
 };
 
