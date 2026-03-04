@@ -29,7 +29,6 @@ const list = async ({ id_produk }) => {
   }
 };
 const create = async (rest) => {
-  console.log(rest);
   try {
     const result = await withTransaction(pool, async (conn) => {
       const res = await queryCreate({ ...rest, conn });
@@ -170,7 +169,7 @@ const queryCreate = async ({
           tanggal,
           keterangan,
         ];
-        console.log(values)[result] = await conn.execute(sql, values);
+        [result] = await conn.execute(sql, values);
         console.log(5);
       }
     } else {
