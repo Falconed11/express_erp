@@ -1,5 +1,9 @@
 import db from "../config/db.js";
-import { conditionalArrayBuilder, qWhereIdPerusahaan } from "../utils/tools.js";
+import {
+  conditionalArrayBuilder,
+  queryWhereBuilder,
+  qWhereIdPerusahaan,
+} from "../utils/tools.js";
 
 const mainTableAlias = "main";
 
@@ -14,15 +18,20 @@ export const calculate = async ({
   buildCustomJoin = () => "",
   columnName,
 }) => {
+  console.log({ start, end });
   const sql = `
       SELECT COUNT(main.${columnName}) totalRow, COALESCE(${aggregate}(main.${columnName}), 0) totalValue FROM ${table} main
       ${buildCustomJoin("main")}
       where 1=1
-      AND main.tanggal >= ?
-      AND main.tanggal < ?
+      ${queryWhereBuilder(start, "main.tanggal", ">=")}
+      ${queryWhereBuilder(end, "main.tanggal", "<")}
       ${customWhere}
       `;
-  const [rows] = await conn.execute(sql, [start, end, ...customVal]);
+  const [rows] = await conn.execute(sql, [
+    ...conditionalArrayBuilder(start),
+    ...conditionalArrayBuilder(end),
+    ...customVal,
+  ]);
   return rows[0];
 };
 

@@ -5,27 +5,22 @@ import { assertAllowedValues } from "../utils/validation.js";
 export const calculateService = async ({
   periode,
   aggregate,
-  columnName,
+  from,
+  to,
   allowedAggregate,
-  customVal,
-  customWhere,
-  buildCustomJoin,
-  table,
   ...rest
 }) => {
-  if (periode && aggregate) {
-    const { start, end } = buildMonthlyDateRangeFromPeriod(periode);
+  if (aggregate) {
+    const { start, end } = periode
+      ? buildMonthlyDateRangeFromPeriod(periode)
+      : { start: from, end: to };
     assertAllowedValues(aggregate, allowedAggregate, "Aggregate");
     return calculate({
       ...rest,
       aggregate,
-      columnName,
       end,
       start,
-      table,
-      customVal,
-      customWhere,
-      buildCustomJoin,
+      allowedAggregate,
     });
   }
   return getAll(table);

@@ -1,5 +1,6 @@
 import { defaultAsyncController } from "../helpers/default.js";
 import PerusahaanService from "../services/perusahaan.service.js";
+import { buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
 
 const PerusahaanController = {
   async get(req, res, next) {
@@ -11,8 +12,19 @@ const PerusahaanController = {
   },
   async getMonthlyReport(req, res, next) {
     defaultAsyncController(
-      async (req) =>
-        PerusahaanService.getMonthlyReport({ ...req.query, ...req.params }),
+      async (req) => {
+        const { query } = req;
+        const { periode } = query;
+        const { start: from, end: to } = periode
+          ? buildMonthlyDateRangeFromPeriod(periode)
+          : {};
+        return PerusahaanService.getMonthlyReport({
+          ...query,
+          ...req.params,
+          from,
+          to,
+        });
+      },
       {
         req,
         res,
