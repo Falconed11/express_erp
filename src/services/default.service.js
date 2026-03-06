@@ -11,15 +11,15 @@ export const calculateService = async ({
   ...rest
 }) => {
   if (aggregate) {
-    const { start, end } = periode
+    const { from: start, to: end } = periode
       ? buildMonthlyDateRangeFromPeriod(periode)
-      : { start: from, end: to };
+      : { from, to };
     assertAllowedValues(aggregate, allowedAggregate, "Aggregate");
     return calculate({
       ...rest,
       aggregate,
-      end,
-      start,
+      to: end,
+      from: start,
       allowedAggregate,
     });
   }

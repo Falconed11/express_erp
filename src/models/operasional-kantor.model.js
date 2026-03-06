@@ -1,5 +1,9 @@
 import db from "../config/db.js";
-import { conditionalArrayBuilder, qWhereIdPerusahaan } from "../utils/tools.js";
+import {
+  conditionalArrayBuilder,
+  queryWhereBuilder,
+  qWhereIdPerusahaan,
+} from "../utils/tools.js";
 
 const TABEL = "operasionalkantor";
 
@@ -41,7 +45,7 @@ const OperasionalKantor = {
     return rows;
   },
 
-  async getGroupBy({ start, end, groupBy, idPerusahaan }) {
+  async getGroupBy({ from, to, groupBy, idPerusahaan }) {
     const validGroupBy = ["kategorioperasionalkantor"];
     if (!validGroupBy.includes(groupBy))
       throw new Error("Group By tidak valid!");
@@ -63,16 +67,16 @@ const OperasionalKantor = {
       ${queryGroupBy}
       `;
     const [rows] = await db.execute(sql, [
-      start,
-      end,
+      from,
+      to,
       ...conditionalArrayBuilder(idPerusahaan),
     ]);
     return rows;
   },
 
   async calculateOperasionalKantor({
-    start,
-    end,
+    from,
+    to,
     aggregate,
     idPerusahaan,
     conn = db,
@@ -83,13 +87,13 @@ const OperasionalKantor = {
     const sql = `
       SELECT COUNT(biaya) AS total, COALESCE(${aggregate}(biaya), 0) AS pengeluaran FROM ${TABEL}
       where 1=1
-      AND tanggal >= ?
-      AND tanggal < ?
+      ${queryWhereBuilder(from, "tanggal", ">=")}
+      ${queryWhereBuilder(to, "tanggal", "<")}
       ${qWhereIdPerusahaan(idPerusahaan)}
       `;
     const [rows] = await conn.execute(sql, [
-      start,
-      end,
+      ...conditionalArrayBuilder(from),
+      ...conditionalArrayBuilder(to),
       ...conditionalArrayBuilder(idPerusahaan),
     ]);
     return rows[0];

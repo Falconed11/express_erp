@@ -16,20 +16,32 @@ const PerusahaanService = {
     return withTransaction(async (conn) => {
       const preparedParam = { ...param, conn, aggregate };
       const preparedParamAwal = { to: from, aggregate, conn, idPerusahaan };
-      const [pembayaran, pengeluaran, operasional, awalPembayaran] =
-        await Promise.all([
-          PembayaranProyekService.get(preparedParam),
-          PengeluaranProyekService.get(preparedParam),
-          OperasionalKantorService.getAll(preparedParam),
-          PembayaranProyekService.get(preparedParamAwal),
-        ]);
-      const totalPembayaran = +pembayaran.totalValue || 0;
-      const totalPengeluaran = +pengeluaran.totalValue || 0;
-      const totalOperasional = +operasional.pengeluaran || 0;
-      const totalAwalPembayaran = +awalPembayaran.totalValue || 0;
+      const [
+        pembayaran,
+        pengeluaran,
+        operasional,
+        awalPembayaran,
+        awalPengeluaran,
+        awalOperasional,
+      ] = await Promise.all([
+        PembayaranProyekService.get(preparedParam),
+        PengeluaranProyekService.get(preparedParam),
+        OperasionalKantorService.getAll(preparedParam),
+        PembayaranProyekService.get(preparedParamAwal),
+        PengeluaranProyekService.get(preparedParamAwal),
+        OperasionalKantorService.getAll(preparedParamAwal),
+      ]);
+      const getVal = (val) => +val || 0;
+      const totalPembayaran = getVal(pembayaran.totalValue);
+      const totalPengeluaran = getVal(pengeluaran.totalValue);
+      const totalOperasional = getVal(operasional.pengeluaran);
+      const totalAwalPembayaran = getVal(awalPembayaran.totalValue);
+      const totalAwalPengeluaran = getVal(awalPengeluaran.totalValue);
+      const totalAwalOperasional = getVal(awalOperasional.pengeluaran);
       return {
         labarugi: totalPembayaran - (totalPengeluaran + totalOperasional),
-        awallabarugi: totalAwalPembayaran,
+        awallabarugi:
+          totalAwalPembayaran - (totalAwalPengeluaran + totalAwalOperasional),
       };
     });
   },

@@ -14,21 +14,18 @@ const OperasionalKantorService = {
     });
   },
 
-  async getAll({ periode, aggregate, groupBy, idPerusahaan, ...rest }) {
-    const { start, end } = buildMonthlyDateRangeFromPeriod(periode);
-    const defaultParam = { start, end, idPerusahaan };
+  async getAll({ aggregate, groupBy, ...rest }) {
     if (aggregate)
       return OperasionalKantor.calculateOperasionalKantor({
         ...rest,
-        ...defaultParam,
         aggregate,
       });
     if (groupBy)
       return OperasionalKantor.getGroupBy({
-        ...defaultParam,
+        ...rest,
         groupBy,
       });
-    return OperasionalKantor.get({ ...defaultParam });
+    return OperasionalKantor.get(rest);
   },
 
   async getById(id) {

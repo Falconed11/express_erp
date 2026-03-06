@@ -8,7 +8,7 @@ const PembayaranProyekController = {
       async (req) => {
         const { query } = req;
         const { periode } = query;
-        const { start: from, end: to } = periode
+        const { from, to } = periode
           ? buildMonthlyDateRangeFromPeriod(periode)
           : {};
         return PembayaranProyekService.get({ ...query, from, to });

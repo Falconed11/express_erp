@@ -1,5 +1,6 @@
 import { defaultAsyncController } from "../helpers/default.js";
 import OperasionalKantorService from "../services/operasional-kantor.service.js";
+import { buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
 import { successResponse } from "../utils/response.js";
 
 const NAME = "Golongan Instansi";
@@ -16,7 +17,12 @@ const OperasionalKantorController = {
 
   async getAll(req, res, next) {
     defaultAsyncController(
-      async (req) => OperasionalKantorService.getAll(req.query),
+      async (req) => {
+        const { query } = req;
+        const { periode } = query;
+        const { from, to } = buildMonthlyDateRangeFromPeriod(periode);
+        return OperasionalKantorService.getAll({ ...query, from, to });
+      },
       {
         req,
         res,

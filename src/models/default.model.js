@@ -10,26 +10,25 @@ const mainTableAlias = "main";
 export const calculate = async ({
   conn = db,
   table,
-  start,
-  end,
+  from,
+  to,
   aggregate,
   customWhere = "",
   customVal = [],
   buildCustomJoin = () => "",
   columnName,
 }) => {
-  console.log({ start, end });
   const sql = `
       SELECT COUNT(main.${columnName}) totalRow, COALESCE(${aggregate}(main.${columnName}), 0) totalValue FROM ${table} main
       ${buildCustomJoin("main")}
       where 1=1
-      ${queryWhereBuilder(start, "main.tanggal", ">=")}
-      ${queryWhereBuilder(end, "main.tanggal", "<")}
+      ${queryWhereBuilder(from, "main.tanggal", ">=")}
+      ${queryWhereBuilder(to, "main.tanggal", "<")}
       ${customWhere}
       `;
   const [rows] = await conn.execute(sql, [
-    ...conditionalArrayBuilder(start),
-    ...conditionalArrayBuilder(end),
+    ...conditionalArrayBuilder(from),
+    ...conditionalArrayBuilder(to),
     ...customVal,
   ]);
   return rows[0];

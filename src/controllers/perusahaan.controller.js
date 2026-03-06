@@ -13,14 +13,15 @@ const PerusahaanController = {
   async getMonthlyReport(req, res, next) {
     defaultAsyncController(
       async (req) => {
-        const { query } = req;
+        const { query, params } = req;
         const { periode } = query;
-        const { start: from, end: to } = periode
+        const { from, to } = periode
           ? buildMonthlyDateRangeFromPeriod(periode)
           : {};
+        const { idPerusahaan } = params;
         return PerusahaanService.getMonthlyReport({
           ...query,
-          ...req.params,
+          idPerusahaan: Number.isFinite(+idPerusahaan) ? idPerusahaan : null,
           from,
           to,
         });

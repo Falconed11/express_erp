@@ -17,7 +17,14 @@ export const defaultCalculateFilterByIdPerusahaanService = async ({
 }) =>
   calculateService({
     ...rest,
-    customVal: conditionalArrayBuilder(idPerusahaan),
-    customWhere: qWhereIdPerusahaan(idPerusahaan),
-    buildCustomJoin: (main) => `left join proyek p on p.id = ${main}.id_proyek`,
+    ...(idPerusahaan
+      ? { customVal: conditionalArrayBuilder(idPerusahaan) }
+      : {}),
+    ...(idPerusahaan ? { customWhere: qWhereIdPerusahaan(idPerusahaan) } : {}),
+    ...(idPerusahaan
+      ? {
+          buildCustomJoin: (main) =>
+            `left join proyek p on p.id = ${main}.id_proyek`,
+        }
+      : {}),
   });
