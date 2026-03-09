@@ -46,7 +46,6 @@ async function create(data) {
 }
 async function update(params) {
   return await withTransaction(pool, async (conn) => {
-    console.log({ conn });
     const {
       id,
       sn = null,
@@ -121,13 +120,13 @@ async function _createInTransaction({
     throw new Error("Jumlah tidak boleh 0!");
   let [produkRows] = await conn.execute(
     `SELECT stok, satuan FROM produk WHERE id = ? FOR UPDATE`,
-    [id_produk]
+    [id_produk],
   );
   if (produkRows.length === 0) throw new Error("Produk tidak ditemukan");
   const produk = produkRows[0];
   if (jumlah > produk.stok)
     throw new Error(
-      `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`
+      `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`,
     );
   if (sn === 1) {
     for (const snObj of serialnumbers) {
@@ -138,7 +137,7 @@ async function _createInTransaction({
          ORDER BY harga DESC
          LIMIT 1
          FOR UPDATE`,
-        [id_produk]
+        [id_produk],
       );
       if (pmRows.length === 0) {
         throw new Error("Tidak ada produkmasuk tersedia");
@@ -148,7 +147,7 @@ async function _createInTransaction({
       // Update produkmasuk
       await conn.execute(
         `UPDATE produkmasuk SET keluar = keluar + 1 WHERE id = ?`,
-        [pm.id]
+        [pm.id],
       );
       // Update produk stock
       await conn.execute(`UPDATE produk SET stok = stok - 1 WHERE id = ?`, [
@@ -168,7 +167,7 @@ async function _createInTransaction({
           harga,
           tanggal,
           keterangan,
-        ]
+        ],
       );
     }
   } else {
@@ -181,7 +180,7 @@ async function _createInTransaction({
          ORDER BY harga DESC
          LIMIT 1
          FOR UPDATE`,
-        [id_produk]
+        [id_produk],
       );
       if (pmRows.length === 0) {
         throw new Error("Tidak ada produkmasuk tersedia");
@@ -194,7 +193,7 @@ async function _createInTransaction({
       // Update produkmasuk
       await conn.execute(
         `UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?`,
-        [take, pm.id]
+        [take, pm.id],
       );
       // Update produk stock
       await conn.execute(`UPDATE produk SET stok = stok - ? WHERE id = ?`, [
@@ -215,7 +214,7 @@ async function _createInTransaction({
           isSelected ? pm.harga : harga,
           tanggal,
           keterangan,
-        ]
+        ],
       );
 
       if (isSelected) {
@@ -226,10 +225,10 @@ async function _createInTransaction({
            VALUES (${
              idproyek ? `(SELECT id FROM proyek WHERE id_second = ?)` : `?`
            }, ?, ${
-            karyawan ? `(SELECT id FROM karyawan WHERE nama = ?)` : `?`
-          }, ${
-            idproduk ? `(SELECT id FROM produk WHERE id_kustom = ?)` : `?`
-          }, ?, ?, ?, ?, 1, ?)`,
+             karyawan ? `(SELECT id FROM karyawan WHERE nama = ?)` : `?`
+           }, ${
+             idproduk ? `(SELECT id FROM produk WHERE id_kustom = ?)` : `?`
+           }, ?, ?, ?, ?, 1, ?)`,
           [
             idproyek ?? id_proyek,
             tanggal,
@@ -240,7 +239,7 @@ async function _createInTransaction({
             take,
             pm.harga,
             keterangan ?? "",
-          ]
+          ],
         );
       }
     } // end while
@@ -262,7 +261,7 @@ async function _deleteInTransaction({
   // 1) lock the produkkeluar row
   let [existing] = await conn.execute(
     `SELECT * FROM ${OUTPUT_TABLE} WHERE id = ? FOR UPDATE`,
-    [id]
+    [id],
   );
   if (existing.length === 0) {
     throw new Error("Produkkeluar record not found");
@@ -272,18 +271,18 @@ async function _deleteInTransaction({
     // lock related pengeluaranproyek row(s)
     await conn.execute(
       `SELECT id FROM pengeluaranproyek WHERE id_produkkeluar = ? FOR UPDATE`,
-      [id]
+      [id],
     );
     await conn.execute(
       `DELETE FROM pengeluaranproyek WHERE id_produkkeluar = ?`,
-      [id]
+      [id],
     );
   }
 
   // lock produkmasuk row
   await conn.execute(
     `SELECT id, keluar FROM produkmasuk WHERE id = ? FOR UPDATE`,
-    [id_produkmasuk]
+    [id_produkmasuk],
   );
   // lock produk row
   await conn.execute(`SELECT id, stok FROM produk WHERE id = ? FOR UPDATE`, [
@@ -294,7 +293,7 @@ async function _deleteInTransaction({
   await conn.execute(`DELETE FROM ${OUTPUT_TABLE} WHERE id = ?`, [id]);
   await conn.execute(
     `UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?`,
-    [jumlah, id_produkmasuk]
+    [jumlah, id_produkmasuk],
   );
   await conn.execute(`UPDATE produk SET stok = stok + ? WHERE id = ?`, [
     jumlah,
