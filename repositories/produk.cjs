@@ -232,19 +232,19 @@ const transfer = async ({ curId, newId }) => {
     const result = withTransaction(pool, async (conn) => {
       const [produkMasuk] = await conn.execute(
         "select id_produk from produkmasuk where id_produk=? for update",
-        [curId]
+        [curId],
       );
       const [keranjangProyek] = await conn.execute(
         "select id_produk from keranjangproyek where id_produk=? for update",
-        [curId]
+        [curId],
       );
       if (!(produkMasuk.length && keranjangProyek.length))
         throw new Error(
-          "Operasi dibatalkan! Produk tidak memiliki stok dan penawaran."
+          "Operasi dibatalkan! Produk tidak memiliki stok dan penawaran.",
         );
       const [products] = await conn.execute(
         "SELECT id, stok FROM produk WHERE id IN (?, ?) FOR UPDATE",
-        [curId, newId]
+        [curId, newId],
       );
       const curProd = products.find((p) => p.id == curId);
       const targetProd = products.find((p) => p.id == newId);
@@ -256,11 +256,11 @@ const transfer = async ({ curId, newId }) => {
 
       await conn.execute(
         "update produkmasuk set id_produk=? where id_produk=?",
-        [newId, curId]
+        [newId, curId],
       );
       await conn.execute(
         "update keranjangproyek set id_produk=? where id_produk=?",
-        [newId, curId]
+        [newId, curId],
       );
       await conn.execute("update produk set stok=stok+? where id=?", [
         amountToTransfer,
@@ -290,7 +290,6 @@ const update = async ({ id, ...rest }) => {
   ];
   const fields = [];
   const values = [];
-  const isExist = (v) => v != null;
   try {
     const result = await withTransaction(pool, async (conn) => {
       if (rest.kategoriproduk && rest.id_kategori == null) {
