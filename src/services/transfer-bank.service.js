@@ -15,7 +15,7 @@ const TransferBankService = {
   },
 
   async getAll(data) {
-    return await TransferBank.getAll(data);
+    return await TransferBank.get(data);
   },
 
   async getById(id) {

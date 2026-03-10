@@ -3,6 +3,7 @@ import { withTransaction } from "../helpers/transaction.js";
 import OperasionalKantorService from "./operasional-kantor.service.js";
 import PembayaranProyekService from "./pembayaran-proyek.service.js";
 import PengeluaranProyekService from "./pengeluaran-proyek.service.js";
+import TransferBankService from "./transfer-bank.service.js";
 
 const table = "perusahaan";
 
@@ -16,13 +17,25 @@ const PerusahaanService = {
     return withTransaction(async (conn) => {
       const preparedParam = { ...param, conn, aggregate };
       const preparedParamAwal = { to: from, aggregate, conn, idPerusahaan };
+      const preparedParamModal = {
+        id_perusahaan_tujuan: idPerusahaan,
+        exclude_id_perusahaan_asal: idPerusahaan,
+      };
+      const preparedParamPrive = {
+        id_perusahaan_asal: idPerusahaan,
+        exclude_id_perusahaan_tujuan: idPerusahaan,
+      };
       const [
-        pembayaran,
-        pengeluaran,
-        operasional,
-        awalPembayaran,
-        awalPengeluaran,
-        awalOperasional,
+        pembayaranResult,
+        pengeluaranResult,
+        operasionalResult,
+        awalPembayaranResult,
+        awalPengeluaranResult,
+        awalOperasionalResult,
+        awalModalResult,
+        penambahanModalResult,
+        awalPriveResult,
+        priveResult,
       ] = await Promise.all([
         PembayaranProyekService.get(preparedParam),
         PengeluaranProyekService.get(preparedParam),
@@ -30,18 +43,54 @@ const PerusahaanService = {
         PembayaranProyekService.get(preparedParamAwal),
         PengeluaranProyekService.get(preparedParamAwal),
         OperasionalKantorService.getAll(preparedParamAwal),
+        TransferBankService.getAll({
+          ...preparedParamAwal,
+          ...preparedParamModal,
+        }),
+        TransferBankService.getAll({
+          ...preparedParam,
+          ...preparedParamModal,
+        }),
+        TransferBankService.getAll({
+          ...preparedParamAwal,
+          ...preparedParamPrive,
+        }),
+        TransferBankService.getAll({
+          ...preparedParam,
+          ...preparedParamPrive,
+        }),
       ]);
       const getVal = (val) => +val || 0;
-      const totalPembayaran = getVal(pembayaran.totalValue);
-      const totalPengeluaran = getVal(pengeluaran.totalValue);
-      const totalOperasional = getVal(operasional.pengeluaran);
-      const totalAwalPembayaran = getVal(awalPembayaran.totalValue);
-      const totalAwalPengeluaran = getVal(awalPengeluaran.totalValue);
-      const totalAwalOperasional = getVal(awalOperasional.pengeluaran);
+      const totalPembayaran = getVal(pembayaranResult.totalValue);
+      const totalPengeluaran = getVal(pengeluaranResult.totalValue);
+      const totalOperasional = getVal(operasionalResult.pengeluaran);
+      const totalAwalPembayaran = getVal(awalPembayaranResult.totalValue);
+      const totalAwalPengeluaran = getVal(awalPengeluaranResult.totalValue);
+      const totalAwalOperasional = getVal(awalOperasionalResult.pengeluaran);
+      const modalAwal = getVal(awalModalResult.totalValue);
+      const penambahanModal = getVal(penambahanModalResult.totalValue);
+      const priveAwal = getVal(awalPriveResult.totalValue);
+      const prive = getVal(priveResult.totalValue);
+
+      const labaRugi = totalPembayaran - (totalPengeluaran + totalOperasional);
+      const totalPenambahan = labaRugi + penambahanModal;
+      const totalPengurangan = prive;
+      const saldoAwal =
+        totalAwalPembayaran +
+        modalAwal -
+        (totalAwalPengeluaran + totalAwalOperasional + priveAwal);
+      const totalPerubahan = totalPenambahan - totalPengurangan;
+      const saldoAkhir = saldoAwal + totalPenambahan - totalPengurangan;
       return {
-        labarugi: totalPembayaran - (totalPengeluaran + totalOperasional),
-        awallabarugi:
-          totalAwalPembayaran - (totalAwalPengeluaran + totalAwalOperasional),
+        saldoAwal,
+        modalAwal,
+        labaRugi,
+        penambahanModal,
+        totalPenambahan,
+        prive,
+        totalPengurangan,
+        totalPerubahan,
+        saldoAkhir,
       };
     });
   },

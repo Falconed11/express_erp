@@ -78,6 +78,7 @@ import todolist from "./repositories/todolist.cjs";
 import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
+// v2
 import golonganInstansiRoutes from "./src/routes/golongan-instansi.routes.js";
 import jenisInstansiRoutes from "./src/routes/jenis-instansi.routes.js";
 import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";

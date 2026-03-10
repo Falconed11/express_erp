@@ -5,3 +5,6 @@ export const queryWhereBuilder = (val, column, operator = "=") =>
 
 export const qWhereIdPerusahaan = (idPerusahaan) =>
   queryWhereBuilder(idPerusahaan, "id_perusahaan");
+
+export const buildQueryCount = (aggregate, columnName, alias = "") =>
+  `COALESCE(${aggregate}(${columnName}), 0) ${alias}`;

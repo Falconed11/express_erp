@@ -1,4 +1,9 @@
 import db from "../config/db.js";
+import {
+  buildQueryCount,
+  conditionalArrayBuilder,
+  queryWhereBuilder,
+} from "../utils/tools.js";
 
 const TABEL = "transfer_bank";
 
@@ -39,17 +44,49 @@ const TransferBank = {
     };
   },
 
-  async getAll({ limit, offset }) {
-    const isPagination = limit && offset;
-    const sql = `SELECT tb.*, mpa.nama metodepembayaranasal, mpt.nama metodepembayarantujuan, cb.nama pembuat, ub.nama pengedit FROM ${TABEL} tb
-    left join metodepembayaran mpa on mpa.id=tb.id_metode_pembayaran_asal
-    left join metodepembayaran mpt on mpt.id=tb.id_metode_pembayaran_tujuan
+  async get({
+    aggregate,
+    limit,
+    offset,
+    id_metode_pembayaran_asal,
+    id_metode_pembayaran_tujuan,
+    id_perusahaan_asal,
+    id_perusahaan_tujuan,
+    exclude_id_perusahaan_asal,
+    exclude_id_perusahaan_tujuan,
+    from,
+    to,
+    conn = db,
+  }) {
+    const isPagination = limit && offset != null;
+    const sql = `SELECT ${aggregate ? `${buildQueryCount(aggregate, "tb.nominal", "totalValue")}, ` : ""} tb.*, mpa.nama metodepembayaranasal, mpt.nama metodepembayarantujuan, cb.nama pembuat, ub.nama pengedit FROM ${TABEL} tb
+    join metodepembayaran mpa on mpa.id=tb.id_metode_pembayaran_asal ${queryWhereBuilder(id_metode_pembayaran_asal, "mpa.id")}
+    join metodepembayaran mpt on mpt.id=tb.id_metode_pembayaran_tujuan ${queryWhereBuilder(id_metode_pembayaran_tujuan, "mpt.id")}
+    left join perusahaan pa on pa.id=mpa.id_perusahaan
+    left join perusahaan pt on pt.id=mpt.id_perusahaan
     left join karyawan cb on cb.id=tb.created_by 
     left join karyawan ub on ub.id=tb.updated_by 
-    ${isPagination ? " limit ? offset ?" : ""}`;
-    const [rows] = await db.execute(sql, [
+    where 1=1
+    ${queryWhereBuilder(id_perusahaan_asal, "pa.id")} ${exclude_id_perusahaan_asal ? "and not (pa.id<=>?)" : ""}
+    ${queryWhereBuilder(id_perusahaan_tujuan, "pt.id")} ${exclude_id_perusahaan_tujuan ? "and not (pt.id<=>?)" : ""}
+    ${queryWhereBuilder(from, "tb.tanggal", ">=")}
+    ${queryWhereBuilder(to, "tb.tanggal", "<")}
+    order by tb.tanggal desc
+    ${isPagination ? " limit ? offset ?" : ""}
+    `;
+    const values = [
+      ...conditionalArrayBuilder(id_metode_pembayaran_asal),
+      ...conditionalArrayBuilder(id_metode_pembayaran_tujuan),
+      ...conditionalArrayBuilder(id_perusahaan_asal),
+      ...conditionalArrayBuilder(exclude_id_perusahaan_asal),
+      ...conditionalArrayBuilder(id_perusahaan_tujuan),
+      ...conditionalArrayBuilder(exclude_id_perusahaan_tujuan),
+      ...conditionalArrayBuilder(from),
+      ...conditionalArrayBuilder(to),
       ...(isPagination ? [limit, offset] : []),
-    ]);
+    ];
+    const [rows] = await conn.execute(sql, values);
+    if (aggregate) return rows[0];
     return rows;
   },
 
