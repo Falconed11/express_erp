@@ -53,6 +53,7 @@ const ProyekService = {
         proyekMap[r.id].pembayaran.push({
           id: r.id_pembayaran,
           nominal: r.nominal,
+          metodepembayaran: r.metodepembayaran,
           tanggal: r.tanggal_pembayaran,
         });
       }

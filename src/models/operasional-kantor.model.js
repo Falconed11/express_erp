@@ -27,7 +27,7 @@ const OperasionalKantor = {
     return result;
   },
 
-  async get({ start, end, idPerusahaan }) {
+  async get({ from, to, idPerusahaan }) {
     const sql = `
       SELECT ok.*, ko.nama kategorioperasionalkantor, p.nama perusahaan FROM ${TABEL} ok 
       LEFT JOIN kategorioperasionalkantor ko ON ko.id = ok.id_kategorioperasionalkantor
@@ -38,8 +38,8 @@ const OperasionalKantor = {
       order by tanggal desc
       `;
     const [rows] = await db.execute(sql, [
-      start,
-      end,
+      from,
+      to,
       ...conditionalArrayBuilder(idPerusahaan),
     ]);
     return rows;

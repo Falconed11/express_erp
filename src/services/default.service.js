@@ -33,6 +33,6 @@ export const getByPeriodeService = (
   buildLeftJoin,
   select,
 ) => {
-  const { start, end } = buildMonthlyDateRangeFromPeriod(periode);
-  return getByPeriode(table, start, end, idPerusahaan, buildLeftJoin, select);
+  const { from, to } = buildMonthlyDateRangeFromPeriod(periode);
+  return getByPeriode(table, from, to, idPerusahaan, buildLeftJoin, select);
 };

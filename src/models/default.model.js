@@ -42,8 +42,8 @@ export const getAll = async (table) => {
 
 export const getByPeriode = async (
   table,
-  start,
-  end,
+  from,
+  to,
   idPerusahaan,
   buildLeftJoin = () => "",
   select = "",
@@ -56,10 +56,8 @@ export const getByPeriode = async (
       AND ${mainTableAlias}.tanggal < ?
       ${qWhereIdPerusahaan(idPerusahaan)}
       `;
-  const [rows] = await db.execute(sql, [
-    start,
-    end,
-    ...conditionalArrayBuilder(idPerusahaan),
-  ]);
+  const values = [from, to, ...conditionalArrayBuilder(idPerusahaan)];
+  console.log(values);
+  const [rows] = await db.execute(sql, values);
   return rows;
 };
