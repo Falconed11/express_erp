@@ -61,3 +61,28 @@ export const getByPeriode = async (
   const [rows] = await db.execute(sql, values);
   return rows;
 };
+
+export const patch = async (id, table, allowedFields, data) => {
+  const fields = [];
+  const values = [];
+  for (const key of Object.keys(data)) {
+    if (allowedFields.includes(key) && key !== "id") {
+      fields.push(`${key} = ?`);
+      values.push(data[key]);
+    }
+  }
+  if (fields.length === 0) {
+    throw new Error("No fields to update");
+  }
+  const sql = `
+      UPDATE ${table}
+      SET ${fields.join(", ")}
+      WHERE id = ?
+    `;
+  values.push(id);
+  const [result] = await db.execute(sql, values);
+  if (result.affectedRows === 0) {
+    throw new Error("Record not found");
+  }
+  return result;
+};

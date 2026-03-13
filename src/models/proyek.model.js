@@ -1,5 +1,6 @@
 import db from "../config/db.js";
 import { conditionalArrayBuilder, queryWhereBuilder } from "../utils/tools.js";
+import { patch } from "./default.model.js";
 
 const buildLeftJoin = (
   mainTable,
@@ -21,11 +22,25 @@ const buildCalculatePembayaranProyekById = ({ id = null, aggregate }) =>
 where 1=1 ${queryWhereBuilder(id, "id_proyek")}
 group by id_proyek
 `;
-const table = "proyek";
-
 const ProyekModel = {
+  table: "proyek",
+  allowedFields: [
+    "hide",
+    "id_instansi",
+    "id_perusahaan",
+    "nama",
+    "klien",
+    "id_karyawan",
+    "id_jenisproyek",
+    "tanggal_penawaran",
+    "tanggalsuratjalan",
+    "alamatsuratjalan",
+    "id_po",
+    "keterangan",
+    "versi",
+  ],
   async findAll() {
-    const [rows] = await db.execute(`SELECT * FROM ${table}`);
+    const [rows] = await db.execute(`SELECT * FROM ${this.table}`);
     return rows;
   },
   async findStagedProductByProjectId(id) {
@@ -77,7 +92,7 @@ const ProyekModel = {
     perusahaan,
   }) {
     const aggregate = "sum";
-    const sql = `select p.*, jp.nama jenisproyek, pr.nama perusahaan, k.nama karyawan, i.nama instansi, i.swasta, ji.nama jenisinstansi, gi.nama golonganinstansi, pm.totalpembayaran, pn.totalpengeluaran, pm.totalpembayaran - pn.totalpengeluaran profit, pp.nominal, pp.tanggal tanggal_pembayaran, mp.nama metodepembayaran, b.nama bank from ${table} p
+    const sql = `select p.*, jp.nama jenisproyek, pr.nama perusahaan, k.nama karyawan, i.nama instansi, i.swasta, ji.nama jenisinstansi, gi.nama golonganinstansi, pm.totalpembayaran, pn.totalpengeluaran, pm.totalpembayaran - pn.totalpengeluaran profit, pp.nominal, pp.tanggal tanggal_pembayaran, mp.nama metodepembayaran, b.nama bank from ${this.table} p
     left join jenisproyek jp on jp.id=p.id_jenisproyek
     left join perusahaan pr on pr.id=p.id_perusahaan
     left join karyawan k on k.id=p.id_karyawan
@@ -108,6 +123,9 @@ const ProyekModel = {
     ];
     const [rows] = await db.execute(sql, values);
     return rows;
+  },
+  async patch(id, data) {
+    return patch(id, this.table, this.allowedFields, data);
   },
   buildLeftJoin,
   select,

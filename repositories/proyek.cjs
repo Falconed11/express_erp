@@ -14,14 +14,18 @@ const list = async ({
   id_produk = null,
   id_jenisproyek,
   countProgressNoOffer,
+  hide,
+  limit,
+  offset,
 }) => {
+  const isPagination = limit != null && offset != null;
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort)
     if (validColumns.includes(sort)) {
     } else {
       throw new Error("Kolom tidak valid");
     }
-  const sql = `Select p.*, jp.nama jenisproyek, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
+  const sql = `Select p.*, COUNT(*) OVER () AS totalrows, jp.nama jenisproyek, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
     process.env.MAIN_URL
   }logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
   ${id_produk ? ", count(cp.id_produk) nproduk" : ""}
@@ -44,6 +48,7 @@ const list = async ({
   ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}
   ${id_statusproyek ? ` and id_statusproyek=? ` : ""}
   ${id_produk ? "and cp.id_produk=?" : ""}
+  ${hide != null ? "and p.hide=?" : ""}
   group by p.id
   order by 
     CASE 
@@ -56,7 +61,9 @@ const list = async ({
             sort == "tanggal" ? "tanggal_penawaran" : "tanggal"
           } desc, i.nama, p.id`
         : ""
-    }`;
+    }
+    ${isPagination ? "LIMIT ?, ?" : ""}
+    `;
   const values = [
     ...(id ? [id] : []),
     ...(id_instansi ? [id_instansi] : []),
@@ -66,6 +73,8 @@ const list = async ({
     ...(id_jenisproyek ? [id_jenisproyek] : []),
     ...(id_statusproyek ? [id_statusproyek] : []),
     ...(id_produk ? [id_produk] : []),
+    ...(hide != null ? [hide] : []),
+    ...(isPagination ? [offset, limit] : []),
   ];
   try {
     const [rows] = await pool.execute(sql, values);

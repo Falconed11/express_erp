@@ -36,3 +36,14 @@ export const getByPeriodeService = (
   const { from, to } = buildMonthlyDateRangeFromPeriod(periode);
   return getByPeriode(table, from, to, idPerusahaan, buildLeftJoin, select);
 };
+
+export const patchService = async (id, data, fnModel) => {
+  if (!id) {
+    throw new Error("ID is required");
+  }
+  const result = await fnModel(id, data);
+  if (result.affectedRows === 0) {
+    throw new Error("No data updated");
+  }
+  return result;
+};

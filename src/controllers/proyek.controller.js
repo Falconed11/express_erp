@@ -74,5 +74,21 @@ const ProyekController = {
       },
     );
   },
+  async patch(req, res, next) {
+    defaultAsyncController(
+      async (req) => {
+        const { id } = req.params;
+        if (!id) {
+          throw new Error("ID is required");
+        }
+        return ProyekService.patch(req.params.id, req.body);
+      },
+      {
+        req,
+        res,
+        next,
+      },
+    );
+  },
 };
 export default ProyekController;

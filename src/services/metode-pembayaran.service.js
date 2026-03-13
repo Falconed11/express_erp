@@ -1,14 +1,8 @@
-import MetodePembayaran from "../models/metode-pembayaran.model";
+import MetodePembayaran from "../models/metode-pembayaran.model.js";
+import { patchService } from "./default.service.js";
 const MetodePembayaranService = {
   async patch(id, data) {
-    if (!id) {
-      throw new Error("ID is required");
-    }
-    const result = await MetodePembayaran.patch(id, data);
-    if (result.affectedRows === 0) {
-      throw new Error("No data updated");
-    }
-    return result;
+    return MetodePembayaran.patch(id, data);
   },
 };
 export default MetodePembayaranService;

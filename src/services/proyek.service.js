@@ -62,6 +62,9 @@ const ProyekService = {
     const result = Object.values(proyekMap);
     return result;
   },
+  async patch(id, data) {
+    return ProyekModel.patch(id, data);
+  },
 };
 
 export default ProyekService;

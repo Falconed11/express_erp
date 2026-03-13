@@ -13,5 +13,6 @@ router.get("/reports/monthly", ProyekController.getMonthlyReports);
 router.get("/:id/pembayaran", ProyekController.calculatePembayaranById);
 router.get("/:id/pengeluaran", ProyekController.calculatePengeluaranById);
 router.get("/:id/produkmenunggu", ProyekController.getStagedProductByProjectId);
+router.patch("/:id/", ProyekController.patch);
 
 export default router;

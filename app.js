@@ -1509,5 +1509,5 @@ app.delete("/api/todolist", async (req, res) => {
 app.use(errorMiddleware);
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`ERP app listening on port ${port}`);
 });
