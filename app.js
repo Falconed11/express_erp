@@ -79,6 +79,7 @@ import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
 // v2
+import coaTypeRoutes from "./src/modules/coa/coa-type.route.js";
 import golonganInstansiRoutes from "./src/routes/golongan-instansi.routes.js";
 import jenisInstansiRoutes from "./src/routes/jenis-instansi.routes.js";
 import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
@@ -93,19 +94,25 @@ import transferBank from "./src/routes/transfer-bank.routes.js";
 
 import errorMiddleware from "./src/middlewares/error.middleware.js";
 
-app.use((req, res, next) => {
-  if (req.is("application/json")) {
-    bodyParser.json({ limit: "50mb" })(req, res, next);
-  } else if (req.is("application/x-www-form-urlencoded")) {
-    bodyParser.urlencoded({ limit: "50mb", extended: true })(req, res, next);
-  } else {
-    next(); // let multer or other middleware handle it
-  }
-});
+// app.use((req, res, next) => {
+//   if (req.is("application/json")) {
+//     bodyParser.json({ limit: "50mb" })(req, res, next);
+//   } else if (req.is("application/x-www-form-urlencoded")) {
+//     bodyParser.urlencoded({ limit: "50mb", extended: true })(req, res, next);
+//   } else {
+//     next(); // let multer or other middleware handle it
+//   }
+// });
+
 // // Parse JSON bodies
 // app.use(bodyParser.json({ limit: "50mb" }));
 // // Parse URL-encoded bodies (e.g., form data)
 // app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+
+// // Parse JSON bodies
+app.use(express.json({ limit: "50mb" }));
+// // Parse URL-encoded bodies (e.g., form data)
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // app.use(multer({ storage }).single("file"));
 
@@ -119,6 +126,7 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+app.use("/api/v2/coa-type", coaTypeRoutes);
 app.use("/api/v2/golongan-instansi", golonganInstansiRoutes);
 app.use("/api/v2/jenis-instansi", jenisInstansiRoutes);
 app.use("/api/v2/jenis-proyek", jenisProyekRoutes);

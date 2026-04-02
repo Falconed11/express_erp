@@ -1,6 +1,9 @@
 {
   "type": "module",
   "name": "server-erp",
+  "imports": {
+    "#/*": "./*"
+  },
   "version": "1.0.0",
   "description": "an erp server",
   "main": "app.js",

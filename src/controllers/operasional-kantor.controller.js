@@ -19,8 +19,7 @@ const OperasionalKantorController = {
     defaultAsyncController(
       async (req) => {
         const { query } = req;
-        const { periode } = query;
-        const { from, to } = buildMonthlyDateRangeFromPeriod(periode);
+        const { from, to } = buildMonthlyDateRangeFromPeriod(query.periode);
         return OperasionalKantorService.getAll({ ...query, from, to });
       },
       {
