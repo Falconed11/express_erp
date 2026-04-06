@@ -10,6 +10,7 @@ export const generateDefaultCRUDModel = (
   tableName,
   allowedFieldsForCreate,
   allowedFieldsForUpdate,
+  { generateCustomJoin, customSelect, allowedFieldsForFilter = [] },
 ) => ({
   async create(data) {
     const fields = Object.keys(data).filter((key) =>
@@ -23,10 +24,26 @@ export const generateDefaultCRUDModel = (
     return result;
   },
 
-  async getAll({ limit, offset }) {
+  async getAll({ limit, offset, ...filters }) {
     const isPagination = limit && offset;
-    const sql = `SELECT *, COUNT(*) OVER () total FROM ${tableName}${isPagination ? " limit ? offset ?" : ""}`;
+
+    const safeFilterKeys = Object.keys(filters).filter((key) =>
+      allowedFieldsForFilter.includes(key),
+    );
+
+    const filterSql = safeFilterKeys
+      .map((key) => `AND main.${key} = ?`)
+      .join(" ");
+    const filterValues = safeFilterKeys.map((key) => filters[key]);
+
+    const sql = `SELECT main.*, COUNT(*) OVER () total
+    ${customSelect ? `, ${customSelect}` : ""}
+    FROM ${tableName} main
+    ${generateCustomJoin ? generateCustomJoin("main") : ""}
+    where 1=1 ${filterSql}
+    ${isPagination ? " limit ? offset ?" : ""}`;
     const [rows] = await db.execute(sql, [
+      ...filterValues,
       ...(isPagination ? [limit, offset] : []),
     ]);
     return rows;
@@ -95,9 +112,13 @@ export const generateStandardCRUDModel = (
   tableName,
   extraAllowedFieldsForCreate = [],
   extraAllowedFieldsForUpdate = [],
-) =>
-  generateDefaultCRUDModel(
+  rest = {},
+) => {
+  console.log({ rest });
+  return generateDefaultCRUDModel(
     tableName,
     [...standardAllowedFieldsForCreate, ...extraAllowedFieldsForCreate],
     [...standardAllowedFieldsForUpdate, ...extraAllowedFieldsForUpdate],
+    rest,
   );
+};
