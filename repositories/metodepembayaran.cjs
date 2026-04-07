@@ -3,11 +3,12 @@ const connection = require("./db.cjs");
 const table = "metodepembayaran";
 
 const list = ({ id, hide, id_perusahaan }) => {
-  const sql = `select b.nama namabank, p.nama perusahaan, p.id id_perusahaan, mp.id, mp.*, t.t total from ${table} mp 
+  const sql = `select b.nama namabank, p.nama perusahaan, p.id id_perusahaan, mp.id, mp.*, t.t total, c.nama coa from ${table} mp 
   left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on 
     pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id 
   left join bank b on b.id=mp.id_bank 
   left join perusahaan p on p.id=mp.id_perusahaan
+  left join coa c on c.id=mp.id_coa
   where 1=1 
   ${hide != null ? "and hide=?" : ""} 
   ${id ? "and mp.id=?" : ""}
@@ -50,9 +51,9 @@ const transferBank = ({ src, dst }) => {
   });
 };
 
-const create = ({ nama, id_bank, norekening, atasnama }) => {
-  const sql = `insert into ${table} (nama,id_bank,norekening,atasnama) values (?,?,?,?)`;
-  const values = [nama, id_bank, norekening, atasnama];
+const create = ({ nama, id_bank, norekening, atasnama, id_coa }) => {
+  const sql = `insert into ${table} (nama,id_bank,norekening,atasnama) values (?,?,?,?,?)`;
+  const values = [nama, id_bank, norekening, atasnama, id_coa];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -69,6 +70,7 @@ const update = ({ id, ...rest }) => {
     "norekening",
     "atasnama",
     "hide",
+    "id_coa",
   ];
   const fields = [];
   const values = [];

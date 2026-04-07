@@ -54,6 +54,7 @@ export const generateDefaultCRUDController = ({
   async patch(req, res, next) {
     defaultAsyncController(
       async (req) => {
+        // console.log(req.body);
         const { id } = req.params;
         if (!id) throw new Error("Id tidak boleh kosong!");
         return patch(id, req.body);
