@@ -1,4 +1,4 @@
-const connection = require("./db.cjs");
+const { pool } = require("./db.2.0.0.cjs");
 require("dotenv").config();
 // bcrypt setup
 // https://www.npmjs.com/package/bcrypt
@@ -7,68 +7,65 @@ const saltRounds = +process.env.SALT_ROUNDS;
 
 const table = "user";
 
-const login = ({ username, password }) => {
+const SUPER_ROLE = "super";
+const MAX_RANK = 10;
+
+const hashPassword = (password) => {
+  return new Promise((resolve, reject) => {
+    bcrypt.hash(password, saltRounds, function (err, hash) {
+      if (err) reject(err);
+      resolve(hash);
+    });
+  });
+};
+
+const login = async ({ username, password }) => {
   const sql = `Select u.*, p.rank, p.keterangan keteranganperan, k.nama From ${table} u 
   left join peran p on p.nama=u.peran
   left join karyawan k on k.id=u.id_karyawan
   where username=?`;
   const values = [username];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log({ err });
-      if (res.length == 0) {
-        resolve({ message: "Username tidak ditemukan" });
-        return;
-      }
-      const hash = res[0].password;
-      bcrypt.compare(password, hash, function (err, result) {
-        if (err) reject(err);
-        if (result) {
-          resolve(res[0]);
-          return;
-        }
-        reject({ message: "Password salah" });
-      });
-    });
-  });
+
+  const [rows] = await pool.execute(sql, values);
+  if (rows.length === 0) {
+    throw new Error("Username tidak ditemukan");
+  }
+
+  const hash = rows[0].password;
+  const result = await bcrypt.compare(password, hash);
+  if (!result) {
+    throw new Error("Password salah");
+  }
+
+  return rows[0];
 };
 
-const list = ({ id = 0, peran = "", rank = "" }) => {
+const list = async ({ id = 0, peran = "", rank = "" }) => {
   const sql = `Select u.id, u.username, u.peran, u.id_karyawan, k.nama, p.rank, p.keterangan keteranganperan From ${table} u 
   left join karyawan k on k.id=u.id_karyawan 
   left join peran p on p.nama=u.peran 
   where 1=1${
-    peran == "super"
+    peran == SUPER_ROLE
       ? ""
-      : ` and (u.id=?${rank && rank <= 10 ? " or rank>?" : ""}) `
+      : ` and (u.id=?${rank && rank <= MAX_RANK ? " or rank>?" : ""}) `
   }
   order by username`;
   const values = [...(id ? [id] : []), ...(rank ? [rank] : [])];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (!res) res = [];
-      resolve(res);
-    });
-  });
+
+  const [rows] = await pool.execute(sql, values);
+  return rows;
 };
 
-const create = ({ username, password, peran, id_karyawan }) => {
-  return new Promise((resolve, reject) => {
-    bcrypt.hash(password, saltRounds, function (err, hash) {
-      // Store hash in your password DB.
-      if (err) return reject(err);
-      const sql = `insert into ${table} (username, password, peran, id_karyawan) values (?,'${hash}',?,?)`;
-      const values = [username, peran, id_karyawan];
-      connection.query(sql, values, (err, res) => {
-        if (err) reject(err);
-        resolve(res);
-      });
-    });
-  });
+const create = async ({ username, password, peran, id_karyawan }) => {
+  const hash = await hashPassword(password);
+  const sql = `insert into ${table} (username, password, peran, id_karyawan) values (?,?,?,?)`;
+  const values = [username, hash, peran, id_karyawan];
+
+  const [result] = await pool.execute(sql, values);
+  return result;
 };
 
-const update = ({
+const update = async ({
   id,
   username,
   password,
@@ -78,56 +75,39 @@ const update = ({
   srcperan,
   id_karyawan,
 }) => {
-  return new Promise((resolve, reject) => {
-    connection.query(
-      `Select password From ${table} Where id=?`,
-      [id],
-      (err, res) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        if (res.length == 0) {
-          reject({ message: "Username tidak ditemukan" });
-          return;
-        }
-        const hash = res[0].password;
-        bcrypt.compare(passwordlama, hash, function (err, result) {
-          if (err) {
-            reject(err);
-            return;
-          }
-          if (!result && srcperan != "super") {
-            reject({ message: "Password lama tidak sesuai" });
-            return;
-          }
-          bcrypt.hash(password, saltRounds, function (err, hash) {
-            // Store hash in your password DB.
-            if (err) return reject(err);
-            const sql = `update ${table} set username=?, ${
-              password ? `password='${hash}',` : ""
-            } peran=?, id_karyawan=? where id=?`;
-            const values = [username, peran, id_karyawan, id];
-            connection.query(sql, values, (err, res) => {
-              if (err) reject(err);
-              resolve(res);
-            });
-          });
-        });
-      }
-    );
-  });
+  const [rows] = await pool.execute(
+    `Select password From ${table} Where id=?`,
+    [id],
+  );
+  if (rows.length === 0) {
+    throw new Error("Username tidak ditemukan");
+  }
+
+  const oldHash = rows[0].password;
+  const oldPasswordMatches = await bcrypt.compare(passwordlama, oldHash);
+  if (!oldPasswordMatches && srcperan != SUPER_ROLE) {
+    throw new Error("Password lama tidak sesuai");
+  }
+
+  if (password) {
+    const newHash = await hashPassword(password);
+    const sql = `update ${table} set username=?, password=?, peran=?, id_karyawan=? where id=?`;
+    const values = [username, newHash, peran, id_karyawan, id];
+    const [result] = await pool.execute(sql, values);
+    return result;
+  }
+
+  const sql = `update ${table} set username=?, peran=?, id_karyawan=? where id=?`;
+  const values = [username, peran, id_karyawan, id];
+  const [result] = await pool.execute(sql, values);
+  return result;
 };
 
-const destroy = ({ id }) => {
+const destroy = async ({ id }) => {
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
+  const [result] = await pool.execute(sql, values);
+  return result;
 };
 
 module.exports = { list, create, update, destroy, login };
