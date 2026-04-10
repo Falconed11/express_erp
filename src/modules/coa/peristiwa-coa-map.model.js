@@ -1,15 +1,14 @@
 import { generateStandardCRUDModel } from "../default/default.model.js";
 
-const TABLE_NAME = "coa_subtype";
-const extraAllowedFields = ["id_coa_type"];
+const TABLE_NAME = "peristiwa_coa_map";
+const extraAllowedFields = ["id_peristiwa", "entry_tipe", "amount_source"];
 const Model = generateStandardCRUDModel({
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
-  extraAllowedFieldsForFilter: ["id_coa_type"],
-  customSelect: "ct.id id_coa_type, ct.nama coa_type",
+  customSelect: "p.nama peristiwa",
   generateCustomJoin: (mainTable) => `
-            left join coa_type ct on ct.id=${mainTable}.id_coa_type
+            left join peristiwa p on p.id=${mainTable}.id_peristiwa
         `,
 });
 

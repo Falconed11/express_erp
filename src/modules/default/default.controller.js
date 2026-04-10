@@ -10,12 +10,14 @@ export const generateDefaultCRUDController = ({
   getById,
   patch,
   destroy,
+  disableNama = false,
 }) => ({
   async create(req, res, next) {
     defaultAsyncController(
       async (req) => {
         const { body } = req;
-        if (!body.nama) throw new Error("Nama tidak boleh kosong!");
+        if (!disableNama && !body.nama)
+          throw new Error("Nama tidak boleh kosong!");
         return create(body);
       },
       {
