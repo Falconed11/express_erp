@@ -79,6 +79,7 @@ import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
 // v2
+import coaFilterRoutes from "./src/modules/coa/coa-filter.route.js";
 import coaRoutes from "./src/modules/coa/coa.route.js";
 import coaSubTypeRoutes from "./src/modules/coa/coa-subtype.route.js";
 import coaTypeRoutes from "./src/modules/coa/coa-type.route.js";
@@ -130,6 +131,7 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+app.use("/api/v2/coa-filter", coaFilterRoutes);
 app.use("/api/v2/coa", coaRoutes);
 app.use("/api/v2/coa-subtype", coaSubTypeRoutes);
 app.use("/api/v2/coa-type", coaTypeRoutes);
