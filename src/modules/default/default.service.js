@@ -8,14 +8,10 @@ export const generateDefaultCRUDService = ({
   getById,
   patch,
   destroy,
+  customService = {},
 }) => ({
-  async create(data) {
-    return await create(data);
-  },
-
-  async getAll(data) {
-    return await getAll(data);
-  },
+  create: async (data) => create(data),
+  getAll: async (data) => getAll(data),
 
   async getById(id) {
     const result = await getById(id);
@@ -40,4 +36,6 @@ export const generateDefaultCRUDService = ({
     }
     return result;
   },
+
+  ...customService,
 });

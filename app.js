@@ -79,6 +79,7 @@ import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
 // v2
+import coaFilterMapRoutes from "./src/modules/coa/coa-filter-map.route.js";
 import coaFilterRoutes from "./src/modules/coa/coa-filter.route.js";
 import coaRoutes from "./src/modules/coa/coa.route.js";
 import coaSubTypeRoutes from "./src/modules/coa/coa-subtype.route.js";
@@ -131,6 +132,7 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
 app.use("/api/v2/coa-filter", coaFilterRoutes);
 app.use("/api/v2/coa", coaRoutes);
 app.use("/api/v2/coa-subtype", coaSubTypeRoutes);

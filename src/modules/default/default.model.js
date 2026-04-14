@@ -1,17 +1,10 @@
 import db from "../../config/db.js";
 
-/**
- * Generates a default model object for database operations.
- * * @param {string} tableName - The name of the database table.
- * @param {string[]} allowedFieldsForUpdate - An array of strings representing the permitted column names.
- * @param {string[]} allowedFieldsForCreate - An array of strings representing the permitted column names.
- */
 export const generateDefaultCRUDModel = (
   tableName,
   allowedFieldsForCreate,
   allowedFieldsForUpdate,
-  allowedFieldsForFilter = [],
-  { generateCustomJoin, customSelect },
+  { generateCustomJoin, customSelect, filterAliases = {} },
 ) => ({
   async create(data) {
     // 1. Filter to get the pairs [key, value]
@@ -37,41 +30,43 @@ export const generateDefaultCRUDModel = (
   },
 
   async getAll({ limit, offset, ...filters }) {
-    console.log(filters);
     const isPagination = limit && offset;
-
-    const safeFilterKeys = Object.keys(filters).filter((key) =>
-      allowedFieldsForFilter.includes(key),
-    );
 
     const filterSqlParts = [];
     const filterValues = [];
 
-    safeFilterKeys.forEach((key) => {
+    for (const key of Object.keys(filters)) {
       const value = filters[key];
+      const effectiveKey = filterAliases[key] || key;
+      let table = "main";
+      let column = effectiveKey;
+      if (effectiveKey.includes(".")) {
+        [table, column] = effectiveKey.split(".");
+      }
+
       if (Array.isArray(value)) {
         const placeholders = value.map(() => "?").join(", ");
-        filterSqlParts.push(`AND main.${key} IN (${placeholders})`);
+        filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
         filterValues.push(...value);
       } else if (
         typeof value === "object" &&
         value !== null &&
         Array.isArray(value.values)
       ) {
-        const table = value.table || "main";
-        const column = value.column || key;
+        const objTable = value.table || table;
+        const objColumn = value.column || column;
         const placeholders = value.values.map(() => "?").join(", ");
-        filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
+        filterSqlParts.push(
+          `AND ${objTable}.${objColumn} IN (${placeholders})`,
+        );
         filterValues.push(...value.values);
       } else {
-        filterSqlParts.push(`AND main.${key} = ?`);
+        filterSqlParts.push(`AND ${table}.${column} = ?`);
         filterValues.push(value);
       }
-    });
+    }
 
     const filterSql = filterSqlParts.join(" ");
-
-    console.log(customSelect, generateCustomJoin);
     const sql = `SELECT main.*, COUNT(*) OVER () total, cb.nama created_by, ub.nama updated_by
     ${customSelect ? `, ${customSelect}` : ""}
     FROM ${tableName} main
@@ -130,20 +125,15 @@ export const generateDefaultCRUDModel = (
   },
 });
 
-const standardAllowedFieldsForCreate = [
-  "nama",
+export const defaultFields = [
   "keterangan",
+  "aktif",
   "created_by",
   "updated_by",
 ];
-const standardAllowedFieldsForUpdate = [
-  "nama",
-  "keterangan",
-  "aktif",
-  "updated_by",
-];
 
-const standardAllowedFieldsForFilter = ["aktif"];
+const standardAllowedFieldsForCreate = ["nama", ...defaultFields];
+const standardAllowedFieldsForUpdate = ["nama", ...defaultFields];
 
 /**
  * Generates a standard model object for database operations.
@@ -155,14 +145,13 @@ export const generateStandardCRUDModel = ({
   tableName,
   extraAllowedFieldsForCreate = [],
   extraAllowedFieldsForUpdate = [],
-  extraAllowedFieldsForFilter = [],
+  filterAliases = {},
   ...rest
 }) => {
   return generateDefaultCRUDModel(
     tableName,
     [...standardAllowedFieldsForCreate, ...extraAllowedFieldsForCreate],
     [...standardAllowedFieldsForUpdate, ...extraAllowedFieldsForUpdate],
-    [...standardAllowedFieldsForFilter, ...extraAllowedFieldsForFilter],
-    rest,
+    { filterAliases, ...rest },
   );
 };
