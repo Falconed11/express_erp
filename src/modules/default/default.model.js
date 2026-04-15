@@ -6,7 +6,7 @@ export const generateDefaultCRUDModel = (
   allowedFieldsForUpdate,
   { generateCustomJoin, customSelect, filterAliases = {} },
 ) => ({
-  async create(data) {
+  async create(data, conn = db) {
     // 1. Filter to get the pairs [key, value]
     const filteredEntries = Object.entries(data).filter(([key, value]) => {
       const isAllowedKey = allowedFieldsForCreate.includes(key);
@@ -25,11 +25,11 @@ export const generateDefaultCRUDModel = (
     const placeholders = fieldNames.map(() => "?").join(", ");
 
     const sql = `INSERT INTO ${tableName} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
-    const [result] = await db.execute(sql, values);
+    const [result] = await conn.execute(sql, values);
     return result;
   },
 
-  async getAll({ limit, offset, ...filters }) {
+  async getAll({ limit, offset, ...filters }, conn = db) {
     const isPagination = limit && offset;
 
     const filterSqlParts = [];
@@ -76,7 +76,7 @@ export const generateDefaultCRUDModel = (
     WHERE 1=1 ${filterSql}
     ${isPagination ? " LIMIT ? OFFSET ?" : ""}`;
 
-    const [rows] = await db.execute(sql, [
+    const [rows] = await conn.execute(sql, [
       ...filterValues,
       ...(isPagination ? [limit, offset] : []),
     ]);
@@ -84,13 +84,13 @@ export const generateDefaultCRUDModel = (
     return rows;
   },
 
-  async getById(id) {
+  async getById(id, conn = db) {
     const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
-    const [rows] = await db.execute(sql, [id]);
+    const [rows] = await conn.execute(sql, [id]);
     return rows[0];
   },
 
-  async patch(id, data) {
+  async patch(id, data, conn = db) {
     console.log({ allowedFieldsForUpdate });
     const fields = [];
     const values = [];
@@ -114,13 +114,13 @@ export const generateDefaultCRUDModel = (
 
     values.push(id);
 
-    const [result] = await db.execute(sql, values);
+    const [result] = await conn.execute(sql, values);
     return result;
   },
 
-  async destroy(id) {
+  async destroy(id, conn = db) {
     const sql = `DELETE FROM ${tableName} WHERE id = ?`;
-    const [result] = await db.execute(sql, [id]);
+    const [result] = await conn.execute(sql, [id]);
     return result;
   },
 });
