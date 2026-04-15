@@ -96,6 +96,7 @@ import peristiwaCoaMapRoutes from "./src/modules/coa/peristiwa-coa-map.route.js"
 import peristiwaRoutes from "./src/modules/coa/peristiwa.route.js";
 import perusahaanRoutes from "./src/routes/perusahaan.routes.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
+import transaksiRoutes from "./src/modules/transaksi/transaksi.route.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 
 import errorMiddleware from "./src/middlewares/error.middleware.js";
@@ -149,6 +150,7 @@ app.use("/api/v2/peristiwa", peristiwaRoutes);
 app.use("/api/v2/peristiwa-coa-map", peristiwaCoaMapRoutes);
 app.use("/api/v2/perusahaan", perusahaanRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
+app.use("/api/v2/transaksi", transaksiRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
 
 //tes
