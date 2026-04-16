@@ -5,13 +5,24 @@ import { withTransaction } from "../../helpers/transaction.js";
 const Service = {
   getAll: async (data) => TransaksiModel.getAll(data),
   async create(data) {
+    console.log(data);
     const { transaksi, ...jurnalData } = data;
-
-    const balanceCheck = transaksi.reduce((acc, item) => {
-      return acc + item.amount;
-    }, 0);
-    if (balanceCheck !== 0) {
-      throw new Error("Service Error: Transaksi tidak seimbang");
+    transaksi.map((item) => {
+      if (!item.id_coa)
+        throw new Error(
+          "Service Error: id_coa wajib diisi untuk setiap transaksi",
+        );
+    });
+    const balanceCheck = Math.abs(
+      transaksi.reduce((acc, item) => {
+        if (item.tipe == 1) return acc + item.amount;
+        return acc - item.amount;
+      }, 0),
+    );
+    if (balanceCheck >= 0.01) {
+      throw new Error(
+        `Service Error: Transaksi tidak seimbang (${balanceCheck})`,
+      );
     }
     try {
       const result = await withTransaction(async (conn) => {
@@ -29,6 +40,11 @@ const Service = {
       console.log(err);
       throw err;
     }
+  },
+  async getById(id) {
+    const jurnal = await JurnalModel.getById(id);
+    const transaksi = await TransaksiModel.getAll({ id_jurnal: id });
+    return { ...jurnal, transaksi };
   },
 };
 

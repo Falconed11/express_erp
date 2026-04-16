@@ -1,6 +1,9 @@
 import { generateDefaultCRUDController } from "../default/default.controller.js";
 import Service from "./transaksi.service.js";
 
-const Controller = generateDefaultCRUDController(Service);
+const Controller = generateDefaultCRUDController({
+  ...Service,
+  disableNama: true,
+});
 
 export default Controller;
