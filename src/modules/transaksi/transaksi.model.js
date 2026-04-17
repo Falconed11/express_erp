@@ -3,11 +3,13 @@ import { generateStandardCRUDModel } from "../default/default.model.js";
 const TABLE_NAME = "transaksi";
 const extraAllowedFields = ["id_jurnal", "id_coa", "tipe", "amount"];
 const Model = generateStandardCRUDModel({
+  allowNoUpdate: true,
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
   filterAliases: { id_jurnal: "j.id", id_coa: "c.id" },
-  customSelect: "j.tanggal, c.nama coa, p.nama perusahaan",
+  customSelect:
+    "j.tanggal, j.keterangan keterangan_jurnal, c.nama coa, p.nama perusahaan",
   generateCustomJoin: (
     mainTable,
   ) => `left join jurnal j on j.id=${mainTable}.id_jurnal

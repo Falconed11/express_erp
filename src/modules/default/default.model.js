@@ -4,7 +4,12 @@ export const generateDefaultCRUDModel = (
   tableName,
   allowedFieldsForCreate,
   allowedFieldsForUpdate,
-  { generateCustomJoin, customSelect, filterAliases = {} },
+  {
+    allowNoUpdate = false,
+    generateCustomJoin,
+    customSelect,
+    filterAliases = {},
+  },
 ) => ({
   async create(data, conn = db) {
     // 1. Filter to get the pairs [key, value]
@@ -91,19 +96,18 @@ export const generateDefaultCRUDModel = (
   },
 
   async patch(id, data, conn = db) {
-    console.log({ allowedFieldsForUpdate });
     const fields = [];
     const values = [];
-
+    console.log(data);
+    console.log(allowedFieldsForUpdate);
     for (const key in data) {
       if (allowedFieldsForUpdate.includes(key)) {
         fields.push(`${key} = ?`);
         values.push(data[key]);
       }
     }
-    console.log({ fields });
-    if (fields.length === 0) {
-      throw new Error("No fields to update");
+    if (!allowNoUpdate && fields.length === 0) {
+      throw new Error(`No fields to update for Table ${tableName}`);
     }
 
     const sql = `
@@ -125,14 +129,9 @@ export const generateDefaultCRUDModel = (
   },
 });
 
-export const defaultFields = [
-  "keterangan",
-  "aktif",
-  "created_by",
-  "updated_by",
-];
+export const defaultFields = ["keterangan", "aktif", "updated_by"];
 
-const standardAllowedFieldsForCreate = ["nama", ...defaultFields];
+const standardAllowedFieldsForCreate = ["nama", "created_by", ...defaultFields];
 const standardAllowedFieldsForUpdate = ["nama", ...defaultFields];
 
 /**

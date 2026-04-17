@@ -3,6 +3,7 @@ import { generateStandardCRUDModel } from "../default/default.model.js";
 const TABLE_NAME = "jurnal";
 const extraAllowedFields = ["id_perusahaan", "tanggal"];
 const Model = generateStandardCRUDModel({
+  allowNoUpdate: true,
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
