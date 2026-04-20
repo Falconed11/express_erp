@@ -23,6 +23,15 @@ const Model = generateStandardCRUDModel({
     left join coa_subtype cs on cs.id=c.id_coa_subtype
     left join coa_type ct on ct.id=cs.id_coa_type
   `,
+  customModel: {
+    async getById(id, data, conn = db) {
+      let sql = "";
+
+      sql = `SELECT * FROM ${tableName} WHERE id = ?`;
+      const [rows] = await conn.execute(sql, [id]);
+      return rows[0];
+    },
+  },
 });
 
 export default Model;

@@ -10,6 +10,7 @@ export const generateDefaultCRUDModel = (
     customSelect,
     filterAliases = {},
     prepareData = (data) => data,
+    customModel = {},
   },
 ) => ({
   async create(data, conn = db) {
@@ -37,7 +38,6 @@ export const generateDefaultCRUDModel = (
     const [result] = await conn.execute(sql, values);
     return result;
   },
-
   async getAll({ limit, offset, ...filters }, conn = db) {
     const isPagination = limit && offset;
 
@@ -92,13 +92,11 @@ export const generateDefaultCRUDModel = (
 
     return rows;
   },
-
   async getById(id, conn = db) {
     const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
     const [rows] = await conn.execute(sql, [id]);
     return rows[0];
   },
-
   async patch(id, data, conn = db) {
     console.log(data);
     const preparedData = prepareData(data);
@@ -125,12 +123,12 @@ export const generateDefaultCRUDModel = (
     const [result] = await conn.execute(sql, values);
     return result;
   },
-
   async destroy(id, conn = db) {
     const sql = `DELETE FROM ${tableName} WHERE id = ?`;
     const [result] = await conn.execute(sql, [id]);
     return result;
   },
+  ...customModel,
 });
 
 export const defaultFields = ["keterangan", "aktif", "updated_by"];

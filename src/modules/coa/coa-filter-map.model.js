@@ -32,11 +32,14 @@ const Model = generateDefaultCRUDModel(
     left join coa_subtype cs on cs.id=${mainTable}.id_coa_subtype
   `,
     prepareData: (data) => {
-      if (data.id_coa) {
-        delete data.id_coa_subtype;
-        delete data.id_coa_type;
-      }
-      if (data.id_coa_type) delete data.id_coa_type;
+      const { id_coa_type, id_coa_subtype, id_coa, ...rest } = data;
+      // Prioritize based on your existing logic order
+      if (id_coa)
+        return { ...rest, id_coa, id_coa_subtype: null, id_coa_type: null };
+      if (id_coa_subtype)
+        return { ...rest, id_coa_subtype, id_coa: null, id_coa_type: null };
+      if (id_coa_type)
+        return { ...rest, id_coa_type, id_coa_subtype: null, id_coa: null };
       return data;
     },
   },
