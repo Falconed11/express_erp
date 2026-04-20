@@ -9,18 +9,22 @@ export const generateDefaultCRUDModel = (
     generateCustomJoin,
     customSelect,
     filterAliases = {},
+    prepareData = (data) => data,
   },
 ) => ({
   async create(data, conn = db) {
+    const preparedData = prepareData(data);
     // 1. Filter to get the pairs [key, value]
-    const filteredEntries = Object.entries(data).filter(([key, value]) => {
-      const isAllowedKey = allowedFieldsForCreate.includes(key);
+    const filteredEntries = Object.entries(preparedData).filter(
+      ([key, value]) => {
+        const isAllowedKey = allowedFieldsForCreate.includes(key);
 
-      // Use a stricter check: allow anything that isn't null, undefined, or an empty string
-      const hasValue = value !== null && value !== undefined && value !== "";
+        // Use a stricter check: allow anything that isn't null, undefined, or an empty string
+        const hasValue = value !== null && value !== undefined && value !== "";
 
-      return isAllowedKey && hasValue;
-    });
+        return isAllowedKey && hasValue;
+      },
+    );
 
     // 2. Extract keys and values from the filtered entries
     const fieldNames = filteredEntries.map(([key]) => key);
@@ -96,14 +100,14 @@ export const generateDefaultCRUDModel = (
   },
 
   async patch(id, data, conn = db) {
+    console.log(data);
+    const preparedData = prepareData(data);
     const fields = [];
     const values = [];
-    console.log(data);
-    console.log(allowedFieldsForUpdate);
-    for (const key in data) {
+    for (const key in preparedData) {
       if (allowedFieldsForUpdate.includes(key)) {
         fields.push(`${key} = ?`);
-        values.push(data[key]);
+        values.push(preparedData[key]);
       }
     }
     if (!allowNoUpdate && fields.length === 0) {

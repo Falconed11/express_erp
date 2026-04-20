@@ -31,6 +31,14 @@ const Model = generateDefaultCRUDModel(
     left join coa_type ct on ct.id=${mainTable}.id_coa_type
     left join coa_subtype cs on cs.id=${mainTable}.id_coa_subtype
   `,
+    prepareData: (data) => {
+      if (data.id_coa) {
+        delete data.id_coa_subtype;
+        delete data.id_coa_type;
+      }
+      if (data.id_coa_type) delete data.id_coa_type;
+      return data;
+    },
   },
 );
 
