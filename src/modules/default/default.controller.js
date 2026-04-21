@@ -11,6 +11,7 @@ export const generateDefaultCRUDController = ({
   patch,
   destroy,
   disableNama = false,
+  customController = {},
 }) => ({
   async create(req, res, next) {
     defaultAsyncController(
@@ -82,4 +83,5 @@ export const generateDefaultCRUDController = ({
       },
     );
   },
+  ...customController,
 });
