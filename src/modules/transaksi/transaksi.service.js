@@ -53,7 +53,7 @@ const Service = {
   },
   async patch(id, data) {
     const { transaksi, ...jurnal } = data;
-    console.log(jurnal);
+    // console.log(jurnal);
     validateTransaksiData(transaksi);
     try {
       const result = await withTransaction(async (conn) => {
