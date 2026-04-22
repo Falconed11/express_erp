@@ -131,9 +131,9 @@ const Model = generateStandardCRUDModel({
         FROM laporan_tree p
         JOIN rollup c ON c.id_parent = p.id
       `;
-      const result = `SELECT id, id_parent, nama, level, SUM(balance) AS total_balance
+      const result = `SELECT id, id_parent, nama, level, modifier, SUM(balance) AS total_balance
         FROM rollup
-        GROUP BY id, id_parent, nama, level
+        GROUP BY id, id_parent, nama, level, modifier
         ORDER BY level, id
       `;
       if (data.type == "tree") {
