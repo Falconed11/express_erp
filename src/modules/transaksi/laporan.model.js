@@ -34,7 +34,6 @@ const Model = generateStandardCRUDModel({
   },
   customModel: {
     async getById(id, data, conn = db) {
-      console.log(data);
       const { from, to } = data;
       let sql = ``;
       const laporanTree = `SELECT l.id, l.id_parent, l.nama, l.id_coa_filter, l.id_coa, l.modifier, 0 AS level
@@ -108,7 +107,7 @@ const Model = generateStandardCRUDModel({
             CASE 
               WHEN j.id IS NOT NULL THEN
                   CASE 
-                    WHEN t.tipe = 1 THEN t.amount
+                    WHEN t.tipe = COALESCE(ct.normal_balance, 1) THEN t.amount
                     ELSE -t.amount
                   END
               ELSE 0
@@ -116,6 +115,9 @@ const Model = generateStandardCRUDModel({
           ), 0) AS balance
         FROM laporan_coa_distinct lc
         LEFT JOIN transaksi t ON t.id_coa = lc.coa_id
+        LEFT JOIN coa c ON c.id = lc.coa_id
+        LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
+        LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
         LEFT JOIN jurnal j ON j.id = t.id_jurnal
           AND j.id_perusahaan = ?
           ${from ? "AND j.tanggal >= ?" : ""}
