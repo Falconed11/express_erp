@@ -34,6 +34,7 @@ const Model = generateStandardCRUDModel({
   },
   customModel: {
     async getById(id, data, conn = db) {
+      console.log(data);
       const { from, to } = data;
       let sql = ``;
       const laporanTree = `SELECT l.id, l.id_parent, l.nama, l.id_coa_filter, l.id_coa, l.modifier, 0 AS level
@@ -116,6 +117,7 @@ const Model = generateStandardCRUDModel({
         FROM laporan_coa_distinct lc
         LEFT JOIN transaksi t ON t.id_coa = lc.coa_id
         LEFT JOIN jurnal j ON j.id = t.id_jurnal
+          AND j.id_perusahaan = ?
           ${from ? "AND j.tanggal >= ?" : ""}
           ${to ? "AND j.tanggal < ?" : ""}
         GROUP BY lc.laporan_id, lc.id_parent, lc.nama, lc.level, lc.modifier
@@ -145,7 +147,12 @@ const Model = generateStandardCRUDModel({
         /* FINAL RESULT */
         ${result}
         `;
-        const value = [id, ...(from ? [from] : []), ...(to ? [to] : [])];
+        const value = [
+          id,
+          data.id_perusahaan,
+          ...(from ? [from] : []),
+          ...(to ? [to] : []),
+        ];
         const [rows] = await conn.execute(sql, value);
         return rows;
       }
