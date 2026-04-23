@@ -86,10 +86,18 @@ const validateTreeRecursionFromRoot = async (rootId, conn = db) => {
       },
     ]),
   );
+  const childMap = new Map();
+  for (const node of nodeMap.values()) {
+    if (node.id_parent == null) continue;
+    if (!childMap.has(node.id_parent)) {
+      childMap.set(node.id_parent, []);
+    }
+    childMap.get(node.id_parent).push(node);
+  }
 
   const visitedGlobal = new Set();
   const walk = (currentId, stack = new Set()) => {
-    if (currentId == null || visitedGlobal.has(currentId)) return;
+    if (currentId == null) return;
 
     const currentNode = nodeMap.get(+currentId);
     if (!currentNode) return;
@@ -98,16 +106,15 @@ const validateTreeRecursionFromRoot = async (rootId, conn = db) => {
       throw formatCycleError(currentNode);
     }
 
+    if (visitedGlobal.has(+currentNode.id)) return;
+
     stack.add(+currentNode.id);
-    visitedGlobal.add(+currentNode.id);
-
-    for (const node of nodeMap.values()) {
-      if (node.id_parent === +currentNode.id) {
-        walk(node.id, stack);
-      }
+    const children = childMap.get(+currentNode.id) || [];
+    for (const node of children) {
+      walk(node.id, stack);
     }
-
     stack.delete(+currentNode.id);
+    visitedGlobal.add(+currentNode.id);
   };
 
   walk(+rootId);
@@ -180,13 +187,16 @@ const Model = generateStandardCRUDModel({
     async getById(id, data, conn = db) {
       const { from, to, id_perusahaan } = data;
       let sql = ``;
-      const laporanTree = `SELECT l.id, l.id_parent, l.nama, l.id_coa_filter, l.id_coa, l.modifier, 0 AS level
+      const laporanTree = `SELECT l.id, l.id_parent, l.nama, l.id_coa_filter, l.id_coa, l.modifier, 0 AS level,
+          CAST(CONCAT(',', l.id, ',') AS CHAR(5000)) AS path
         FROM laporan l
         WHERE l.id = ?
         UNION ALL
-        SELECT c.id, c.id_parent, c.nama, c.id_coa_filter, c.id_coa, c.modifier, p.level + 1
+        SELECT c.id, c.id_parent, c.nama, c.id_coa_filter, c.id_coa, c.modifier, p.level + 1,
+          CONCAT(p.path, c.id, ',') AS path
         FROM laporan c
         JOIN laporan_tree p ON c.id_parent = p.id
+        WHERE INSTR(p.path, CONCAT(',', c.id, ',')) = 0
       `;
       const laporanCoa = `-- 1. DIRECT COA (HIGHEST PRIORITY)
       SELECT lt.id AS laporan_id, lt.id_parent, lt.nama, lt.level, lt.modifier, lt.id_coa AS coa_id
@@ -268,12 +278,15 @@ const Model = generateStandardCRUDModel({
           ${to ? "AND j.tanggal < ?" : ""}
         GROUP BY lc.laporan_id, lc.id_parent, lc.nama, lc.level, lc.modifier
       `;
-      const rollUp = `SELECT lb.laporan_id AS id, lb.id_parent, lb.nama, lb.level, lb.modifier, lb.balance
+      const rollUp = `SELECT lb.laporan_id AS id, lb.id_parent, lb.nama, lb.level, lb.modifier, lb.balance,
+          CAST(CONCAT(',', lb.laporan_id, ',') AS CHAR(5000)) AS path
         FROM laporan_balance lb
         UNION ALL
-        SELECT p.id, p.id_parent, p.nama, p.level, p.modifier, c.balance * COALESCE(c.modifier, 1)
+        SELECT p.id, p.id_parent, p.nama, p.level, p.modifier, c.balance * COALESCE(c.modifier, 1),
+          CONCAT(c.path, p.id, ',') AS path
         FROM laporan_tree p
         JOIN rollup c ON c.id_parent = p.id
+        WHERE INSTR(c.path, CONCAT(',', p.id, ',')) = 0
       `;
       const result = `SELECT id, id_parent, nama, level, modifier, SUM(balance) AS total_balance
         FROM rollup

@@ -98,7 +98,6 @@ export const generateDefaultCRUDModel = (
     return rows[0];
   },
   async patch(id, data, conn = db) {
-    console.log(data);
     const preparedData = prepareData(data);
     const fields = [];
     const values = [];
