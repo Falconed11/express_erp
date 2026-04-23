@@ -3,6 +3,116 @@ import { generateStandardCRUDModel } from "../default/default.model.js";
 
 const TABLE_NAME = "laporan";
 const extraAllowedFields = ["id_parent", "id_coa_filter", "id_coa", "modifier"];
+const standardAllowedFieldsForCreate = [
+  "nama",
+  "created_by",
+  "keterangan",
+  "aktif",
+  "updated_by",
+];
+const standardAllowedFieldsForUpdate = [
+  "nama",
+  "keterangan",
+  "aktif",
+  "updated_by",
+];
+const allowedFieldsForCreate = [
+  ...standardAllowedFieldsForCreate,
+  ...extraAllowedFields,
+];
+const allowedFieldsForUpdate = [
+  ...standardAllowedFieldsForUpdate,
+  ...extraAllowedFields,
+];
+
+const prepareLaporanData = (data) => {
+  const allowedValues = [1, -1];
+  const { modifier, id_parent } = data;
+  if (id_parent && !allowedValues.includes(+modifier))
+    throw new Error("modifier harus 1, atau -1!");
+  if (id_parent == null) data.modifier = null;
+  return data;
+};
+
+const formatCycleError = (node) => {
+  const id = node?.id ?? "unknown";
+  const nama = node?.nama ?? "unknown";
+  return new Error(`Tree recursion detected on laporan id ${id} (${nama})`);
+};
+
+const validateTreeRecursion = async ({ id, id_parent }, conn = db) => {
+  if (id_parent == null) return;
+
+  const visited = new Set();
+  let currentId = +id_parent;
+
+  while (currentId != null) {
+    const [rows] = await conn.execute(
+      `SELECT id, nama, id_parent FROM ${TABLE_NAME} WHERE id = ?`,
+      [currentId],
+    );
+    const currentNode = rows[0];
+
+    if (!currentNode) return;
+
+    if (id != null && +currentNode.id === +id) {
+      throw formatCycleError(currentNode);
+    }
+
+    if (visited.has(+currentNode.id)) {
+      throw formatCycleError(currentNode);
+    }
+
+    visited.add(+currentNode.id);
+    currentId =
+      currentNode.id_parent != null ? +currentNode.id_parent : currentNode.id_parent;
+  }
+};
+
+const validateTreeRecursionFromRoot = async (rootId, conn = db) => {
+  if (rootId == null) return;
+
+  const [rows] = await conn.execute(
+    `SELECT id, nama, id_parent FROM ${TABLE_NAME}`,
+  );
+
+  const nodeMap = new Map(
+    rows.map((row) => [
+      +row.id,
+      {
+        id: +row.id,
+        nama: row.nama,
+        id_parent: row.id_parent != null ? +row.id_parent : null,
+      },
+    ]),
+  );
+
+  const visitedGlobal = new Set();
+  const walk = (currentId, stack = new Set()) => {
+    if (currentId == null || visitedGlobal.has(currentId)) return;
+
+    const currentNode = nodeMap.get(+currentId);
+    if (!currentNode) return;
+
+    if (stack.has(+currentNode.id)) {
+      throw formatCycleError(currentNode);
+    }
+
+    stack.add(+currentNode.id);
+    visitedGlobal.add(+currentNode.id);
+
+    for (const node of nodeMap.values()) {
+      if (node.id_parent === +currentNode.id) {
+        walk(node.id, stack);
+      }
+    }
+
+    stack.delete(+currentNode.id);
+  };
+
+  walk(+rootId);
+};
+
 const Model = generateStandardCRUDModel({
   allowNoUpdate: true,
   tableName: TABLE_NAME,
@@ -24,15 +134,49 @@ const Model = generateStandardCRUDModel({
     left join coa_subtype cs on cs.id=c.id_coa_subtype
     left join coa_type ct on ct.id=cs.id_coa_type
   `,
-  prepareData: (data) => {
-    const allowedValues = [1, -1];
-    const { modifier, id_parent } = data;
-    if (id_parent && !allowedValues.includes(+modifier))
-      throw new Error("modifier harus 1, atau -1!");
-    if (id_parent == null) data.modifier = null;
-    return data;
-  },
+  prepareData: prepareLaporanData,
   customModel: {
+    async create(data, conn = db) {
+      const preparedData = prepareLaporanData(data);
+      await validateTreeRecursion({ id_parent: preparedData.id_parent }, conn);
+
+      const filteredEntries = Object.entries(preparedData).filter(([key, value]) => {
+        const isAllowedKey = allowedFieldsForCreate.includes(key);
+        const hasValue = value !== null && value !== undefined && value !== "";
+        return isAllowedKey && hasValue;
+      });
+
+      const fieldNames = filteredEntries.map(([key]) => key);
+      const values = filteredEntries.map(([_, value]) => value);
+      const placeholders = fieldNames.map(() => "?").join(", ");
+      const sql = `INSERT INTO ${TABLE_NAME} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
+      const [result] = await conn.execute(sql, values);
+      return result;
+    },
+    async patch(id, data, conn = db) {
+      const preparedData = prepareLaporanData(data);
+      await validateTreeRecursion({ id, id_parent: preparedData.id_parent }, conn);
+
+      const fields = [];
+      const values = [];
+      for (const key in preparedData) {
+        if (allowedFieldsForUpdate.includes(key)) {
+          fields.push(`${key} = ?`);
+          values.push(preparedData[key]);
+        }
+      }
+
+      const sql = `
+        UPDATE ${TABLE_NAME}
+        SET ${fields.join(", ")}
+        WHERE id = ?
+      `;
+
+      values.push(id);
+
+      const [result] = await conn.execute(sql, values);
+      return result;
+    },
     async getById(id, data, conn = db) {
       const { from, to, id_perusahaan } = data;
       let sql = ``;
@@ -137,6 +281,7 @@ const Model = generateStandardCRUDModel({
         ORDER BY level, id
       `;
       if (data.type == "tree") {
+        await validateTreeRecursionFromRoot(id, conn);
         sql = `WITH RECURSIVE laporan_tree AS (${laporanTree}),
         /* COA RESOLUTION (STRICT PRIORITY) */
         laporan_coa AS (${laporanCoa}),
