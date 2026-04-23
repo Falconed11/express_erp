@@ -34,7 +34,7 @@ const Model = generateStandardCRUDModel({
   },
   customModel: {
     async getById(id, data, conn = db) {
-      const { from, to } = data;
+      const { from, to, id_perusahaan } = data;
       let sql = ``;
       const laporanTree = `SELECT l.id, l.id_parent, l.nama, l.id_coa_filter, l.id_coa, l.modifier, 0 AS level
         FROM laporan l
@@ -119,7 +119,7 @@ const Model = generateStandardCRUDModel({
         LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
         LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
         LEFT JOIN jurnal j ON j.id = t.id_jurnal
-          AND j.id_perusahaan = ?
+          ${id_perusahaan ? "AND j.id_perusahaan = ?" : ""}
           ${from ? "AND j.tanggal >= ?" : ""}
           ${to ? "AND j.tanggal < ?" : ""}
         GROUP BY lc.laporan_id, lc.id_parent, lc.nama, lc.level, lc.modifier
@@ -151,7 +151,7 @@ const Model = generateStandardCRUDModel({
         `;
         const value = [
           id,
-          data.id_perusahaan,
+          ...(id_perusahaan ? [id_perusahaan] : []),
           ...(from ? [from] : []),
           ...(to ? [to] : []),
         ];
