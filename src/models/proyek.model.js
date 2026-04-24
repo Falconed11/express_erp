@@ -1,6 +1,7 @@
 import db from "../config/db.js";
 import { conditionalArrayBuilder, queryWhereBuilder } from "../utils/tools.js";
 import { patch } from "./default.model.js";
+import { withTransaction } from "../helpers/transaction.js";
 
 const buildLeftJoin = (
   mainTable,
@@ -42,6 +43,84 @@ const ProyekModel = {
   async findAll() {
     const [rows] = await db.execute(`SELECT * FROM ${this.table}`);
     return rows;
+  },
+  async getById(id) {
+    const sql = `SELECT * FROM ${this.table} WHERE id = ?`;
+    const [rows] = await db.execute(sql, [id]);
+    return rows[0];
+  },
+  async create(data) {
+    const fieldNames = Object.keys(data).filter((key) => key !== "id");
+    if (fieldNames.length === 0) {
+      throw new Error("No data to insert");
+    }
+    const placeholders = fieldNames.map(() => "?").join(", ");
+    const values = fieldNames.map((key) => data[key]);
+    const sql = `INSERT INTO ${this.table} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
+    const [result] = await db.execute(sql, values);
+    return result;
+  },
+  async getTableInsertColumns(tableName, conn) {
+    const [columns] = await conn.execute(`SHOW COLUMNS FROM ${tableName}`);
+    return columns
+      .map((column) => column.Field)
+      .filter((field) => field !== "id");
+  },
+  async cloneTableRows(conn, tableName, oldProjectId, newProjectId) {
+    const insertColumns = await this.getTableInsertColumns(tableName, conn);
+    if (!insertColumns.includes("id_proyek")) return;
+
+    const selectColumns = insertColumns
+      .map((column) => (column === "id_proyek" ? "?" : column))
+      .join(", ");
+    const sql = `INSERT INTO ${tableName} (${insertColumns.join(", ")}) SELECT ${selectColumns} FROM ${tableName} WHERE id_proyek = ?`;
+    await conn.execute(sql, [newProjectId, oldProjectId]);
+  },
+  async duplicate(id, overrides = {}) {
+    const record = await this.getById(id);
+    if (!record) {
+      throw new Error(`Proyek with id ${id} not found`);
+    }
+    const projectData = {
+      ...record,
+      ...overrides,
+      nama:
+        overrides.hasOwnProperty("nama") && overrides.nama !== undefined
+          ? overrides.nama
+          : `${record.nama} - copy`,
+      id_statusproyek: 1,
+      tanggal_penawaran: new Date(),
+    };
+    delete projectData.id;
+
+    return withTransaction(async (conn) => {
+      const excludedFields = [
+        "id",
+        "id_second",
+        "id_kustom",
+        "tanggal",
+        "tanggal_reject",
+      ];
+      const fieldNames = Object.keys(projectData).filter(
+        (key) => !excludedFields.includes(key),
+      );
+      const placeholders = fieldNames.map(() => "?").join(", ");
+      const values = fieldNames.map((key) => projectData[key]);
+      const insertSql = `INSERT INTO ${this.table} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
+      const [result] = await conn.execute(insertSql, values);
+      const newProjectId = result.insertId;
+
+      await this.cloneTableRows(conn, "keranjangproyek", id, newProjectId);
+      await this.cloneTableRows(
+        conn,
+        "proyek_keteranganpenawaran",
+        id,
+        newProjectId,
+      );
+      await this.cloneTableRows(conn, "rekapitulasiproyek", id, newProjectId);
+
+      return { insertId: newProjectId };
+    });
   },
   async findStagedProductByProjectId(id) {
     const [rows] = await db.execute(

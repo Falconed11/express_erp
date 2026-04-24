@@ -74,6 +74,22 @@ const ProyekController = {
       },
     );
   },
+  async duplicate(req, res, next) {
+    defaultAsyncController(
+      async (req) => {
+        const { id } = req.params;
+        if (!id) {
+          throw new Error("ID is required");
+        }
+        return ProyekService.duplicate(req.params.id, req.body);
+      },
+      {
+        req,
+        res,
+        next,
+      },
+    );
+  },
   async patch(req, res, next) {
     defaultAsyncController(
       async (req) => {

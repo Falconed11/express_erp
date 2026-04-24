@@ -75,6 +75,24 @@ const Service = {
       throw err;
     }
   },
+  async destroy(id) {
+    try {
+      const result = await withTransaction(async (conn) => {
+        // First, delete all transaksi for this jurnal
+        const transaksiToDelete = await TransaksiModel.getAll({ id_jurnal: id }, conn);
+        await Promise.all(
+          transaksiToDelete.map((item) => TransaksiModel.destroy(item.id, conn)),
+        );
+        // Then delete the jurnal
+        const jurnalResult = await JurnalModel.destroy(id, conn);
+        return { jurnal: jurnalResult, transaksiDeleted: transaksiToDelete.length };
+      });
+      return result;
+    } catch (err) {
+      console.log(err);
+      throw err;
+    }
+  },
 };
 
 export default Service;

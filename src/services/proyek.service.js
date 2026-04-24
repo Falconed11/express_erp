@@ -62,6 +62,9 @@ const ProyekService = {
     const result = Object.values(proyekMap);
     return result;
   },
+  async duplicate(id, overrides) {
+    return ProyekModel.duplicate(id, overrides);
+  },
   async patch(id, data) {
     return ProyekModel.patch(id, data);
   },
