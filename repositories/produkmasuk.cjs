@@ -23,6 +23,7 @@ const create = async ({
   terbayar,
   tanggal,
   jatuhtempo,
+  isUpdateHarga,
 }) => {
   jumlah = jumlah ?? 0;
   if (jumlah <= 0) throw new Error("Jumlah tidak boleh 0!");
@@ -47,8 +48,9 @@ const create = async ({
       ];
       const [result1] = await conn.execute(sql, values);
 
-      sql = `update produk set stok = stok + ? where id=?;`;
-      values = [jumlah, id_produk];
+      sql = `update produk set stok = stok + ? ${isUpdateHarga ? ", hargamodal = ?, tanggal_update_harga_modal=?" : ""} where id=?;`;
+      console.log(sql, values);
+      values = [jumlah, ...(isUpdateHarga ? [harga, tanggal] : []), id_produk];
       const [result2] = await conn.execute(sql, values);
       return { message: "Sukses" };
     });

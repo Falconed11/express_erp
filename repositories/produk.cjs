@@ -8,7 +8,15 @@ const { create: createKategori } = require("./kategoriproduk.cjs");
 const { create: createMerek } = require("./merek.cjs");
 const { create: createVendor } = require("./vendor.cjs");
 
-const list = async ({ id, kategori, limit, nama, isReadyStock }) => {
+const list = async ({
+  id,
+  kategori,
+  merek,
+  limit,
+  nama,
+  isReadyStock,
+  aktif,
+}) => {
   if (nama) nama = "%" + nama + "%";
   const sql = `select count(distinct kpy.id_proyek) nkeranjangproyek, count(distinct pm.id) nprodukmasuk, kp.nama kategoriproduk, m.nama nmerek, v.nama nvendor, p.* from ${table} p
   left join merek m on p.id_merek=m.id
@@ -16,9 +24,9 @@ const list = async ({ id, kategori, limit, nama, isReadyStock }) => {
   left join kategoriproduk kp on p.id_kategori = kp.id
   left join keranjangproyek kpy on kpy.id_produk = p.id
   left join produkmasuk pm on pm.id_produk = p.id
-  where 1 ${id ? "and p.id=?" : ""} ${kategori ? `and id_kategori = ?` : ""} ${
+  where 1 ${id ? "and p.id=?" : ""} ${kategori ? `and id_kategori = ?` : ""} ${merek ? `and id_merek = ?` : ""} ${
     nama ? "and p.nama like ?" : ""
-  } and p.tanggal >= '2025-01-01' ${isReadyStock ? "and stok>0" : ""}
+  } and p.tanggal >= '2025-01-01' ${isReadyStock ? "and stok>0" : ""} ${aktif ? `and p.aktif = ${aktif}` : ""}
   group by p.id
   order by p.tanggal desc, kategoriproduk, nama, m.nama, p.id ${
     limit ? "limit ?" : ""
@@ -26,7 +34,9 @@ const list = async ({ id, kategori, limit, nama, isReadyStock }) => {
   const values = [];
   if (id) values.push(id);
   if (kategori) values.push(kategori);
+  if (merek) values.push(merek);
   if (nama) values.push(nama);
+  if (aktif) values.push(aktif);
   if (limit) values.push(limit);
   const [results] = await pool.execute(sql, values);
   return results;
@@ -150,6 +160,9 @@ const insertProduk = async ({
   merek = "",
   vendor = "",
   alamat = "",
+  tanggal_masuk = null,
+  tanggal_update_harga_modal = new Date(),
+  tanggal_update_harga_jual = new Date(),
   conn = null,
 }) => {
   let sql, values;
@@ -166,7 +179,7 @@ const insertProduk = async ({
     if (vendor && !id_vendor) {
       id_vendor = await createVendor({ nama: vendor, alamat, conn });
     }
-    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, tanggal_update_harga_modal, tanggal_update_harga_jual, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
     values = [
       id_kategori,
       id_kustom,
@@ -178,6 +191,8 @@ const insertProduk = async ({
       hargamodal,
       hargajual,
       tanggal,
+      tanggal_update_harga_modal,
+      tanggal_update_harga_jual,
       keterangan ?? "",
     ];
     const [result1] = await conn.execute(sql, values);
@@ -188,7 +203,7 @@ const insertProduk = async ({
         result1.insertId,
         stok,
         hargamodal,
-        tanggal,
+        tanggal_masuk,
         jatuhtempo ?? null,
         lunas == "1" ? stok * hargamodal : terbayar,
         id_vendor,
