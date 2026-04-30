@@ -20,6 +20,7 @@ const create = async ({
   id_vendor,
   jumlah,
   harga,
+  hargajual,
   terbayar,
   tanggal,
   jatuhtempo,
@@ -48,9 +49,13 @@ const create = async ({
       ];
       const [result1] = await conn.execute(sql, values);
 
-      sql = `update produk set stok = stok + ? ${isUpdateHarga ? ", hargamodal = ?, tanggal_update_harga_modal=?" : ""} where id=?;`;
+      sql = `update produk set stok = stok + ? ${isUpdateHarga ? ", hargamodal = ?, hargajual = ?, tanggal=?" : ""} where id=?;`;
       console.log(sql, values);
-      values = [jumlah, ...(isUpdateHarga ? [harga, tanggal] : []), id_produk];
+      values = [
+        jumlah,
+        ...(isUpdateHarga ? [harga, hargajual, tanggal] : []),
+        id_produk,
+      ];
       const [result2] = await conn.execute(sql, values);
       return { message: "Sukses" };
     });
