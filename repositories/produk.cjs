@@ -151,7 +151,7 @@ const insertProduk = async ({
   satuan = "",
   hargamodal = 0,
   hargajual = 0,
-  tanggal = new Date(),
+  tanggalHarga,
   jatuhtempo = null,
   terbayar = 0,
   lunas = 0,
@@ -160,9 +160,8 @@ const insertProduk = async ({
   merek = "",
   vendor = "",
   alamat = "",
-  tanggal_masuk = null,
-  tanggal_update_harga_modal = new Date(),
-  tanggal_update_harga_jual = new Date(),
+  tanggalMasuk,
+  jatuhTempo,
   conn = null,
 }) => {
   let sql, values;
@@ -179,7 +178,7 @@ const insertProduk = async ({
     if (vendor && !id_vendor) {
       id_vendor = await createVendor({ nama: vendor, alamat, conn });
     }
-    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, tanggal_update_harga_modal, tanggal_update_harga_jual, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
     values = [
       id_kategori,
       id_kustom,
@@ -191,8 +190,6 @@ const insertProduk = async ({
       hargamodal,
       hargajual,
       tanggal,
-      tanggal_update_harga_modal,
-      tanggal_update_harga_jual,
       keterangan ?? "",
     ];
     const [result1] = await conn.execute(sql, values);
@@ -203,8 +200,8 @@ const insertProduk = async ({
         result1.insertId,
         stok,
         hargamodal,
-        tanggal_masuk,
-        jatuhtempo ?? null,
+        tanggalMasuk,
+        jatuhTempo,
         lunas == "1" ? stok * hargamodal : terbayar,
         id_vendor,
       ];
