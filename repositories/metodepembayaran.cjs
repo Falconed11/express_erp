@@ -3,7 +3,7 @@ const connection = require("./db.cjs");
 const table = "metodepembayaran";
 
 const list = ({ id, hide, id_perusahaan }) => {
-  const sql = `select b.nama namabank, p.nama perusahaan, p.id id_perusahaan, mp.id, mp.*, t.t total, c.nama coa from ${table} mp 
+  const sql = `select b.nama namabank, p.nama perusahaan, mp.*, t.t total, c.nama coa from ${table} mp 
   left join (select mp.id, mp.nama, sum(pp.nominal) t from pembayaranproyek pp left join metodepembayaran mp on 
     pp.id_metodepembayaran=mp.id group by mp.id) t on mp.id=t.id 
   left join bank b on b.id=mp.id_bank 
@@ -12,13 +12,14 @@ const list = ({ id, hide, id_perusahaan }) => {
   where 1=1 
   ${hide != null ? "and hide=?" : ""} 
   ${id ? "and mp.id=?" : ""}
-  ${id_perusahaan ? "and mp.id_perusahaan=?" : ""} order by mp.nama
+  ${id_perusahaan ? "and p.id=?" : ""} order by mp.nama
   `;
   const values = [
     ...(id ? [id] : []),
     ...(hide != null ? [hide] : []),
-    ...(id_perusahaan != null ? [id_perusahaan] : []),
+    ...(id_perusahaan ? [id_perusahaan] : []),
   ];
+  console.log(sql, values);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);
@@ -51,9 +52,16 @@ const transferBank = ({ src, dst }) => {
   });
 };
 
-const create = ({ nama, id_bank, norekening, atasnama, id_coa }) => {
-  const sql = `insert into ${table} (nama,id_bank,norekening,atasnama) values (?,?,?,?,?)`;
-  const values = [nama, id_bank, norekening, atasnama, id_coa];
+const create = ({
+  nama,
+  id_bank,
+  norekening,
+  atasnama,
+  id_perusahaan,
+  id_coa,
+}) => {
+  const sql = `insert into ${table} (nama,id_bank,norekening,atasnama,id_perusahaan,id_coa) values (?,?,?,?,?,?)`;
+  const values = [nama, id_bank, norekening, atasnama, id_perusahaan, id_coa];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

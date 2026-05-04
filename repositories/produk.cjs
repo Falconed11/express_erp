@@ -26,7 +26,7 @@ const list = async ({
   left join produkmasuk pm on pm.id_produk = p.id
   where 1 ${id ? "and p.id=?" : ""} ${kategori ? `and id_kategori = ?` : ""} ${merek ? `and id_merek = ?` : ""} ${
     nama ? "and p.nama like ?" : ""
-  } and p.tanggal >= '2025-01-01' ${isReadyStock ? "and stok>0" : ""} ${aktif ? `and p.aktif = ${aktif}` : ""}
+  } and p.tanggal >= '2025-01-01' ${isReadyStock ? "and stok>0" : ""} ${aktif ? `and p.aktif =?` : ""}
   group by p.id
   order by p.tanggal desc, kategoriproduk, nama, m.nama, p.id ${
     limit ? "limit ?" : ""
@@ -151,8 +151,6 @@ const insertProduk = async ({
   satuan = "",
   hargamodal = 0,
   hargajual = 0,
-  tanggalHarga,
-  jatuhtempo = null,
   terbayar = 0,
   lunas = 0,
   keterangan = "",
@@ -160,8 +158,9 @@ const insertProduk = async ({
   merek = "",
   vendor = "",
   alamat = "",
+  tanggal,
   tanggalMasuk,
-  jatuhTempo,
+  jatuhTempo = null,
   conn = null,
 }) => {
   let sql, values;
@@ -178,7 +177,7 @@ const insertProduk = async ({
     if (vendor && !id_vendor) {
       id_vendor = await createVendor({ nama: vendor, alamat, conn });
     }
-    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
     values = [
       id_kategori,
       id_kustom,
