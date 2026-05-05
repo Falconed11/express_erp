@@ -101,6 +101,7 @@ import proyekRoutes from "./src/routes/proyek.routes.js";
 import produkRoutes from "./src/modules/produk/produk.routes.js";
 import transaksiRoutes from "./src/modules/transaksi/transaksi.route.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
+import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";
 
 import errorMiddleware from "./src/middlewares/error.middleware.js";
 
@@ -158,6 +159,7 @@ app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/produk", produkRoutes);
 app.use("/api/v2/transaksi", transaksiRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
+app.use("/api/v2/vendor-jenis", vendorJenisRoutes);
 
 //tes
 app.get("/api/test", async (req, res) => {

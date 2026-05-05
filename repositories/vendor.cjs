@@ -2,7 +2,13 @@ const { withTransaction } = require("../helpers/transaction.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 const table = "vendor";
 
-const list = async ({ id, limit, columnName, sortOrder = "" }) => {
+const list = async ({
+  id,
+  id_vendor_jenis,
+  limit,
+  columnName,
+  sortOrder = "",
+}) => {
   validColumns = ["nama"];
   // if (!Number.isInteger(limit) || limit <= 0) {
   //   return Promise.reject(new Error("Invalid limit value"));
@@ -10,16 +16,18 @@ const list = async ({ id, limit, columnName, sortOrder = "" }) => {
   if (columnName && !validColumns.includes(columnName))
     throw new Error("Nama kolom tidak valid");
   sortOrder = sortOrder ? "desc" : "asc";
-  const sql = `select v.*, sum(p.jumlah) nprodukkeluar, sum(pm.jumlah) nprodukmasuk from ${table} v
+  const sql = `select v.*, sum(p.jumlah) nprodukkeluar, sum(pm.jumlah) nprodukmasuk, vj.nama vendorjenis from ${table} v
   left join pengeluaranproyek p on p.id_vendor=v.id
   left join produkmasuk pm on pm.id_vendor=v.id
-  where 1=1 ${id ? `and v.id=?` : ""}
+  left join vendor_jenis vj on vj.id=v.id_vendor_jenis
+  where 1=1 ${id ? `and v.id=?` : ""} ${id_vendor_jenis ? `and v.id_vendor_jenis=?` : ""}
   group by v.id
   ${columnName ? ` order by ${columnName} ${sortOrder} , v.id` : ""} ${
     limit ? "limit 0, ?" : ""
   }`;
   const values = [];
   if (id) values.push(id);
+  if (id_vendor_jenis) values.push(id_vendor_jenis);
   if (limit) values.push(+limit);
   const [result] = await pool.execute(sql, values);
   return result;
@@ -51,18 +59,23 @@ const transfer = async ({ id, newId }) => {
   }
 };
 
-const create = async ({ nama, alamat = "", conn = pool }) => {
+const create = async ({
+  nama,
+  alamat = "",
+  id_vendor_jenis = null,
+  conn = pool,
+}) => {
   if (!nama) throw new Error("Nama wajib diisi!");
-  const sql = `insert into ${table} (nama, alamat) values (?,?)`;
-  const values = [nama, alamat];
+  const sql = `insert into ${table} (nama, alamat, id_vendor_jenis) values (?,?,?)`;
+  const values = [nama, alamat, id_vendor_jenis];
   const [result] = await conn.execute(sql, values);
   return result.insertId;
 };
 
-const update = async ({ id, nama, alamat = "" }) => {
+const update = async ({ id, nama, alamat = "", id_vendor_jenis = null }) => {
   if (!nama) throw new Error("Nama wajib diisi!");
-  const sql = `update ${table} set nama=?, alamat=? where id=?`;
-  const values = [nama, alamat, id];
+  const sql = `update ${table} set nama=?, alamat=?, id_vendor_jenis=? where id=?`;
+  const values = [nama, alamat, id_vendor_jenis, id];
   const [result] = await pool.execute(sql, values);
   return result;
 };
