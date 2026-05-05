@@ -7,7 +7,7 @@ const {
 const table = "keranjangproyek";
 
 const list = async ({ id_proyek, instalasi, versi }) => {
-  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.id id_produk, p.nama, p.stok, p.tipe, p.hargamodal, p.satuan From ${table} kp 
+  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.id id_produk, p.nama, p.stok, p.tipe, p.hargamodal, p.hargajual, p.satuan, p.tanggal From ${table} kp 
   left join subproyek sp on kp.id_subproyek = sp.id 
   left join produk p on kp.id_produk = p.id 
   left join kategoriproduk kpr on p.id_kategori=kpr.id 
@@ -108,7 +108,7 @@ const createNewVersion = async ({ id_proyek, versi }) => {
   const [result] = await pool.execute(sql, values);
   return result;
 };
-const update = async ({ id, isUpdateHarga, tanggalHarga, ...rest }) => {
+const update = async ({ id, id_produk, isUpdateHarga, tanggal, ...rest }) => {
   const allowedColumns = new Set([
     "id_subproyek",
     "jumlah",
@@ -143,9 +143,21 @@ const update = async ({ id, isUpdateHarga, tanggalHarga, ...rest }) => {
       "select id from keranjangproyek where id = ? for update",
       [id],
     );
+    await conn.execute("select id from produk where id = ? for update", [
+      id_produk,
+    ]);
     values.push(id);
-    const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+    let sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
     const [result] = await conn.execute(sql, values);
+    if (isUpdateHarga) {
+      sql = `UPDATE produk SET hargamodal = ?, hargajual = ?, tanggal = ? WHERE id = ?`;
+      await conn.execute(sql, [
+        rest.hargamodal,
+        rest.harga,
+        tanggal,
+        id_produk,
+      ]);
+    }
     return result;
   });
 };

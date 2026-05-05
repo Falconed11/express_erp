@@ -13,6 +13,8 @@ const list = async ({
   id_statusproyek,
   id_produk = null,
   id_jenisproyek,
+  nama,
+  klien,
   countProgressNoOffer,
   hide,
   limit,
@@ -48,6 +50,8 @@ const list = async ({
   ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}
   ${id_statusproyek ? ` and id_statusproyek=? ` : ""}
   ${id_produk ? "and cp.id_produk=?" : ""}
+  ${nama ? "and p.nama like ?" : ""}
+  ${klien ? "and p.klien like ?" : ""}
   ${hide != null ? "and p.hide=?" : ""}
   group by p.id
   order by 
@@ -73,9 +77,12 @@ const list = async ({
     ...(id_jenisproyek ? [id_jenisproyek] : []),
     ...(id_statusproyek ? [id_statusproyek] : []),
     ...(id_produk ? [id_produk] : []),
+    ...(nama ? [`%${nama}%`] : []),
+    ...(klien ? [`%${klien}%`] : []),
     ...(hide != null ? [hide] : []),
     ...(isPagination ? [offset, limit] : []),
   ];
+  console.log(sql, values);
   try {
     const [rows] = await pool.execute(sql, values);
     return rows;
