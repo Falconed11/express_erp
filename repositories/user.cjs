@@ -3,6 +3,7 @@ require("dotenv").config();
 // bcrypt setup
 // https://www.npmjs.com/package/bcrypt
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const saltRounds = +process.env.SALT_ROUNDS;
 
 const table = "user";
@@ -31,13 +32,24 @@ const login = async ({ username, password }) => {
     throw new Error("Username tidak ditemukan");
   }
 
-  const hash = rows[0].password;
+  const {
+    password: hash,
+    lastupdate,
+    lastuser,
+    manualinput,
+    inputcode,
+    ...data
+  } = rows[0];
   const result = await bcrypt.compare(password, hash);
   if (!result) {
     throw new Error("Password salah");
   }
 
-  return rows[0];
+  const SECRET = "test_secret";
+
+  const token = jwt.sign(data, SECRET, { expiresIn: "8h" });
+
+  return { data, token };
 };
 
 const list = async ({ id = 0, peran = "", rank = "" }) => {

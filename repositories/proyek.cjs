@@ -82,7 +82,6 @@ const list = async ({
     ...(hide != null ? [hide] : []),
     ...(isPagination ? [offset, limit] : []),
   ];
-  console.log(sql, values);
   try {
     const [rows] = await pool.execute(sql, values);
     return rows;
