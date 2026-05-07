@@ -45,9 +45,7 @@ const login = async ({ username, password }) => {
     throw new Error("Password salah");
   }
 
-  const SECRET = "test_secret";
-
-  const token = jwt.sign(data, SECRET, { expiresIn: "8h" });
+  const token = jwt.sign(data, process.env.JWT_SECRET, { expiresIn: "8h" });
 
   return { data, token };
 };
