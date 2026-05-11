@@ -8,8 +8,15 @@ const app = express();
 const port = 3001;
 
 // set up cors
-app.use(cors());
-app.options("*", cors()); // preflight requests
+// app.use(cors());
+// app.options("*", cors()); // preflight requests
+
+app.use(
+  cors({
+    origin: process.env.ORIGIN,
+    credentials: true,
+  }),
+);
 
 // multer setup
 // const storage = multer.memoryStorage();
@@ -104,6 +111,7 @@ import transferBank from "./src/routes/transfer-bank.routes.js";
 import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";
 
 import errorMiddleware from "./src/middlewares/error.middleware.js";
+import verifyToken from "./src/middlewares/auth.middleware.js";
 
 // app.use((req, res, next) => {
 //   if (req.is("application/json")) {
@@ -136,6 +144,19 @@ app.use("/logo", express.static("logo"));
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
+
+// login (no JWT required)
+app.post("/api/login", async (req, res) => {
+  try {
+    const result = await user.login(req.body);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+// JWT verification middleware - protect all routes below
+app.use(verifyToken);
 
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
 app.use("/api/v2/coa-filter", coaFilterRoutes);
@@ -1398,14 +1419,6 @@ app.delete("/api/user", async (req, res) => {
   user
     .destroy(req.body)
     .then((result) => res.json({ message: "user berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
-});
-
-// login
-app.post("/api/login", async (req, res) => {
-  const result = await user
-    .login(req.body)
-    .then((result) => res.json(result))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
