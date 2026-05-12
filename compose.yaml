@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mariadb:10.4.32
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_USER: ${MYSQL_USER}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - 3307:3306
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      PORT: 3002
+      MAIN_URL: http://localhost:3002/
+      SALT_ROUNDS: ${SALT_ROUNDS}
+    ports:
+      - 3002:3002
+
+volumes:
+  mysql-data:
+
