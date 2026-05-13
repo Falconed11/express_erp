@@ -1,32 +1,77 @@
+# Docker Compose base file for this project.
+# Use this file for common service configuration shared by both
+# development and production environments.
+#
+# For local experimentation, run with override files:
+#   docker compose -f compose.yaml -f compose.dev.yaml up
+#   docker compose -f compose.yaml -f compose.prod.yaml up
+#
+# Environment variables are loaded from your shell / .env file,
+# so secrets and credentials stay out of source control.
+
+# Compose file format version.
+# This enables features from the Docker Compose v3.9 schema.
 version: "3.9"
 
+# Top-level services block: defines one container per service.
 services:
   mysql:
+    # The MySQL/MariaDB service used by the application.
+
+    # image: pulls a published Docker image from Docker Hub.
     image: mariadb:10.4.32
+
+    # restart: controls container restart policy.
+    # `unless-stopped` restarts the container except when manually stopped.
     restart: unless-stopped
+
+    # environment: sets environment variables inside the container.
+    # Values using ${VAR} are substituted from shell env or .env file.
     environment:
       MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MARIADB_DATABASE: ${MYSQL_DATABASE}
       MARIADB_USER: ${MYSQL_USER}
       MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+
+    # ports: maps host ports to container ports.
+    # `3307:3306` means host port 3307 forwards to container port 3306.
     ports:
       - 3307:3306
+
+    # volumes: mounts persistent storage and init scripts.
     volumes:
       - mysql-data:/var/lib/mysql
       - ./docker/mysql:/docker-entrypoint-initdb.d:ro
+
+    # healthcheck: verifies the service is ready before depending services start.
     healthcheck:
+      # test: command run inside the container to check health.
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      # interval: how often the healthcheck runs.
       interval: 10s
+      # timeout: maximum time allowed for the check command.
       timeout: 5s
+      # retries: how many failures before the container is marked unhealthy.
       retries: 5
 
   server:
+    # The Node.js / Express server container.
+
+    # build: builds an image from a local Docker context.
     build:
+      # context: the directory containing the Dockerfile and source.
       context: .
+
+    # env_file: loads additional environment variables from a file.
     env_file:
       - .env
+
+    # depends_on: ensures mysql starts before server.
+    # It does not wait for MySQL to be fully ready, only for the container to start.
     depends_on:
       - mysql
+
+    # environment: sets runtime environment variables for the app.
     environment:
       NODE_ENV: production
       DB_HOST: mysql
@@ -34,12 +79,16 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_DATABASE: ${DB_DATABASE}
-      PORT: 3002
+      PORT: 3001
       MAIN_URL: http://localhost:3002/
       SALT_ROUNDS: ${SALT_ROUNDS}
-    ports:
-      - 3002:3002
 
+    # ports: exposes the application port to the host machine.
+    ports:
+      - 3002:3001
+
+# volumes: named volumes declared here are managed by Docker Compose.
 volumes:
+  # mysql-data: stores database files persistently.
   mysql-data:
 
