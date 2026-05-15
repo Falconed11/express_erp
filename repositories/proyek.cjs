@@ -29,7 +29,7 @@ const list = async ({
     }
   const sql = `Select p.*, COUNT(*) OVER () AS totalrows, jp.nama jenisproyek, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('${
     process.env.MAIN_URL
-  }/logo', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
+  }/logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
   ${id_produk ? ", count(cp.id_produk) nproduk" : ""}
   From ${table} p 
   left join statusproyek sp on p.id_statusproyek = sp.id 

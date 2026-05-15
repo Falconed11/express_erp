@@ -46,6 +46,7 @@ const login = async ({ username, password }) => {
   }
 
   const token = jwt.sign(data, process.env.JWT_SECRET, { expiresIn: "8h" });
+  console.log("Logged in successfully");
 
   return { data, token };
 };
