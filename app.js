@@ -11,12 +11,19 @@ const port = process.env.PORT || 3001;
 // app.use(cors());
 // app.options("*", cors()); // preflight requests
 
-app.use(
-  cors({
-    origin: process.env.ORIGIN,
-    credentials: true,
-  }),
-);
+// app.use(
+//   cors({
+//     origin: process.env.ORIGIN,
+//     credentials: true,
+//   }),
+// );
+
+// app.use(
+//   cors({
+//     origin: true, // This reflects the request origin
+//     credentials: true,
+//   }),
+// );
 
 // multer setup
 // const storage = multer.memoryStorage();
