@@ -11,12 +11,12 @@ const port = process.env.PORT || 3001;
 // app.use(cors());
 // app.options("*", cors()); // preflight requests
 
-// app.use(
-//   cors({
-//     origin: process.env.ORIGIN,
-//     credentials: true,
-//   }),
-// );
+app.use(
+  cors({
+    origin: process.env.TRUSTED_ORIGINS.split(","),
+    credentials: true,
+  }),
+);
 
 // app.use(
 //   cors({
@@ -28,6 +28,7 @@ const port = process.env.PORT || 3001;
 // multer setup
 // const storage = multer.memoryStorage();
 // const upload = multer({ dest: "nota/" });
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "nota/");
@@ -154,11 +155,13 @@ app.get("/", (req, res) => {
 
 // login (no JWT required)
 app.post("/api/login", async (req, res) => {
+  console.log("Login triggered");
   try {
     const result = await user.login(req.body);
     res.json(result);
-  } catch (e) {
-    res.status(400).json({ message: e.message });
+  } catch (err) {
+    console.log(err.message);
+    res.status(400).json({ message: err.message });
   }
 });
 

@@ -29,6 +29,7 @@ const login = async ({ username, password }) => {
 
   const [rows] = await pool.execute(sql, values);
   if (rows.length === 0) {
+    console.log("Username not found");
     throw new Error("Username tidak ditemukan");
   }
 
@@ -42,6 +43,7 @@ const login = async ({ username, password }) => {
   } = rows[0];
   const result = await bcrypt.compare(password, hash);
   if (!result) {
+    console.log("Incorrect password");
     throw new Error("Password salah");
   }
 

@@ -21,21 +21,25 @@ const verifyToken = (req, res, next) => {
     const token = authHeaderToken || cookieToken;
 
     if (!token) {
+      console.log("Token not found in request");
       return res
         .status(401)
         .json({ success: false, message: "Token tidak ditemukan" });
     }
+    console.log("Token found, verifying...");
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
     if (err.name === "TokenExpiredError") {
+      console.log("Token has expired");
       return res
         .status(401)
         .json({ success: false, message: "Token telah kadaluarsa" });
     }
 
+    console.log("Invalid token");
     res.status(401).json({ success: false, message: "Token tidak valid" });
   }
 };
