@@ -39,13 +39,14 @@ export const generateDefaultCRUDModel = (
     return result;
   },
   async getAll({ limit, offset, ...filters }, conn = db) {
+    const { from, to, ...otherFilters } = filters;
     const isPagination = limit && offset;
 
     const filterSqlParts = [];
     const filterValues = [];
 
-    for (const key of Object.keys(filters)) {
-      const value = filters[key];
+    for (const key of Object.keys(otherFilters)) {
+      const value = otherFilters[key];
       const effectiveKey = filterAliases[key] || key;
       let table = "main";
       let column = effectiveKey;
@@ -73,6 +74,14 @@ export const generateDefaultCRUDModel = (
         filterSqlParts.push(`AND ${table}.${column} = ?`);
         filterValues.push(value);
       }
+    }
+    if (from) {
+      filterSqlParts.push(`AND j.tanggal >= ?`);
+      filterValues.push(from);
+    }
+    if (to) {
+      filterSqlParts.push(`AND j.tanggal <= ?`);
+      filterValues.push(to);
     }
 
     const filterSql = filterSqlParts.join(" ");

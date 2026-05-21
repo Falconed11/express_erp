@@ -7,7 +7,13 @@ const Model = generateStandardCRUDModel({
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
-  filterAliases: { id_jurnal: "j.id", id_coa: "c.id" },
+  filterAliases: {
+    id_jurnal: "j.id",
+    id_coa: "c.id",
+    id_perusahaan: "p.id",
+    id_proyek: "pr.id",
+    jurnal: "j.keterangan",
+  },
   customSelect:
     "j.tanggal, j.keterangan keterangan_jurnal, c.nama coa, p.nama perusahaan, pr.id id_proyek, pr.nama proyek",
   generateCustomJoin: (
