@@ -3,6 +3,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
 import multer from "multer";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -10,6 +11,8 @@ const port = process.env.PORT || 3001;
 // set up cors
 // app.use(cors());
 // app.options("*", cors()); // preflight requests
+
+app.use(cookieParser());
 
 app.use(
   cors({

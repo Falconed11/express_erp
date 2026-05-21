@@ -17,7 +17,7 @@ const parseCookieToken = (cookieHeader) => {
 const verifyToken = (req, res, next) => {
   try {
     const authHeaderToken = req.headers.authorization?.split(" ")[1];
-    const cookieToken = parseCookieToken(req.headers.cookie);
+    const cookieToken = req.cookies["expressToken"];
     const token = authHeaderToken || cookieToken;
 
     if (!token) {
@@ -26,9 +26,10 @@ const verifyToken = (req, res, next) => {
         .status(401)
         .json({ success: false, message: "Token tidak ditemukan" });
     }
-    console.log("Token found, verifying...");
+    // console.log("Token found, verifying...");
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // console.log("Token verified successfully");
     req.user = decoded;
     next();
   } catch (err) {

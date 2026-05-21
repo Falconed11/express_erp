@@ -39,7 +39,8 @@ const login = async ({ username, password }) => {
     lastuser,
     manualinput,
     inputcode,
-    ...data
+    keterangan,
+    ...user
   } = rows[0];
   const result = await bcrypt.compare(password, hash);
   if (!result) {
@@ -47,10 +48,13 @@ const login = async ({ username, password }) => {
     throw new Error("Password salah");
   }
 
-  const token = jwt.sign(data, process.env.JWT_SECRET, { expiresIn: "8h" });
+  const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "8h" });
   console.log("Logged in successfully");
 
-  return { data, token };
+  return {
+    user: { ...user, expiresIn: 8 * 60 * 60 * 1000 },
+    token,
+  };
 };
 
 const list = async ({ id = 0, peran = "", rank = "" }) => {
