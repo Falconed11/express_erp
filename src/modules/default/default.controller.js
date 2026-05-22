@@ -29,9 +29,28 @@ export const generateDefaultCRUDController = ({
     );
   },
   async getAll(req, res, next) {
+    // Parse query parameters: if a value is a JSON string, parse it
+    function parseQueryValue(val) {
+      if (typeof val !== "string") return val;
+      try {
+        const parsed = JSON.parse(val);
+        if (typeof parsed === "object" && parsed !== null) {
+          return parsed;
+        }
+      } catch (e) {}
+      return val;
+    }
+    const parsedQuery = {};
+    for (const [key, value] of Object.entries(req.query)) {
+      if (Array.isArray(value)) {
+        parsedQuery[key] = value.map(parseQueryValue);
+      } else {
+        parsedQuery[key] = parseQueryValue(value);
+      }
+    }
     defaultAsyncController(
       async (req) => {
-        return getAll(req.query);
+        return getAll(parsedQuery);
       },
       {
         req,

@@ -19,7 +19,7 @@ const list = ({ id, hide, id_perusahaan }) => {
     ...(hide != null ? [hide] : []),
     ...(id_perusahaan ? [id_perusahaan] : []),
   ];
-  console.log(sql, values);
+  // console.log(sql, values);
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       if (err) reject(err);

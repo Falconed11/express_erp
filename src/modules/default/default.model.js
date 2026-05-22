@@ -11,6 +11,7 @@ export const generateDefaultCRUDModel = (
     filterAliases = {},
     prepareData = (data) => data,
     customModel = {},
+    generateOrderBy = () => "",
   },
 ) => ({
   async create(data, conn = db) {
@@ -41,59 +42,120 @@ export const generateDefaultCRUDModel = (
   async getAll({ limit, offset, ...filters }, conn = db) {
     const { from, to, ...otherFilters } = filters;
     const isPagination = limit && offset;
+    console.log(otherFilters);
 
-    const filterSqlParts = [];
-    const filterValues = [];
+    /**
+     * Builds SQL filter conditions and their corresponding values for use in a WHERE clause.
+     * Handles simple equality, IN clauses for arrays, advanced objects with custom table/column/values,
+     * and supports custom SQL operators if provided in the filter value as { value, operator } or { values, operator }.
+     *
+     * @param {Object} otherFilters - Key-value pairs representing filters to apply.
+     * @param {Object} filterAliases - Optional mapping of filter keys to actual database column names.
+     * @returns {{ filterSqlParts: string[], filterValues: any[] }}
+     *   filterSqlParts: Array of SQL filter strings (e.g., 'AND main.name = ?').
+     *   filterValues: Array of values to bind to the SQL statement.
+     *
+     * Supported filter value formats:
+     *   - primitive: value (uses '=')
+     *   - array: [v1, v2] (uses IN)
+     *   - object: { value, operator } (e.g., { value: 5, operator: '>' })
+     *   - object: { values, operator, table, column } (e.g., { values: [1,2], operator: 'NOT IN', table: 't', column: 'id' })
+     */
+    function buildFilterSqlAndValues(otherFilters, filterAliases) {
+      const filterSqlParts = [];
+      const filterValues = [];
+      for (const key of Object.keys(otherFilters)) {
+        const rawValue = otherFilters[key];
+        const effectiveKey = filterAliases[key] || key;
+        let table = "main";
+        let column = effectiveKey;
+        if (effectiveKey.includes(".")) {
+          [table, column] = effectiveKey.split(".");
+        }
 
-    for (const key of Object.keys(otherFilters)) {
-      const value = otherFilters[key];
-      const effectiveKey = filterAliases[key] || key;
-      let table = "main";
-      let column = effectiveKey;
-      if (effectiveKey.includes(".")) {
-        [table, column] = effectiveKey.split(".");
+        // Support custom operator and value/values
+        if (Array.isArray(rawValue)) {
+          // If the filter value is an array, use IN clause
+          const placeholders = rawValue.map(() => "?").join(", ");
+          filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
+          filterValues.push(...rawValue);
+        } else if (
+          typeof rawValue === "object" &&
+          rawValue !== null &&
+          (Array.isArray(rawValue.values) ||
+            Object.prototype.hasOwnProperty.call(rawValue, "value"))
+        ) {
+          // If the filter value is an object with a 'values' array or a 'value' property
+          const objTable = rawValue.table || table;
+          const objColumn = rawValue.column || column;
+          const operator =
+            rawValue.operator || (Array.isArray(rawValue.values) ? "IN" : "=");
+          if (Array.isArray(rawValue.values)) {
+            const placeholders = rawValue.values.map(() => "?").join(", ");
+            filterSqlParts.push(
+              `AND ${objTable}.${objColumn} ${operator} (${placeholders})`,
+            );
+            filterValues.push(...rawValue.values);
+          } else {
+            filterSqlParts.push(`AND ${objTable}.${objColumn} ${operator} ?`);
+            filterValues.push(rawValue.value);
+          }
+        } else {
+          // Otherwise, use simple equality
+          filterSqlParts.push(`AND ${table}.${column} = ?`);
+          filterValues.push(rawValue);
+        }
       }
+      return { filterSqlParts, filterValues };
+    }
 
-      if (Array.isArray(value)) {
-        const placeholders = value.map(() => "?").join(", ");
-        filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
-        filterValues.push(...value);
-      } else if (
-        typeof value === "object" &&
-        value !== null &&
-        Array.isArray(value.values)
-      ) {
-        const objTable = value.table || table;
-        const objColumn = value.column || column;
-        const placeholders = value.values.map(() => "?").join(", ");
-        filterSqlParts.push(
-          `AND ${objTable}.${objColumn} IN (${placeholders})`,
-        );
-        filterValues.push(...value.values);
-      } else {
-        filterSqlParts.push(`AND ${table}.${column} = ?`);
-        filterValues.push(value);
+    function addDateFilters(filterSqlParts, filterValues, from, to) {
+      if (from) {
+        filterSqlParts.push(`AND j.tanggal >= ?`);
+        filterValues.push(from);
+      }
+      if (to) {
+        filterSqlParts.push(`AND j.tanggal <= ?`);
+        filterValues.push(to);
       }
     }
-    if (from) {
-      filterSqlParts.push(`AND j.tanggal >= ?`);
-      filterValues.push(from);
-    }
-    if (to) {
-      filterSqlParts.push(`AND j.tanggal <= ?`);
-      filterValues.push(to);
+
+    function buildSqlQuery({
+      tableName,
+      customSelect,
+      generateCustomJoin,
+      filterSql,
+      isPagination,
+    }) {
+      return `SELECT main.*, COUNT(*) OVER () total, cb.nama created_by, ub.nama updated_by
+      ${customSelect ? `, ${customSelect}` : ""}
+      FROM ${tableName} main
+      left join karyawan cb on cb.id=main.created_by
+      left join karyawan ub on ub.id=main.updated_by
+      ${generateCustomJoin ? generateCustomJoin("main") : ""}
+      WHERE 1=1 ${filterSql}
+      ${generateOrderBy("main")}
+      ${isPagination ? " LIMIT ? OFFSET ?" : ""}`;
     }
 
+    // Build filter SQL and values
+    const { filterSqlParts, filterValues } = buildFilterSqlAndValues(
+      otherFilters,
+      filterAliases,
+    );
+    addDateFilters(filterSqlParts, filterValues, from, to);
     const filterSql = filterSqlParts.join(" ");
-    const sql = `SELECT main.*, COUNT(*) OVER () total, cb.nama created_by, ub.nama updated_by
-    ${customSelect ? `, ${customSelect}` : ""}
-    FROM ${tableName} main
-    left join karyawan cb on cb.id=main.created_by
-    left join karyawan ub on ub.id=main.updated_by
-    ${generateCustomJoin ? generateCustomJoin("main") : ""}
-    WHERE 1=1 ${filterSql}
-    ${isPagination ? " LIMIT ? OFFSET ?" : ""}`;
 
+    // Build the main SQL query
+    const sql = buildSqlQuery({
+      tableName,
+      customSelect,
+      generateCustomJoin,
+      filterSql,
+      isPagination,
+    });
+
+    // Execute the query
     const [rows] = await conn.execute(sql, [
       ...filterValues,
       ...(isPagination ? [limit, offset] : []),
