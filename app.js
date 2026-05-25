@@ -16,7 +16,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: process.env.TRUSTED_ORIGINS.split(","),
+    origin: process.env.TRUSTED_ORIGINS?.split(","),
     credentials: true,
   }),
 );
