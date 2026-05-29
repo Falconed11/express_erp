@@ -32,21 +32,36 @@ app.use(
 // const storage = multer.memoryStorage();
 // const upload = multer({ dest: "nota/" });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "nota/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, new Date().getTime() + `.jpeg`);
-  },
-});
+const createMulterStorage = (path, generateFileName) =>
+  multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path),
+    filename: (req, file, cb) => cb(null, generateFileName(file)),
+  });
 
-const storageLogo = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "logo/"),
-  filename: (req, file, cb) => cb(null, file.originalname),
-});
+const timeNow = new Date().getTime();
+
+const storage = createMulterStorage("nota/", () => timeNow + ".jpeg");
+const storageLogo = createMulterStorage(
+  "logo/",
+  (file) => timeNow + "-" + file.originalname,
+);
+const storageImages = createMulterStorage(
+  "images/",
+  (file) => timeNow + "-" + file.originalname,
+);
+
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => cb(null, "nota/"),
+//   filename: (req, file, cb) => cb(null, new Date().getTime() + `.jpeg`),
+// });
+
+// const storageLogo = multer.diskStorage({
+//   destination: (req, file, cb) => cb(null, "logo/"),
+//   filename: (req, file, cb) => cb(null, file.originalname),
+// });
 
 const uploadLogo = multer({ storage: storageLogo });
+const uploadImages = multer({ storage: storageImages });
 
 // utils imports
 import test from "./repositories/test.cjs"; // if still CJS
@@ -752,7 +767,7 @@ app.get("/api/perusahaan", async (req, res) => {
 });
 app.post("/api/perusahaan", uploadLogo.single("file"), async (req, res) => {
   try {
-    const filename = req.file ? req.file.filename : null;
+    const filename = req?.file?.filename || null;
     const result = await perusahaan.create({
       ...req.body,
       logo: filename,
@@ -764,7 +779,7 @@ app.post("/api/perusahaan", uploadLogo.single("file"), async (req, res) => {
 });
 app.put("/api/perusahaan", uploadLogo.single("file"), async (req, res) => {
   try {
-    const filename = req.file ? req.file.filename : null;
+    const filename = req?.file?.filename || null;
     const result = await perusahaan.update({
       ...req.body,
       logo: filename,
