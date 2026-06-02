@@ -1,6 +1,8 @@
 images/*
 logo/*
 nota/*
+.vscode
+test.sql
 
 # Node modules
 node_modules/
