@@ -112,6 +112,7 @@ import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
 // v2
+import akuntansiRoutes from "./src/modules/akuntansi/transaksi.route.js";
 import coaFilterMapRoutes from "./src/modules/coa/coa-filter-map.route.js";
 import coaFilterRoutes from "./src/modules/coa/coa-filter.route.js";
 import coaRoutes from "./src/modules/coa/coa.route.js";
@@ -120,9 +121,9 @@ import coaTypeRoutes from "./src/modules/coa/coa-type.route.js";
 import golonganInstansiRoutes from "./src/routes/golongan-instansi.routes.js";
 import jenisInstansiRoutes from "./src/routes/jenis-instansi.routes.js";
 import jenisProyekRoutes from "./src/routes/jenis-proyek.routes.js";
-import jurnalRoutes from "./src/modules/transaksi/jurnal.route.js";
+import jurnalRoutes from "./src/modules/akuntansi/jurnal.route.js";
 import keranjangProyekRoutes from "./src/routes/keranjang-proyek.routes.js";
-import laporanRoutes from "./src/modules/transaksi/laporan.route.js";
+import laporanRoutes from "./src/modules/akuntansi/laporan.route.js";
 import metodePembayaranRoutes from "./src/routes/metode-pembayaran.routes.js";
 import operasionalKantorRoutes from "./src/routes/operasional-kantor.routes.js";
 import pembayaranProyekRoutes from "./src/routes/pembayaran-proyek.routes.js";
@@ -132,7 +133,6 @@ import peristiwaRoutes from "./src/modules/coa/peristiwa.route.js";
 import perusahaanRoutes from "./src/routes/perusahaan.routes.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import produkRoutes from "./src/modules/produk/produk.routes.js";
-import transaksiRoutes from "./src/modules/transaksi/transaksi.route.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";
 
@@ -206,7 +206,7 @@ app.use("/api/v2/peristiwa-coa-map", peristiwaCoaMapRoutes);
 app.use("/api/v2/perusahaan", perusahaanRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/produk", produkRoutes);
-app.use("/api/v2/transaksi", transaksiRoutes);
+app.use("/api/v2/transaksi", akuntansiRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
 app.use("/api/v2/vendor-jenis", vendorJenisRoutes);
 
