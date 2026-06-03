@@ -385,7 +385,7 @@ const Model = generateStandardCRUDModel({
     async getById(id, data, conn = db) {
       const { from, to, id_perusahaan } = data;
       let sql = ``;
-      const laporanTree = `SELECT l.id, NULL AS id_parent, l.nama, rm.id_coa_filter, rm.id_coa, rm.modifier, 0 AS level,
+      const laporanTree = `SELECT l.id, CAST(NULL AS SIGNED) AS id_parent, l.nama, rm.id_coa_filter, rm.id_coa, rm.modifier, 0 AS level,
           CAST(CONCAT(',', l.id, ',') AS CHAR(5000)) AS path
         FROM laporan l
         LEFT JOIN laporan_relation rm ON rm.id_parent = l.id AND rm.id_child IS NULL

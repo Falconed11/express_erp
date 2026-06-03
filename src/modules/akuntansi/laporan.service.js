@@ -7,24 +7,25 @@ const Service = generateDefaultCRUDService({
   customService: {
     async getById(id, data) {
       const result = await withTransaction(async (conn) => {
-        const currentResult = await Model.getById(id, data, conn);
+        const isFullReport =
+          data?.fullReport == true || data?.fullReport === "true";
+        const currentQuery = isFullReport
+          ? { ...data, type: data.type || "tree" }
+          : data;
 
-        if (
-          !(data?.fullReport == true || data?.fullReport === "true") ||
-          !data?.from
-        ) {
+        const currentResult = await Model.getById(id, currentQuery, conn);
+
+        if (!isFullReport || !data?.from) {
           return currentResult;
         }
 
-        const pastResult = await Model.getById(
-          id,
-          {
-            ...data,
-            from: undefined,
-            to: data.from,
-          },
-          conn,
-        );
+        const pastQuery = {
+          ...data,
+          type: data.type || "tree",
+          from: undefined,
+          to: data.from,
+        };
+        const pastResult = await Model.getById(id, pastQuery, conn);
 
         if (!Array.isArray(currentResult) || !Array.isArray(pastResult)) {
           return currentResult;

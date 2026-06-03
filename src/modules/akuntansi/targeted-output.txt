@@ -1,0 +1,32 @@
+option 1
+[
+  {
+    "id": 1,
+    "id_parent": null,
+    "nama": "Root",
+    "level": 0,
+    "total_balance": 100000,
+    ...
+  },
+  {
+    "id": 2,
+    "id_parent": 1,
+    "nama": "Child",
+    "level": 1,
+    "total_balance": 50000,
+    ...
+  }
+]
+option 2
+{
+  "tree": [
+    {
+      "id": 1,
+      "id_parent": null,
+      "nama": "Root",
+      "total_balance": 100000
+    }
+  ],
+  "past": 200000,
+  "end": 300000
+}
