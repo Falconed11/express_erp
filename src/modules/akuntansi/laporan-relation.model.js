@@ -159,6 +159,15 @@ const validateNoRecurringNode = async (
     throw new Error("id_parent and id_child must not be the same");
   }
 
+  const [existingChildRows] = await conn.execute(
+    `SELECT id FROM ${TABLE_NAME} WHERE id_child = ? AND id != ? LIMIT 1`,
+    [childId, id || 0],
+  );
+
+  if (existingChildRows.length > 0) {
+    throw new Error(`id_child ${childId} already has a parent relation`);
+  }
+
   const visited = new Set();
   const queue = parentId == null ? [] : [parentId];
 
@@ -212,8 +221,8 @@ const Model = generateStandardCRUDModel({
     left join laporan l on l.id=${mainTable}.id_laporan
     left join coa_filter cf on cf.id=${mainTable}.id_coa_filter
     left join coa c on c.id=${mainTable}.id_coa
-    left join coa_subtype cs on cs.id=c.id_coa_subtype
-    left join coa_type ct on ct.id=cs.id_coa_type
+    left join coa_subtype cs on cs.id=${mainTable}.id_coa_subtype
+    left join coa_type ct on ct.id=${mainTable}.id_coa_type
   `,
   prepareData: (data) => prepareRelationData(data, { strictPriority: true }),
   customModel: {

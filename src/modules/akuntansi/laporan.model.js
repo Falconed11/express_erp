@@ -385,136 +385,215 @@ const Model = generateStandardCRUDModel({
     async getById(id, data, conn = db) {
       const { from, to, id_perusahaan } = data;
       let sql = ``;
-      const laporanTree = `SELECT l.id, CAST(NULL AS SIGNED) AS id_parent, l.nama, rm.id_coa_filter, rm.id_coa, rm.modifier, 0 AS level,
-          CAST(CONCAT(',', l.id, ',') AS CHAR(5000)) AS path
-        FROM laporan l
-        LEFT JOIN laporan_relation rm ON rm.id_parent = l.id AND rm.id_child IS NULL
-        WHERE l.id = ?
-        UNION ALL
-        SELECT c.id, p.id AS id_parent, c.nama, rm2.id_coa_filter, rm2.id_coa, rm2.modifier, p.level + 1,
-          CONCAT(p.path, c.id, ',') AS path
-        FROM laporan c
-        JOIN laporan_relation rel ON rel.id_child = c.id
-        JOIN laporan_tree p ON p.id = rel.id_parent
-        LEFT JOIN laporan_relation rm2 ON rm2.id_parent = c.id AND rm2.id_child IS NULL
-        WHERE INSTR(p.path, CONCAT(',', c.id, ',')) = 0
-      `;
-      const laporanCoa = `-- 1. DIRECT COA (HIGHEST PRIORITY)
-      SELECT lt.id AS laporan_id, lt.id_parent, lt.nama, lt.level, lt.modifier, lt.id_coa AS coa_id
-      FROM laporan_tree lt
-      WHERE lt.id_coa IS NOT NULL
-      UNION ALL
-      -- 2. FILTER → DIRECT COA
-      SELECT lt.id, lt.id_parent, lt.nama, lt.level, lt.modifier, cfm.id_coa
-      FROM laporan_tree lt
-      JOIN coa_filter_map cfm ON cfm.id_coa_filter = lt.id_coa_filter
-      WHERE lt.id_coa IS NULL
-      AND cfm.id_coa IS NOT NULL
-      UNION ALL
-      -- 3. FILTER → SUBTYPE
-      SELECT lt.id, lt.id_parent, lt.nama, lt.level, lt.modifier, c.id AS coa_id
-      FROM laporan_tree lt
-      JOIN coa_filter_map cfm ON cfm.id_coa_filter = lt.id_coa_filter
-      JOIN coa c ON c.id_coa_subtype = cfm.id_coa_subtype
-      WHERE lt.id_coa IS NULL
-      AND cfm.id_coa IS NULL
-      AND cfm.id_coa_subtype IS NOT NULL
-      UNION ALL
-      -- 4. FILTER → TYPE
-      SELECT lt.id, lt.id_parent, lt.nama, lt.level, lt.modifier, c.id AS coa_id
-      FROM laporan_tree lt
-      JOIN coa_filter_map cfm ON cfm.id_coa_filter = lt.id_coa_filter
-      JOIN coa_subtype cs ON cs.id_coa_type = cfm.id_coa_type
-      JOIN coa c ON c.id_coa_subtype = cs.id
-      WHERE lt.id_coa IS NULL
-      AND cfm.id_coa IS NULL
-      AND cfm.id_coa_subtype IS NULL
-      AND cfm.id_coa_type IS NOT NULL
-      UNION ALL
-      -- 5. FALLBACK (LEAF ONLY, NO COA / FILTER)
-      SELECT lt.id, lt.id_parent, lt.nama, lt.level, lt.modifier, NULL AS coa_id
-      FROM laporan_tree lt
-      WHERE lt.id_coa IS NULL
-      AND (
-        lt.id_coa_filter IS NULL
-        OR NOT EXISTS (
-          SELECT 1 FROM coa_filter_map cfm 
-          WHERE cfm.id_coa_filter = lt.id_coa_filter
-        )
-      )
-      AND NOT EXISTS (
-        SELECT 1 FROM laporan_relation rel WHERE rel.id_parent = lt.id AND rel.id_child IS NOT NULL
-      )
-      `;
-      const laporanCoaDistinct = `SELECT laporan_id, id_parent, nama, level, modifier, coa_id
-      FROM (
-        SELECT *,
-          ROW_NUMBER() OVER (
-            PARTITION BY laporan_id, coa_id
-            ORDER BY laporan_id
-          ) AS rn
-        FROM laporan_coa
-      ) x
-      WHERE rn = 1
-      `;
-      const laporanBalance = `SELECT lc.laporan_id, lc.id_parent, lc.nama, lc.level, lc.modifier,
-          COALESCE(SUM(
-            CASE 
-              WHEN j.id IS NOT NULL THEN
-                  CASE 
-                    WHEN t.tipe = COALESCE(ct.normal_balance, 1) THEN t.amount
-                    ELSE -t.amount
-                  END
-              ELSE 0
-            END
-          ), 0) AS balance
-        FROM laporan_coa_distinct lc
-        LEFT JOIN transaksi t ON t.id_coa = lc.coa_id
-        LEFT JOIN coa c ON c.id = lc.coa_id
-        LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
-        LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
-        LEFT JOIN jurnal j ON j.id = t.id_jurnal
-          ${id_perusahaan ? "AND j.id_perusahaan = ?" : ""}
-          ${from ? "AND j.tanggal >= ?" : ""}
-          ${to ? "AND j.tanggal < ?" : ""}
-        GROUP BY lc.laporan_id, lc.id_parent, lc.nama, lc.level, lc.modifier
-      `;
-      const rollUp = `SELECT lb.laporan_id AS id, lb.id_parent, lb.nama, lb.level, lb.modifier, lb.balance,
-          CAST(CONCAT(',', lb.laporan_id, ',') AS CHAR(5000)) AS path
-        FROM laporan_balance lb
-        UNION ALL
-        SELECT p.id, p.id_parent, p.nama, p.level, p.modifier, c.balance * COALESCE(c.modifier, 1),
-          CONCAT(c.path, p.id, ',') AS path
-        FROM laporan_tree p
-        JOIN rollup c ON c.id_parent = p.id
-        WHERE INSTR(c.path, CONCAT(',', p.id, ',')) = 0
-      `;
-      const result = `SELECT id, id_parent, nama, level, modifier, SUM(balance) AS total_balance
-        FROM rollup
-        GROUP BY id, id_parent, nama, level, modifier
-        ORDER BY level, id
-      `;
       if (data.type == "tree") {
-        await validateTreeRecursionFromRoot(id, conn);
-        sql = `WITH RECURSIVE laporan_tree AS (${laporanTree}),
-        /* COA RESOLUTION (STRICT PRIORITY) */
-        laporan_coa AS (${laporanCoa}),
-        /* COA DEDUPLICATION LAYER */
-        laporan_coa_distinct AS (${laporanCoaDistinct}),
-        /* TRANSACTION AGGREGATION */
-        laporan_balance AS (${laporanBalance}),
-        /* ROLLUP */
-        rollup AS (${rollUp})
-        /* FINAL RESULT */
-        ${result}
-        `;
-        const value = [
-          id,
-          ...(id_perusahaan ? [id_perusahaan] : []),
-          ...(from ? [from] : []),
-          ...(to ? [to] : []),
-        ];
-        const [rows] = await conn.execute(sql, value);
+        // await validateTreeRecursionFromRoot(id, conn);
+
+        const filterClauses = [];
+        const values = [id];
+
+        if (from != null && from !== "") {
+          filterClauses.push("AND j.tanggal >= ?");
+          values.push(from);
+        }
+        if (to != null && to !== "") {
+          filterClauses.push("AND j.tanggal <= ?");
+          values.push(to);
+        }
+        if (id_perusahaan != null && id_perusahaan !== "") {
+          filterClauses.push("AND j.id_perusahaan = ?");
+          values.push(id_perusahaan);
+        }
+
+        //         sql = `
+        // WITH RECURSIVE tree AS (
+        //     -- 1. Anchor Member
+        //     SELECT
+        //         id AS id_laporan_relation,
+        //         id_parent,
+        //         id_child,
+        //         id_coa_type,
+        //         id_coa_subtype,
+        //         id_coa,
+        //         modifier,
+        //         CAST(id AS CHAR(1000)) AS path,
+        //         FALSE AS has_cycle,
+        //         1 AS level -- <-- START AT LEVEL 1
+        //     FROM laporan_relation
+        //     WHERE id_parent = ?
+
+        //     UNION ALL
+
+        //     -- 2. Recursive Member
+        //     SELECT
+        //         lr.id AS id_laporan_relation,
+        //         lr.id_parent,
+        //         lr.id_child,
+        //         lr.id_coa_type,
+        //         lr.id_coa_subtype,
+        //         lr.id_coa,
+        //         lr.modifier,
+        //         CONCAT(t.path, ',', lr.id),
+        //         FIND_IN_SET(lr.id, t.path) > 0 AS has_cycle,
+        //         t.level + 1 AS level -- <-- INCREMENT LEVEL ON EACH HOP
+        //     FROM laporan_relation lr
+        //     JOIN tree t ON lr.id_parent = t.id_child
+        //     WHERE NOT t.has_cycle
+        // )
+        // -- 3. Final Select
+        // SELECT t.*, l.nama, l.keterangan
+        // FROM tree t
+        // LEFT JOIN laporan l ON l.id = t.id_child;
+        //         `;
+
+        sql = `WITH RECURSIVE laporan_tree AS (
+    -- Root
+    SELECT
+        CONCAT('LR_', lr.id) AS node_id,
+        NULL AS parent_node_id,
+        lr.id AS id_laporan_relation,
+        lr.id_child,
+        lr.id_coa_type,
+        lr.id_coa_subtype,
+        lr.id_coa,
+        1 AS level,
+        'laporan' AS node_type,
+        lr.id AS real_id
+    FROM laporan_relation lr
+    WHERE lr.id_parent = ?
+
+    UNION ALL
+
+    -- Children
+    SELECT
+        CONCAT('LR_', lr.id) AS node_id,
+        lt.node_id AS parent_node_id,
+        lr.id AS id_laporan_relation,
+        lr.id_child,
+        lr.id_coa_type,
+        lr.id_coa_subtype,
+        lr.id_coa,
+        lt.level + 1 AS level,
+        'laporan' AS node_type,
+        lr.id AS real_id
+    FROM laporan_relation lr
+    JOIN laporan_tree lt
+        ON lr.id_parent = lt.id_child
+)
+
+-- ==========================
+-- LAPORAN NODES
+-- ==========================
+SELECT
+    node_id,
+    parent_node_id,
+    node_type,
+    real_id,
+    id_laporan_relation,
+    level
+FROM laporan_tree
+
+UNION ALL
+
+-- ==========================
+-- COA TYPE DIRECTLY ATTACHED
+-- ==========================
+SELECT
+    CONCAT('CT_', ct.id) AS node_id,
+    lt.node_id AS parent_node_id,
+    'coa_type' AS node_type,
+    ct.id AS real_id,
+    NULL AS id_laporan_relation,
+    lt.level + 1 AS level
+FROM laporan_tree lt
+JOIN coa_type ct
+    ON ct.id = lt.id_coa_type
+
+UNION ALL
+
+-- ==========================
+-- SUBTYPE FROM TYPE
+-- ==========================
+SELECT
+    CONCAT('CS_', cs.id) AS node_id,
+    CONCAT('CT_', cs.id_coa_type) AS parent_node_id,
+    'coa_subtype' AS node_type,
+    cs.id AS real_id,
+    NULL AS id_laporan_relation,
+    lt.level + 2 AS level
+FROM laporan_tree lt
+JOIN coa_subtype cs
+    ON cs.id_coa_type = lt.id_coa_type
+
+UNION ALL
+
+-- ==========================
+-- COA FROM TYPE
+-- ==========================
+SELECT
+    CONCAT('C_', c.id) AS node_id,
+    CONCAT('CS_', c.id_coa_subtype) AS parent_node_id,
+    'coa' AS node_type,
+    c.id AS real_id,
+    NULL AS id_laporan_relation,
+    lt.level + 3 AS level
+FROM laporan_tree lt
+JOIN coa_subtype cs
+    ON cs.id_coa_type = lt.id_coa_type
+JOIN coa c
+    ON c.id_coa_subtype = cs.id
+
+UNION ALL
+
+-- ==========================
+-- SUBTYPE DIRECTLY ATTACHED
+-- ==========================
+SELECT
+    CONCAT('CS_', cs.id) AS node_id,
+    lt.node_id AS parent_node_id,
+    'coa_subtype' AS node_type,
+    cs.id AS real_id,
+    NULL AS id_laporan_relation,
+    lt.level + 1 AS level
+FROM laporan_tree lt
+JOIN coa_subtype cs
+    ON cs.id = lt.id_coa_subtype
+
+UNION ALL
+
+-- ==========================
+-- COA FROM SUBTYPE
+-- ==========================
+SELECT
+    CONCAT('C_', c.id) AS node_id,
+    CONCAT('CS_', c.id_coa_subtype) AS parent_node_id,
+    'coa' AS node_type,
+    c.id AS real_id,
+    NULL AS id_laporan_relation,
+    CASE
+        WHEN lt.id_coa_subtype IS NOT NULL
+        THEN lt.level + 2
+    END AS level
+FROM laporan_tree lt
+JOIN coa c
+    ON c.id_coa_subtype = lt.id_coa_subtype
+
+UNION ALL
+
+-- ==========================
+-- SINGLE COA DIRECTLY ATTACHED
+-- ==========================
+SELECT
+    CONCAT('C_', c.id) AS node_id,
+    lt.node_id AS parent_node_id,
+    'coa' AS node_type,
+    c.id AS real_id,
+    NULL AS id_laporan_relation,
+    lt.level + 1 AS level
+FROM laporan_tree lt
+JOIN coa c
+    ON c.id = lt.id_coa;`;
+
+        const [rows] = await conn.execute(sql, values);
         return rows;
       }
       sql = `SELECT * FROM ${TABLE_NAME} WHERE id = ?`;

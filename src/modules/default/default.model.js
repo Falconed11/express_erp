@@ -12,6 +12,7 @@ export const generateDefaultCRUDModel = (
     prepareData = (data) => data,
     customModel = {},
     generateOrderBy = () => "",
+    validFilterColumns = [],
   },
 ) => ({
   async create(data, conn = db) {
@@ -42,7 +43,26 @@ export const generateDefaultCRUDModel = (
   async getAll({ limit, offset, ...filters }, conn = db) {
     const { from, to, ...otherFilters } = filters;
     const isPagination = limit && offset;
-    console.log(otherFilters);
+
+    // Filter otherFilters to only include valid columns on the main table
+    const validFilters = {};
+    for (const key of Object.keys(otherFilters)) {
+      const effectiveKey = filterAliases[key] || key;
+      // Only include filters that are valid columns (if not explicitly prefixed with table name)
+      if (!effectiveKey.includes(".") && validFilterColumns.length > 0) {
+        if (validFilterColumns.includes(effectiveKey)) {
+          validFilters[key] = otherFilters[key];
+        }
+      } else if (effectiveKey.includes(".")) {
+        // Always allow filters that explicitly specify a table
+        validFilters[key] = otherFilters[key];
+      } else if (validFilterColumns.length === 0) {
+        // If no validFilterColumns specified, allow all (backward compatibility)
+        validFilters[key] = otherFilters[key];
+      }
+    }
+
+    console.log(validFilters);
 
     /**
      * Builds SQL filter conditions and their corresponding values for use in a WHERE clause.
@@ -140,7 +160,7 @@ export const generateDefaultCRUDModel = (
 
     // Build filter SQL and values
     const { filterSqlParts, filterValues } = buildFilterSqlAndValues(
-      otherFilters,
+      validFilters,
       filterAliases,
     );
     addDateFilters(filterSqlParts, filterValues, from, to);
@@ -211,18 +231,25 @@ const standardAllowedFieldsForUpdate = ["nama", ...defaultFields];
  * * @param {string} tableName - The name of the database table.
  * @param {string[]} extraAllowedFieldsForCreate - An array of strings representing the permitted extra column names.
  * @param {string[]} extraAllowedFieldsForUpdate - An array of strings representing the permitted extra column names.
+ * @param {string[]} validFilterColumns - An array of valid columns that can be used in filters. Defaults to standard and extra fields.
  */
 export const generateStandardCRUDModel = ({
   tableName,
   extraAllowedFieldsForCreate = [],
   extraAllowedFieldsForUpdate = [],
+  validFilterColumns = [],
   filterAliases = {},
   ...rest
 }) => {
+  const resolvedValidFilterColumns =
+    validFilterColumns.length > 0
+      ? validFilterColumns
+      : [...standardAllowedFieldsForCreate, ...extraAllowedFieldsForCreate];
+
   return generateDefaultCRUDModel(
     tableName,
     [...standardAllowedFieldsForCreate, ...extraAllowedFieldsForCreate],
     [...standardAllowedFieldsForUpdate, ...extraAllowedFieldsForUpdate],
-    { filterAliases, ...rest },
+    { filterAliases, validFilterColumns: resolvedValidFilterColumns, ...rest },
   );
 };

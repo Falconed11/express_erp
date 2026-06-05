@@ -3,6 +3,7 @@ option 1
   {
     "id": 1,
     "id_parent": null,
+    "node_type": 'laporan',
     "nama": "Root",
     "level": 0,
     "total_balance": 100000,
@@ -11,6 +12,8 @@ option 1
   {
     "id": 2,
     "id_parent": 1,
+    "id_laporan_relation": 1,
+    "node_type": 'laporan',
     "nama": "Child",
     "level": 1,
     "total_balance": 50000,
@@ -23,6 +26,7 @@ option 2
     {
       "id": 1,
       "id_parent": null,
+      "node_type": 'laporan',
       "nama": "Root",
       "total_balance": 100000
     }
@@ -30,3 +34,6 @@ option 2
   "past": 200000,
   "end": 300000
 }
+
+node_type = 'laporan' / 'coa_filter' / 'coa_type' / 'coa_subtype' / 'coa'
+tables involved = perusahaan, laporan, coa_filter, coa_type, coa_subtype, coa, transaksi
