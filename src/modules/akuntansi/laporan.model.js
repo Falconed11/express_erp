@@ -635,6 +635,7 @@ expanded AS (
     JOIN coa c
         ON c.id_coa_subtype = e.id_coa_subtype
     WHERE e.node_type = 'subtype'
+      AND e.id_laporan_relation IS NULL
 ),
 node_nominal AS (
     SELECT
@@ -658,6 +659,9 @@ node_nominal AS (
         ON ct.id = cs.id_coa_type
     LEFT JOIN transaksi t
         ON t.id_coa = c.id
+    LEFT JOIN jurnal j
+        ON j.id = t.id_jurnal
+        ${filterClauses.length ? filterClauses.join("\n        ") : ""}
     GROUP BY e.node_key
 )
 
@@ -722,6 +726,7 @@ GROUP BY
 ORDER BY e.level, e.path;`;
 
         const [rows] = await conn.execute(query, values);
+        console.log(rows);
         return rows;
       }
       const query = `SELECT * FROM ${TABLE_NAME} WHERE id = ?`;
