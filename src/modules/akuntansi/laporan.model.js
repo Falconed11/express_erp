@@ -384,7 +384,6 @@ const Model = generateStandardCRUDModel({
     },
     async getById(id, data, conn = db) {
       const { from, to, id_perusahaan } = data;
-      let sql = ``;
       if (data.type == "tree") {
         // await validateTreeRecursionFromRoot(id, conn);
 
@@ -404,200 +403,329 @@ const Model = generateStandardCRUDModel({
           values.push(id_perusahaan);
         }
 
-        //         sql = `
-        // WITH RECURSIVE tree AS (
-        //     -- 1. Anchor Member
-        //     SELECT
-        //         id AS id_laporan_relation,
-        //         id_parent,
-        //         id_child,
-        //         id_coa_type,
-        //         id_coa_subtype,
-        //         id_coa,
-        //         modifier,
-        //         CAST(id AS CHAR(1000)) AS path,
-        //         FALSE AS has_cycle,
-        //         1 AS level -- <-- START AT LEVEL 1
-        //     FROM laporan_relation
-        //     WHERE id_parent = ?
+        const query = `WITH RECURSIVE tree AS (
 
-        //     UNION ALL
-
-        //     -- 2. Recursive Member
-        //     SELECT
-        //         lr.id AS id_laporan_relation,
-        //         lr.id_parent,
-        //         lr.id_child,
-        //         lr.id_coa_type,
-        //         lr.id_coa_subtype,
-        //         lr.id_coa,
-        //         lr.modifier,
-        //         CONCAT(t.path, ',', lr.id),
-        //         FIND_IN_SET(lr.id, t.path) > 0 AS has_cycle,
-        //         t.level + 1 AS level -- <-- INCREMENT LEVEL ON EACH HOP
-        //     FROM laporan_relation lr
-        //     JOIN tree t ON lr.id_parent = t.id_child
-        //     WHERE NOT t.has_cycle
-        // )
-        // -- 3. Final Select
-        // SELECT t.*, l.nama, l.keterangan
-        // FROM tree t
-        // LEFT JOIN laporan l ON l.id = t.id_child;
-        //         `;
-
-        sql = `WITH RECURSIVE laporan_tree AS (
-    -- Root
+    /* ROOT */
     SELECT
-        CONCAT('LR_', lr.id) AS node_id,
-        NULL AS parent_node_id,
-        lr.id AS id_laporan_relation,
-        lr.id_child,
-        lr.id_coa_type,
-        lr.id_coa_subtype,
-        lr.id_coa,
-        1 AS level,
-        'laporan' AS node_type,
-        lr.id AS real_id
-    FROM laporan_relation lr
-    WHERE lr.id_parent = ?
+        CAST(CONCAT('report_', id) AS CHAR(100)) AS node_key,
+        CAST(NULL AS CHAR(100)) AS parent_node_key,
+
+        CAST(NULL AS SIGNED) AS id_laporan_relation,
+        id AS id_laporan,
+
+        CAST(NULL AS SIGNED) AS id_coa_type,
+        CAST(NULL AS SIGNED) AS id_coa_subtype,
+        CAST(NULL AS SIGNED) AS id_coa,
+
+        CAST(NULL AS CHAR(10)) AS modifier,
+
+        CAST(CONCAT('report_', id) AS CHAR(4000)) AS path,
+        FALSE AS has_cycle,
+        0 AS level,
+
+        CAST('report' AS CHAR(20)) AS node_type,
+
+        nama,
+        keterangan
+
+    FROM laporan
+    WHERE id = ?
 
     UNION ALL
 
-    -- Children
+    /* LAPORAN -> RELATION */
     SELECT
-        CONCAT('LR_', lr.id) AS node_id,
-        lt.node_id AS parent_node_id,
-        lr.id AS id_laporan_relation,
+        CAST(CONCAT('section_', lr.id) AS CHAR(100)),
+        CAST(t.node_key AS CHAR(100)),
+
+        lr.id,
         lr.id_child,
+
         lr.id_coa_type,
         lr.id_coa_subtype,
         lr.id_coa,
-        lt.level + 1 AS level,
-        'laporan' AS node_type,
-        lr.id AS real_id
-    FROM laporan_relation lr
-    JOIN laporan_tree lt
-        ON lr.id_parent = lt.id_child
+
+        lr.modifier,
+
+        CONCAT(t.path, ',', CONCAT('section_', lr.id)),
+
+        FIND_IN_SET(
+            CONCAT('section_', lr.id),
+            REPLACE(t.path, ',', ',')
+        ) > 0,
+
+        t.level + 1,
+
+        CAST(case
+          when lr.id_coa IS NOT NULL then 'coa'
+          when lr.id_coa_subtype IS NOT NULL then 'subtype'
+          when lr.id_coa_type IS NOT NULL then 'type'
+          when lr.id_child IS NOT NULL then 'section'
+        end AS CHAR(20)),
+
+        coalesce(c.nama, cs.nama, ct.nama, l.nama),
+        coalesce(c.keterangan, cs.keterangan, ct.keterangan, l.keterangan)
+
+    FROM tree t
+    JOIN laporan_relation lr
+        ON lr.id_parent = t.id_laporan
+    left JOIN coa c
+       ON c.id = lr.id_coa
+    left JOIN coa_subtype cs
+       ON cs.id = lr.id_coa_subtype
+    left JOIN coa_type ct
+       ON ct.id = lr.id_coa_type
+    left JOIN laporan l
+       ON l.id = lr.id_child
+    WHERE t.node_type IN ('report','section')
+      AND NOT t.has_cycle
+),
+
+expanded AS (
+
+    /* ORIGINAL TREE */
+    SELECT *
+    FROM tree
+
+    UNION ALL
+
+    /* TYPE -> SUBTYPE */
+    SELECT
+        CAST(
+            CONCAT(
+                'sub_',
+                cs.id,
+                '_rel_',
+                t.id_laporan_relation
+            ) AS CHAR(100)
+        ) AS node_key,
+
+        CAST(t.node_key AS CHAR(100)) AS parent_node_key,
+
+        NULL AS id_laporan_relation,
+        NULL AS id_laporan,
+
+        NULL AS id_coa_type,
+        cs.id AS id_coa_subtype,
+        NULL AS id_coa,
+
+        t.modifier,
+
+        CONCAT(
+            t.path,
+            ',',
+            CONCAT(
+                'sub_',
+                cs.id,
+                '_rel_',
+                t.id_laporan_relation
+            )
+        ),
+
+        FALSE,
+
+        t.level + 1,
+
+        CAST('subtype' AS CHAR(20)),
+
+        cs.nama,
+        NULL AS keterangan
+
+    FROM tree t
+    JOIN coa_subtype cs
+        ON cs.id_coa_type = t.id_coa_type
+    WHERE t.id_coa_type IS NOT NULL
+
+    UNION ALL
+
+    /* RELATION SUBTYPE -> COA */
+    SELECT
+        CAST(
+            CONCAT(
+                'coa_',
+                c.id,
+                '_rel_',
+                t.id_laporan_relation
+            ) AS CHAR(100)
+        ),
+
+        CAST(t.node_key AS CHAR(100)),
+
+        NULL,
+        NULL,
+
+        NULL,
+        t.id_coa_subtype,
+        c.id,
+
+        t.modifier,
+
+        CONCAT(
+            t.path,
+            ',',
+            CONCAT(
+                'coa_',
+                c.id,
+                '_rel_',
+                t.id_laporan_relation
+            )
+        ),
+
+        FALSE,
+
+        t.level + 1,
+
+        CAST('coa' AS CHAR(20)),
+
+        c.nama,
+        NULL
+
+    FROM tree t
+    JOIN coa c
+        ON c.id_coa_subtype = t.id_coa_subtype
+    WHERE t.id_coa_subtype IS NOT NULL
+
+    UNION ALL
+
+    /* GENERATED SUBTYPE -> COA */
+    SELECT
+        CAST(
+            CONCAT(
+                'coa_',
+                c.id,
+                '_sub_',
+                e.id_coa_subtype,
+                '_parent_',
+                e.node_key
+            ) AS CHAR(100)
+        ),
+
+        CAST(e.node_key AS CHAR(100)),
+
+        NULL,
+        NULL,
+
+        NULL,
+        e.id_coa_subtype,
+        c.id,
+
+        e.modifier,
+
+        CONCAT(
+            e.path,
+            ',',
+            CONCAT(
+                'coa_',
+                c.id,
+                '_sub_',
+                e.id_coa_subtype
+            )
+        ),
+
+        FALSE,
+
+        e.level + 1,
+
+        CAST('coa' AS CHAR(20)),
+
+        c.nama,
+        NULL
+
+    FROM expanded e
+    JOIN coa c
+        ON c.id_coa_subtype = e.id_coa_subtype
+    WHERE e.node_type = 'subtype'
+),
+node_nominal AS (
+    SELECT
+        e.node_key,
+
+        COALESCE(
+            SUM(
+                CASE WHEN ct.normal_balance = 1 THEN 1 ELSE -1 END
+                * CASE WHEN t.tipe = 1 THEN 1 ELSE -1 END
+                * t.amount
+            ),
+            0
+        ) AS own_nominal
+
+    FROM expanded e
+    LEFT JOIN coa c
+        ON c.id = e.id_coa
+    LEFT JOIN coa_subtype cs
+        ON cs.id = c.id_coa_subtype
+    LEFT JOIN coa_type ct
+        ON ct.id = cs.id_coa_type
+    LEFT JOIN transaksi t
+        ON t.id_coa = c.id
+    GROUP BY e.node_key
 )
 
--- ==========================
--- LAPORAN NODES
--- ==========================
 SELECT
-    node_id,
-    parent_node_id,
-    node_type,
-    real_id,
-    id_laporan_relation,
-    level
-FROM laporan_tree
+    e.node_key as id,
+    e.parent_node_key as id_parent,
 
-UNION ALL
+    e.id_laporan_relation,
+    e.id_laporan,
 
--- ==========================
--- COA TYPE DIRECTLY ATTACHED
--- ==========================
-SELECT
-    CONCAT('CT_', ct.id) AS node_id,
-    lt.node_id AS parent_node_id,
-    'coa_type' AS node_type,
-    ct.id AS real_id,
-    NULL AS id_laporan_relation,
-    lt.level + 1 AS level
-FROM laporan_tree lt
-JOIN coa_type ct
-    ON ct.id = lt.id_coa_type
+    e.id_coa_type,
+    e.id_coa_subtype,
+    e.id_coa,
 
-UNION ALL
+    e.modifier,
 
--- ==========================
--- SUBTYPE FROM TYPE
--- ==========================
-SELECT
-    CONCAT('CS_', cs.id) AS node_id,
-    CONCAT('CT_', cs.id_coa_type) AS parent_node_id,
-    'coa_subtype' AS node_type,
-    cs.id AS real_id,
-    NULL AS id_laporan_relation,
-    lt.level + 2 AS level
-FROM laporan_tree lt
-JOIN coa_subtype cs
-    ON cs.id_coa_type = lt.id_coa_type
+    e.level,
+    e.node_type,
 
-UNION ALL
+    e.nama,
+    e.keterangan,
 
--- ==========================
--- COA FROM TYPE
--- ==========================
-SELECT
-    CONCAT('C_', c.id) AS node_id,
-    CONCAT('CS_', c.id_coa_subtype) AS parent_node_id,
-    'coa' AS node_type,
-    c.id AS real_id,
-    NULL AS id_laporan_relation,
-    lt.level + 3 AS level
-FROM laporan_tree lt
-JOIN coa_subtype cs
-    ON cs.id_coa_type = lt.id_coa_type
-JOIN coa c
-    ON c.id_coa_subtype = cs.id
+    e.path,
+    e.has_cycle,
 
-UNION ALL
+    COALESCE(
+        SUM(
+            n.own_nominal
+            * CASE
+                WHEN d.node_type = 'section'
+                    THEN COALESCE(d.modifier, 1)
+                ELSE 1
+              END
+        ),
+        0
+    ) AS total_balance
 
--- ==========================
--- SUBTYPE DIRECTLY ATTACHED
--- ==========================
-SELECT
-    CONCAT('CS_', cs.id) AS node_id,
-    lt.node_id AS parent_node_id,
-    'coa_subtype' AS node_type,
-    cs.id AS real_id,
-    NULL AS id_laporan_relation,
-    lt.level + 1 AS level
-FROM laporan_tree lt
-JOIN coa_subtype cs
-    ON cs.id = lt.id_coa_subtype
+FROM expanded e
 
-UNION ALL
+LEFT JOIN expanded d
+    ON FIND_IN_SET(e.node_key, d.path) > 0
 
--- ==========================
--- COA FROM SUBTYPE
--- ==========================
-SELECT
-    CONCAT('C_', c.id) AS node_id,
-    CONCAT('CS_', c.id_coa_subtype) AS parent_node_id,
-    'coa' AS node_type,
-    c.id AS real_id,
-    NULL AS id_laporan_relation,
-    CASE
-        WHEN lt.id_coa_subtype IS NOT NULL
-        THEN lt.level + 2
-    END AS level
-FROM laporan_tree lt
-JOIN coa c
-    ON c.id_coa_subtype = lt.id_coa_subtype
+LEFT JOIN node_nominal n
+    ON n.node_key = d.node_key
 
-UNION ALL
+GROUP BY
+    e.node_key,
+    e.parent_node_key,
+    e.id_laporan_relation,
+    e.id_laporan,
+    e.id_coa_type,
+    e.id_coa_subtype,
+    e.id_coa,
+    e.modifier,
+    e.level,
+    e.node_type,
+    e.nama,
+    e.keterangan,
+    e.path,
+    e.has_cycle
 
--- ==========================
--- SINGLE COA DIRECTLY ATTACHED
--- ==========================
-SELECT
-    CONCAT('C_', c.id) AS node_id,
-    lt.node_id AS parent_node_id,
-    'coa' AS node_type,
-    c.id AS real_id,
-    NULL AS id_laporan_relation,
-    lt.level + 1 AS level
-FROM laporan_tree lt
-JOIN coa c
-    ON c.id = lt.id_coa;`;
+ORDER BY e.level, e.path;`;
 
-        const [rows] = await conn.execute(sql, values);
+        const [rows] = await conn.execute(query, values);
         return rows;
       }
-      sql = `SELECT * FROM ${TABLE_NAME} WHERE id = ?`;
-      const [rows] = await conn.execute(sql, [id]);
+      const query = `SELECT * FROM ${TABLE_NAME} WHERE id = ?`;
+      const [rows] = await conn.execute(query, [id]);
       return rows[0];
     },
   },
