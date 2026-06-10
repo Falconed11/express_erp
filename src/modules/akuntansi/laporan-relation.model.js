@@ -164,9 +164,9 @@ const validateNoRecurringNode = async (
     [childId, id || 0],
   );
 
-  if (existingChildRows.length > 0) {
-    throw new Error(`id_child ${childId} already has a parent relation`);
-  }
+  // if (existingChildRows.length > 0) {
+  //   throw new Error(`id_child ${childId} already has a parent relation`);
+  // }
 
   const visited = new Set();
   const queue = parentId == null ? [] : [parentId];

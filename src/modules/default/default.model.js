@@ -14,140 +14,10 @@ export const generateDefaultCRUDModel = (
     generateOrderBy = () => "",
     validFilterColumns = [],
   },
-) => ({
-  async create(data, conn = db) {
-    const preparedData = prepareData(data);
-    // 1. Filter to get the pairs [key, value]
-    const filteredEntries = Object.entries(preparedData).filter(
-      ([key, value]) => {
-        const isAllowedKey = allowedFieldsForCreate.includes(key);
-
-        // Use a stricter check: allow anything that isn't null, undefined, or an empty string
-        const hasValue = value !== null && value !== undefined && value !== "";
-
-        return isAllowedKey && hasValue;
-      },
-    );
-
-    // 2. Extract keys and values from the filtered entries
-    const fieldNames = filteredEntries.map(([key]) => key);
-    const values = filteredEntries.map(([_, value]) => value);
-
-    // 3. Create the placeholders based on the count of filtered items
-    const placeholders = fieldNames.map(() => "?").join(", ");
-
-    const sql = `INSERT INTO ${tableName} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
-    const [result] = await conn.execute(sql, values);
-    return result;
-  },
-  async getAll({ limit, offset, ...filters }, conn = db) {
-    const { from, to, ...otherFilters } = filters;
-    const isPagination = limit && offset;
-
-    // Filter otherFilters to only include valid columns on the main table
-    const validFilters = {};
-    for (const key of Object.keys(otherFilters)) {
-      const effectiveKey = filterAliases[key] || key;
-      // Only include filters that are valid columns (if not explicitly prefixed with table name)
-      if (!effectiveKey.includes(".") && validFilterColumns.length > 0) {
-        if (validFilterColumns.includes(effectiveKey)) {
-          validFilters[key] = otherFilters[key];
-        }
-      } else if (effectiveKey.includes(".")) {
-        // Always allow filters that explicitly specify a table
-        validFilters[key] = otherFilters[key];
-      } else if (validFilterColumns.length === 0) {
-        // If no validFilterColumns specified, allow all (backward compatibility)
-        validFilters[key] = otherFilters[key];
-      }
-    }
-
-    console.log(validFilters);
-
-    /**
-     * Builds SQL filter conditions and their corresponding values for use in a WHERE clause.
-     * Handles simple equality, IN clauses for arrays, advanced objects with custom table/column/values,
-     * and supports custom SQL operators if provided in the filter value as { value, operator } or { values, operator }.
-     *
-     * @param {Object} otherFilters - Key-value pairs representing filters to apply.
-     * @param {Object} filterAliases - Optional mapping of filter keys to actual database column names.
-     * @returns {{ filterSqlParts: string[], filterValues: any[] }}
-     *   filterSqlParts: Array of SQL filter strings (e.g., 'AND main.name = ?').
-     *   filterValues: Array of values to bind to the SQL statement.
-     *
-     * Supported filter value formats:
-     *   - primitive: value (uses '=')
-     *   - array: [v1, v2] (uses IN)
-     *   - object: { value, operator } (e.g., { value: 5, operator: '>' })
-     *   - object: { values, operator, table, column } (e.g., { values: [1,2], operator: 'NOT IN', table: 't', column: 'id' })
-     */
-    function buildFilterSqlAndValues(otherFilters, filterAliases) {
-      const filterSqlParts = [];
-      const filterValues = [];
-      for (const key of Object.keys(otherFilters)) {
-        const rawValue = otherFilters[key];
-        const effectiveKey = filterAliases[key] || key;
-        let table = "main";
-        let column = effectiveKey;
-        if (effectiveKey.includes(".")) {
-          [table, column] = effectiveKey.split(".");
-        }
-
-        // Support custom operator and value/values
-        if (Array.isArray(rawValue)) {
-          // If the filter value is an array, use IN clause
-          const placeholders = rawValue.map(() => "?").join(", ");
-          filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
-          filterValues.push(...rawValue);
-        } else if (
-          typeof rawValue === "object" &&
-          rawValue !== null &&
-          (Array.isArray(rawValue.values) ||
-            Object.prototype.hasOwnProperty.call(rawValue, "value"))
-        ) {
-          // If the filter value is an object with a 'values' array or a 'value' property
-          const objTable = rawValue.table || table;
-          const objColumn = rawValue.column || column;
-          const operator =
-            rawValue.operator || (Array.isArray(rawValue.values) ? "IN" : "=");
-          if (Array.isArray(rawValue.values)) {
-            const placeholders = rawValue.values.map(() => "?").join(", ");
-            filterSqlParts.push(
-              `AND ${objTable}.${objColumn} ${operator} (${placeholders})`,
-            );
-            filterValues.push(...rawValue.values);
-          } else {
-            filterSqlParts.push(`AND ${objTable}.${objColumn} ${operator} ?`);
-            filterValues.push(rawValue.value);
-          }
-        } else {
-          // Otherwise, use simple equality
-          filterSqlParts.push(`AND ${table}.${column} = ?`);
-          filterValues.push(rawValue);
-        }
-      }
-      return { filterSqlParts, filterValues };
-    }
-
-    function addDateFilters(filterSqlParts, filterValues, from, to) {
-      if (from) {
-        filterSqlParts.push(`AND j.tanggal >= ?`);
-        filterValues.push(from);
-      }
-      if (to) {
-        filterSqlParts.push(`AND j.tanggal <= ?`);
-        filterValues.push(to);
-      }
-    }
-
-    function buildSqlQuery({
-      tableName,
-      customSelect,
-      generateCustomJoin,
-      filterSql,
-      isPagination,
-    }) {
-      return `SELECT main.*, COUNT(*) OVER () total, cb.nama created_by, ub.nama updated_by
+) => {
+  function buildSqlQuery({ tableName, filterSql, isPagination }) {
+    const queryCountTotal = isPagination ? "COUNT(*) OVER () total," : "";
+    return `SELECT main.*, ${queryCountTotal} cb.nama created_by, ub.nama updated_by
       ${customSelect ? `, ${customSelect}` : ""}
       FROM ${tableName} main
       left join karyawan cb on cb.id=main.created_by
@@ -156,70 +26,199 @@ export const generateDefaultCRUDModel = (
       WHERE 1=1 ${filterSql}
       ${generateOrderBy("main")}
       ${isPagination ? " LIMIT ? OFFSET ?" : ""}`;
-    }
+  }
+  return {
+    async create(data, conn = db) {
+      const preparedData = prepareData(data);
+      // 1. Filter to get the pairs [key, value]
+      const filteredEntries = Object.entries(preparedData).filter(
+        ([key, value]) => {
+          const isAllowedKey = allowedFieldsForCreate.includes(key);
 
-    // Build filter SQL and values
-    const { filterSqlParts, filterValues } = buildFilterSqlAndValues(
-      validFilters,
-      filterAliases,
-    );
-    addDateFilters(filterSqlParts, filterValues, from, to);
-    const filterSql = filterSqlParts.join(" ");
+          // Use a stricter check: allow anything that isn't null, undefined, or an empty string
+          const hasValue =
+            value !== null && value !== undefined && value !== "";
 
-    // Build the main SQL query
-    const sql = buildSqlQuery({
-      tableName,
-      customSelect,
-      generateCustomJoin,
-      filterSql,
-      isPagination,
-    });
+          return isAllowedKey && hasValue;
+        },
+      );
 
-    // Execute the query
-    const [rows] = await conn.execute(sql, [
-      ...filterValues,
-      ...(isPagination ? [limit, offset] : []),
-    ]);
+      // 2. Extract keys and values from the filtered entries
+      const fieldNames = filteredEntries.map(([key]) => key);
+      const values = filteredEntries.map(([_, value]) => value);
 
-    return rows;
-  },
-  async getById(id, conn = db) {
-    const sql = `SELECT * FROM ${tableName} WHERE id = ?`;
-    const [rows] = await conn.execute(sql, [id]);
-    return rows[0];
-  },
-  async patch(id, data, conn = db) {
-    const preparedData = prepareData(data);
-    const fields = [];
-    const values = [];
-    for (const key in preparedData) {
-      if (allowedFieldsForUpdate.includes(key)) {
-        fields.push(`${key} = ?`);
-        values.push(preparedData[key]);
+      // 3. Create the placeholders based on the count of filtered items
+      const placeholders = fieldNames.map(() => "?").join(", ");
+
+      const sql = `INSERT INTO ${tableName} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
+      const [result] = await conn.execute(sql, values);
+      return result;
+    },
+    async getAll({ limit, offset, ...filters }, conn = db) {
+      const { from, to, ...otherFilters } = filters;
+      const isPagination = limit && offset;
+
+      // Filter otherFilters to only include valid columns on the main table
+      const validFilters = {};
+      for (const key of Object.keys(otherFilters)) {
+        const effectiveKey = filterAliases[key] || key;
+        // Only include filters that are valid columns (if not explicitly prefixed with table name)
+        if (!effectiveKey.includes(".") && validFilterColumns.length > 0) {
+          if (validFilterColumns.includes(effectiveKey)) {
+            validFilters[key] = otherFilters[key];
+          }
+        } else if (effectiveKey.includes(".")) {
+          // Always allow filters that explicitly specify a table
+          validFilters[key] = otherFilters[key];
+        } else if (validFilterColumns.length === 0) {
+          // If no validFilterColumns specified, allow all (backward compatibility)
+          validFilters[key] = otherFilters[key];
+        }
       }
-    }
-    if (!allowNoUpdate && fields.length === 0) {
-      throw new Error(`No fields to update for Table ${tableName}`);
-    }
 
-    const sql = `
+      console.log(validFilters);
+
+      /**
+       * Builds SQL filter conditions and their corresponding values for use in a WHERE clause.
+       * Handles simple equality, IN clauses for arrays, advanced objects with custom table/column/values,
+       * and supports custom SQL operators if provided in the filter value as { value, operator } or { values, operator }.
+       *
+       * @param {Object} otherFilters - Key-value pairs representing filters to apply.
+       * @param {Object} filterAliases - Optional mapping of filter keys to actual database column names.
+       * @returns {{ filterSqlParts: string[], filterValues: any[] }}
+       *   filterSqlParts: Array of SQL filter strings (e.g., 'AND main.name = ?').
+       *   filterValues: Array of values to bind to the SQL statement.
+       *
+       * Supported filter value formats:
+       *   - primitive: value (uses '=')
+       *   - array: [v1, v2] (uses IN)
+       *   - object: { value, operator } (e.g., { value: 5, operator: '>' })
+       *   - object: { values, operator, table, column } (e.g., { values: [1,2], operator: 'NOT IN', table: 't', column: 'id' })
+       */
+      function buildFilterSqlAndValues(otherFilters, filterAliases) {
+        const filterSqlParts = [];
+        const filterValues = [];
+        for (const key of Object.keys(otherFilters)) {
+          const rawValue = otherFilters[key];
+          const effectiveKey = filterAliases[key] || key;
+          let table = "main";
+          let column = effectiveKey;
+          if (effectiveKey.includes(".")) {
+            [table, column] = effectiveKey.split(".");
+          }
+
+          // Support custom operator and value/values
+          if (Array.isArray(rawValue)) {
+            // If the filter value is an array, use IN clause
+            const placeholders = rawValue.map(() => "?").join(", ");
+            filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
+            filterValues.push(...rawValue);
+          } else if (
+            typeof rawValue === "object" &&
+            rawValue !== null &&
+            (Array.isArray(rawValue.values) ||
+              Object.prototype.hasOwnProperty.call(rawValue, "value"))
+          ) {
+            // If the filter value is an object with a 'values' array or a 'value' property
+            const objTable = rawValue.table || table;
+            const objColumn = rawValue.column || column;
+            const operator =
+              rawValue.operator ||
+              (Array.isArray(rawValue.values) ? "IN" : "=");
+            if (Array.isArray(rawValue.values)) {
+              const placeholders = rawValue.values.map(() => "?").join(", ");
+              filterSqlParts.push(
+                `AND ${objTable}.${objColumn} ${operator} (${placeholders})`,
+              );
+              filterValues.push(...rawValue.values);
+            } else {
+              filterSqlParts.push(`AND ${objTable}.${objColumn} ${operator} ?`);
+              filterValues.push(rawValue.value);
+            }
+          } else {
+            // Otherwise, use simple equality
+            filterSqlParts.push(`AND ${table}.${column} = ?`);
+            filterValues.push(rawValue);
+          }
+        }
+        return { filterSqlParts, filterValues };
+      }
+
+      function addDateFilters(filterSqlParts, filterValues, from, to) {
+        if (from) {
+          filterSqlParts.push(`AND j.tanggal >= ?`);
+          filterValues.push(from);
+        }
+        if (to) {
+          filterSqlParts.push(`AND j.tanggal <= ?`);
+          filterValues.push(to);
+        }
+      }
+
+      // Build filter SQL and values
+      const { filterSqlParts, filterValues } = buildFilterSqlAndValues(
+        validFilters,
+        filterAliases,
+      );
+      addDateFilters(filterSqlParts, filterValues, from, to);
+      const filterSql = filterSqlParts.join(" ");
+
+      // Build the main SQL query
+      const sql = buildSqlQuery({
+        tableName,
+        filterSql,
+        isPagination,
+      });
+
+      // Execute the query
+      const [rows] = await conn.execute(sql, [
+        ...filterValues,
+        ...(isPagination ? [limit, offset] : []),
+      ]);
+
+      return rows;
+    },
+    async getById(id, conn = db) {
+      const sql = buildSqlQuery({
+        tableName,
+        filterSql: "AND main.id = ?",
+      });
+      const [rows] = await conn.execute(sql, [id]);
+      return rows[0];
+    },
+    async patch(id, data, conn = db) {
+      const preparedData = prepareData(data);
+      const fields = [];
+      const values = [];
+      for (const key in preparedData) {
+        if (allowedFieldsForUpdate.includes(key)) {
+          fields.push(`${key} = ?`);
+          values.push(preparedData[key]);
+        }
+      }
+      if (!allowNoUpdate && fields.length === 0) {
+        throw new Error(`No fields to update for Table ${tableName}`);
+      }
+
+      const sql = `
         UPDATE ${tableName}
         SET ${fields.join(", ")}
         WHERE id = ?
       `;
 
-    values.push(id);
+      values.push(id);
 
-    const [result] = await conn.execute(sql, values);
-    return result;
-  },
-  async destroy(id, conn = db) {
-    const sql = `DELETE FROM ${tableName} WHERE id = ?`;
-    const [result] = await conn.execute(sql, [id]);
-    return result;
-  },
-  ...customModel,
-});
+      const [result] = await conn.execute(sql, values);
+      return result;
+    },
+    async destroy(id, conn = db) {
+      const sql = `DELETE FROM ${tableName} WHERE id = ?`;
+      const [result] = await conn.execute(sql, [id]);
+      return result;
+    },
+    ...customModel,
+  };
+};
 
 export const defaultFields = ["keterangan", "aktif", "updated_by"];
 

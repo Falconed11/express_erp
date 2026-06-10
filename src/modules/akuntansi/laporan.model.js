@@ -3,7 +3,7 @@ import { generateStandardCRUDModel } from "../default/default.model.js";
 
 const TABLE_NAME = "laporan";
 // relation fields moved to `laporan_relation`; keep laporan fields minimal
-const extraAllowedFields = [];
+const extraAllowedFields = ["isReport"];
 const standardAllowedFieldsForCreate = [
   "nama",
   "created_by",
@@ -129,19 +129,8 @@ const Model = generateStandardCRUDModel({
     id_coa_subtype: "cs.id",
     id_coa_type: "ct.id",
   },
-  customSelect:
-    "lp.nama parent, cf.nama coa_filter, c.nama coa, cs.nama coa_subtype, ct.nama coa_type",
-  generateCustomJoin: (mainTable) => `
-    -- parent laporan via relation
-    left join laporan_relation lrr on lrr.id_child = ${mainTable}.id
-    left join laporan lp on lp.id = lrr.id_parent
-    -- mapping rows attached directly to this laporan (id_child IS NULL)
-    left join laporan_relation lrmap on lrmap.id_parent = ${mainTable}.id AND lrmap.id_child IS NULL
-    left join coa_filter cf on cf.id = lrmap.id_coa_filter
-    left join coa c on c.id = lrmap.id_coa
-    left join coa_subtype cs on cs.id = c.id_coa_subtype
-    left join coa_type ct on ct.id = cs.id_coa_type
-  `,
+  customSelect: "",
+  generateCustomJoin: (mainTable) => ``,
   prepareData: prepareLaporanData,
   customModel: {
     async create(data, conn = db) {
@@ -435,7 +424,7 @@ const Model = generateStandardCRUDModel({
 
     /* LAPORAN -> RELATION */
     SELECT
-        CAST(CONCAT('section_', lr.id) AS CHAR(100)),
+        CAST(CONCAT('section_', lr.id, '_path_', SUBSTRING(MD5(CONCAT(t.path, ',', CONCAT('section_', lr.id))), 1, 8)) AS CHAR(100)),
         CAST(t.node_key AS CHAR(100)),
 
         lr.id,
@@ -447,7 +436,7 @@ const Model = generateStandardCRUDModel({
 
         lr.modifier,
 
-        CONCAT(t.path, ',', CONCAT('section_', lr.id)),
+        CONCAT(t.path, ',', CONCAT('section_', lr.id, '_path_', SUBSTRING(MD5(CONCAT(t.path, ',', CONCAT('section_', lr.id))), 1, 8))),
 
         FIND_IN_SET(
             CONCAT('section_', lr.id),
@@ -496,7 +485,9 @@ expanded AS (
                 'sub_',
                 cs.id,
                 '_rel_',
-                t.id_laporan_relation
+                t.id_laporan_relation,
+                '_path_',
+                SUBSTRING(MD5(CONCAT(t.path, ',', 'sub_', cs.id, '_rel_', t.id_laporan_relation)), 1, 8)
             ) AS CHAR(100)
         ) AS node_key,
 
@@ -518,7 +509,9 @@ expanded AS (
                 'sub_',
                 cs.id,
                 '_rel_',
-                t.id_laporan_relation
+                t.id_laporan_relation,
+                '_path_',
+                SUBSTRING(MD5(CONCAT(t.path, ',', 'sub_', cs.id, '_rel_', t.id_laporan_relation)), 1, 8)
             )
         ),
 
@@ -545,7 +538,9 @@ expanded AS (
                 'coa_',
                 c.id,
                 '_rel_',
-                t.id_laporan_relation
+                t.id_laporan_relation,
+                '_path_',
+                SUBSTRING(MD5(CONCAT(t.path, ',', 'coa_', c.id, '_rel_', t.id_laporan_relation)), 1, 8)
             ) AS CHAR(100)
         ),
 
@@ -567,7 +562,9 @@ expanded AS (
                 'coa_',
                 c.id,
                 '_rel_',
-                t.id_laporan_relation
+                t.id_laporan_relation,
+                '_path_',
+                SUBSTRING(MD5(CONCAT(t.path, ',', 'coa_', c.id, '_rel_', t.id_laporan_relation)), 1, 8)
             )
         ),
 
@@ -595,8 +592,8 @@ expanded AS (
                 c.id,
                 '_sub_',
                 e.id_coa_subtype,
-                '_parent_',
-                e.node_key
+                '_path_',
+                SUBSTRING(MD5(e.path), 1, 8)
             ) AS CHAR(100)
         ),
 
@@ -618,7 +615,9 @@ expanded AS (
                 'coa_',
                 c.id,
                 '_sub_',
-                e.id_coa_subtype
+                e.id_coa_subtype,
+                '_path_',
+                SUBSTRING(MD5(e.path), 1, 8)
             )
         ),
 
@@ -643,8 +642,8 @@ node_nominal AS (
 
         COALESCE(
             SUM(
-                CASE WHEN ct.normal_balance = 1 THEN 1 ELSE -1 END
-                * CASE WHEN t.tipe = 1 THEN 1 ELSE -1 END
+                CASE WHEN ct.normal_balance = 0 THEN -1 ELSE 1 END
+                * CASE WHEN t.tipe = 0 THEN -1 ELSE 1 END
                 * t.amount
             ),
             0
@@ -659,9 +658,10 @@ node_nominal AS (
         ON ct.id = cs.id_coa_type
     LEFT JOIN transaksi t
         ON t.id_coa = c.id
-    LEFT JOIN jurnal j
+    left JOIN jurnal j
         ON j.id = t.id_jurnal
-        ${filterClauses.length ? filterClauses.join("\n        ") : ""}
+    where 1=1
+    ${filterClauses.length ? filterClauses.join("\n        ") : ""}
     GROUP BY e.node_key
 )
 
@@ -690,11 +690,8 @@ SELECT
     COALESCE(
         SUM(
             n.own_nominal
-            * CASE
-                WHEN d.node_type = 'section'
-                    THEN COALESCE(d.modifier, 1)
-                ELSE 1
-              END
+            *
+            COALESCE(d.modifier, 1)
         ),
         0
     ) AS total_balance
@@ -726,7 +723,7 @@ GROUP BY
 ORDER BY e.level, e.path;`;
 
         const [rows] = await conn.execute(query, values);
-        console.log(rows);
+        console.log(values);
         return rows;
       }
       const query = `SELECT * FROM ${TABLE_NAME} WHERE id = ?`;

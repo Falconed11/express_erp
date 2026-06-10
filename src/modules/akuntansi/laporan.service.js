@@ -26,6 +26,7 @@ const Service = generateDefaultCRUDService({
           to: data.from,
         };
         const pastResult = await Model.getById(id, pastQuery, conn);
+        console.log(pastResult);
 
         if (!Array.isArray(currentResult) || !Array.isArray(pastResult)) {
           return currentResult;
@@ -34,12 +35,12 @@ const Service = generateDefaultCRUDService({
         const rootId = Number(id);
         const past =
           Number(
-            pastResult.find((item) => Number(item.id) === rootId)
+            pastResult.find((item) => Number(item.id_laporan) === rootId)
               ?.total_balance,
           ) || 0;
         const periodBalance =
           Number(
-            currentResult.find((item) => Number(item.id) === rootId)
+            currentResult.find((item) => Number(item.id_laporan) === rootId)
               ?.total_balance,
           ) || 0;
 
