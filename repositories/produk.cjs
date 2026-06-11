@@ -166,7 +166,7 @@ const insertProduk = async ({
   let sql, values;
   try {
     assertTransaction(conn, insertProduk.name);
-    // if (!nama) throw new Error("Nama belum diisi.");
+    if (!tanggal) throw new Error("Tanggal belum diisi.");
     if (!satuan) throw new Error("Satuan belum diisi.");
     if (kategoriproduk && id_kategori == null) {
       id_kategori = await createKategori({ nama: kategoriproduk, conn });
@@ -322,6 +322,7 @@ const update = async ({ id, ...rest }) => {
         return { affectedRows: 0, message: "No fields to update" };
       values.push(id);
       const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
+      console.log(values);
       const [result] = await conn.execute(sql, values);
       return {
         insertKategoriId: rest.id_kategori,
