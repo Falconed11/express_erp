@@ -591,11 +591,14 @@ app.put("/api/keranjangproyekupdatehargabypersenprovit", async (req, res) => {
     .then((result) => res.json({ message: "Update harga jual berhasil" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
-app.delete("/api/keranjangproyek", async (req, res) => {
-  keranjangproyek
-    .destroy(req.body)
-    .then((result) => res.json({ message: "Produk berhasil dihapus" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+app.delete("/api/keranjangproyek/:id?", async (req, res) => {
+  const { body, params } = req;
+  try {
+    keranjangproyek.destroy({ ...body, ...params });
+    res.json({ message: "Produk berhasil dihapus" });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 // keteranganpenawaran

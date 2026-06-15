@@ -139,12 +139,14 @@ const update = async ({ id, id_produk, isUpdateHarga, tanggal, ...rest }) => {
     return { affectedRows: 0, message: "No fields to update" };
 
   return await withTransaction(pool, async (conn) => {
-    await conn.execute(
-      "select id from keranjangproyek where id = ? for update",
+    const [rows] = await conn.execute(
+      "select id, id_produk from keranjangproyek where id = ? for update",
       [id],
     );
+    const idProduk = await rows[0]?.id_produk;
+    console.log({ id, id_produk, idProduk, isUpdateHarga, tanggal, ...rest });
     await conn.execute("select id from produk where id = ? for update", [
-      id_produk,
+      id_produk || (await idProduk),
     ]);
     values.push(id);
     let sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
@@ -170,6 +172,7 @@ const updateHargaJualByPersenProvit = async ({ id_proyek, persenProvit }) => {
 };
 
 const destroy = async ({ id }) => {
+  console.log({ id });
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
   const [result] = await pool.execute(sql, values);
