@@ -7,6 +7,11 @@ const Model = generateStandardCRUDModel({
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
+  generateAllowedSortFields: (mainTable) => ({
+    id: `${mainTable}.id`,
+    tanggal: "j.tanggal",
+    keterangan_jurnal: "j.keterangan",
+  }),
   filterAliases: {
     id_jurnal: "j.id",
     id_coa: "c.id",

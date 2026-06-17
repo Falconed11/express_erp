@@ -12,11 +12,19 @@ export const generateDefaultCRUDModel = (
     prepareData = (data) => data,
     customModel = {},
     generateOrderBy = () => "",
+    generateAllowedSortFields = null,
     validFilterColumns = [],
   },
 ) => {
-  function buildSqlQuery({ tableName, filterSql, isPagination }) {
+  function buildSqlQuery({
+    tableName,
+    filterSql,
+    isPagination,
+    orderBySql = null,
+  }) {
     const queryCountTotal = isPagination ? "COUNT(*) OVER () total," : "";
+    const orderByClause =
+      orderBySql !== null ? orderBySql : generateOrderBy("main");
     return `SELECT main.*, ${queryCountTotal} cb.nama created_by, ub.nama updated_by
       ${customSelect ? `, ${customSelect}` : ""}
       FROM ${tableName} main
@@ -24,7 +32,7 @@ export const generateDefaultCRUDModel = (
       left join karyawan ub on ub.id=main.updated_by
       ${generateCustomJoin ? generateCustomJoin("main") : ""}
       WHERE 1=1 ${filterSql}
-      ${generateOrderBy("main")}
+      ${orderByClause}
       ${isPagination ? " LIMIT ? OFFSET ?" : ""}`;
   }
   return {
@@ -54,9 +62,40 @@ export const generateDefaultCRUDModel = (
       const [result] = await conn.execute(sql, values);
       return result;
     },
-    async getAll({ limit, offset, ...filters }, conn = db) {
+    async getAll({ limit, offset, sort, ...filters }, conn = db) {
       const { from, to, ...otherFilters } = filters;
       const isPagination = limit && offset;
+
+      // Parse and validate sort parameter
+      let orderBySql = null;
+      if (sort && generateAllowedSortFields) {
+        const allowedSortFields = generateAllowedSortFields("main");
+        const sortFields = sort.split(",").map((s) => s.trim());
+        const orderByParts = [];
+
+        for (const sortItem of sortFields) {
+          let sortField = sortItem;
+          let sortDirection = "ASC";
+
+          // Check if sort starts with '-' for DESC
+          if (sortItem.startsWith("-")) {
+            sortField = sortItem.substring(1);
+            sortDirection = "DESC";
+          }
+
+          // Validate sort field
+          if (allowedSortFields[sortField]) {
+            const columnPath = allowedSortFields[sortField];
+            orderByParts.push(`${columnPath} ${sortDirection}`);
+          }
+        }
+
+        orderByParts.push("main.id desc");
+
+        if (orderByParts.length > 0) {
+          orderBySql = `ORDER BY ${orderByParts.join(", ")}`;
+        }
+      }
 
       // Filter otherFilters to only include valid columns on the main table
       const validFilters = {};
@@ -168,6 +207,7 @@ export const generateDefaultCRUDModel = (
         tableName,
         filterSql,
         isPagination,
+        orderBySql,
       });
 
       // Execute the query
