@@ -55,13 +55,24 @@ const create = async ({
   untukpembayaran = "",
   tanggal = "",
   keterangan = "",
+  status = 0,
 }) => {
   if (!id_metodepembayaran) throw new Error("Metode Pembayaran wajib diisi!");
-  const sql = `insert into ${table} (id_proyek, nominal, id_metodepembayaran, id_karyawaninvoice, id_karyawankwitansi, pembayar, untukpembayaran, tanggal, keterangan) values (${
+  let id_second = null;
+  if (+status) {
+    const { id_second: _id_second } = await getNextPaymentId(
+      new Date(tanggal).getFullYear(),
+      pool,
+    );
+    id_second = _id_second;
+  }
+  const sql = `insert into ${table} (id_proyek, id_second, status, nominal, id_metodepembayaran, id_karyawaninvoice, id_karyawankwitansi, pembayar, untukpembayaran, tanggal, keterangan) values (${
     idproyek ? `(select id from proyek where id_second=?)` : `?`
-  }, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  }, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     idproyek ?? id_proyek,
+    id_second,
+    status,
     nominal,
     id_metodepembayaran,
     id_karyawaninvoice,
@@ -79,20 +90,20 @@ const create = async ({
 const getNextPaymentId = async (year, conn) => {
   const [rows] = await conn.query(
     `SELECT last_seq FROM kwitansi_sequences WHERE year = ? FOR UPDATE`,
-    [year]
+    [year],
   );
   let nextSeq;
   if (rows.length) {
     nextSeq = rows[0].last_seq + 1;
     await conn.query(
       `UPDATE kwitansi_sequences SET last_seq = ? WHERE year = ?`,
-      [nextSeq, year]
+      [nextSeq, year],
     );
   } else {
     nextSeq = 1;
     await conn.query(
       `INSERT INTO kwitansi_sequences (year, last_seq) VALUES (?, ?)`,
-      [year, nextSeq]
+      [year, nextSeq],
     );
   }
   return {
@@ -108,7 +119,7 @@ const update = async ({ id, ...rest }) => {
     const result = await withTransaction(pool, async (conn) => {
       const [[current]] = await conn.execute(
         `SELECT status, tanggal, id_second FROM ${table} WHERE id = ?`,
-        [id]
+        [id],
       );
       if (!current) throw new Error("Payment not found");
 
@@ -134,7 +145,7 @@ const update = async ({ id, ...rest }) => {
       ];
 
       const entries = Object.entries(rest).filter(
-        ([k, v]) => allowedFields.includes(k) && v != null
+        ([k, v]) => allowedFields.includes(k) && v != null,
       );
 
       const fields = entries.map(([k]) => `${k}=?`);

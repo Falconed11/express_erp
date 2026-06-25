@@ -47,7 +47,7 @@ left join instansi i on i.id=a.id_instansi
     page && rowsPerPage
       ? await pool.execute(
           `select count(*) count from ${table} a ${whereClause}`,
-          valuesCount
+          valuesCount,
         )
       : null;
   const count = res?.[0]?.[0]?.count ?? 0;
@@ -68,8 +68,8 @@ const create = async ({
 }) => {
   try {
     const result = await withTransaction(pool, async (conn) => {
-      if (!aktivitas || !id_karyawan)
-        throw new Error("Aktivitas dan Karyawan wajib diisi!");
+      if (!id_karyawan) throw new Error("Karyawan wajib diisi!");
+      if (!aktivitas) throw new Error("Aktivitas wajib diisi!");
       const sql = `insert into ${table} (id_karyawan, id_proyek, id_instansi, pic, aktivitas, catatan, output, tindakanselanjutnya) values (?,?,?,?,?,?,?,?)`;
       if (!id_instansi && instansi) {
         id_instansi = await insertInstansi({ ...rest, nama: instansi, conn });
@@ -116,7 +116,7 @@ const update = async ({ id, isSelesai = null, ...rest }) => {
       )
     )
       throw new Error(
-        "Penyelesaian dihari yang sama hanya dapat dilakukan setelah pukul 16.00 WIB."
+        "Penyelesaian dihari yang sama hanya dapat dilakukan setelah pukul 16.00 WIB.",
       );
     if (!rows[0].tanggalselesai) {
       fields.push("tanggalselesai=?");

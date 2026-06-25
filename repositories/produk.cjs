@@ -18,12 +18,13 @@ const list = async ({
   aktif,
 }) => {
   if (nama) nama = "%" + nama + "%";
-  const sql = `select count(distinct kpy.id_proyek) nkeranjangproyek, count(distinct pm.id) nprodukmasuk, kp.nama kategoriproduk, m.nama nmerek, v.nama nvendor, p.* from ${table} p
+  const sql = `select count(distinct kpy.id_proyek) nkeranjangproyek, count(distinct pm.id) nprodukmasuk, count(distinct pp.id) npengeluaranproyek, kp.nama kategoriproduk, m.nama nmerek, v.nama nvendor, p.* from ${table} p
   left join merek m on p.id_merek=m.id
   left join vendor v on p.id_vendor=v.id
   left join kategoriproduk kp on p.id_kategori = kp.id
   left join keranjangproyek kpy on kpy.id_produk = p.id
   left join produkmasuk pm on pm.id_produk = p.id
+  left join pengeluaranproyek pp on pp.id_produk = p.id
   where 1 ${id ? "and p.id=?" : ""} ${kategori ? `and id_kategori = ?` : ""} ${merek ? `and id_merek = ?` : ""} ${
     nama ? "and p.nama like ?" : ""
   } and p.tanggal >= '2025-01-01' ${isReadyStock ? "and stok>0" : ""} ${aktif ? `and p.aktif =?` : ""}
@@ -249,9 +250,17 @@ const transfer = async ({ curId, newId }) => {
         "select id_produk from keranjangproyek where id_produk=? for update",
         [curId],
       );
-      if (!(produkMasuk.length && keranjangProyek.length))
+      const [pengeluaranProyek] = await conn.execute(
+        "select id_produk from pengeluaranproyek where id_produk=? for update",
+        [curId],
+      );
+      if (
+        !produkMasuk.length &&
+        !keranjangProyek.length &&
+        !pengeluaranProyek.length
+      )
         throw new Error(
-          "Operasi dibatalkan! Produk tidak memiliki stok dan penawaran.",
+          "Operasi dibatalkan! Produk tidak memiliki stok, penawaran, dan pengeluaran.",
         );
       const [products] = await conn.execute(
         "SELECT id, stok FROM produk WHERE id IN (?, ?) FOR UPDATE",
@@ -271,6 +280,10 @@ const transfer = async ({ curId, newId }) => {
       );
       await conn.execute(
         "update keranjangproyek set id_produk=? where id_produk=?",
+        [newId, curId],
+      );
+      await conn.execute(
+        "update pengeluaranproyek set id_produk=? where id_produk=?",
         [newId, curId],
       );
       await conn.execute("update produk set stok=stok+? where id=?", [
