@@ -125,7 +125,7 @@ const ProyekModel = {
   async findStagedProductByProjectId(id) {
     const [rows] = await db.execute(
       `With sumkeranjangproyek as (
-        select id_produk, sum(jumlah) total
+        select id_produk, sum(jumlah) total, hargamodal
         from keranjangproyek
         where id_proyek=?
         group by id_produk
@@ -136,7 +136,7 @@ const ProyekModel = {
         where id_proyek=?
         group by id_produk
         )
-        select kp.id idkategoriproduk, kp.nama kategoriproduk, pr.id, pr.id_kustom, pr.nama, pr.tipe, pr.keterangan, pr.stok, pr.satuan, pr.hargamodal, m.id idmerek, m.nama merek, k.total - coalesce(p.total,0) produkmenunggu
+        select kp.id idkategoriproduk, kp.nama kategoriproduk, pr.id, pr.id_kustom, pr.nama, pr.tipe, pr.keterangan, pr.stok, pr.satuan, pr.hargamodal, m.id idmerek, m.nama merek, k.hargamodal hargamodalpenawaran, k.total - coalesce(p.total,0) produkmenunggu
         from sumkeranjangproyek k
         left join sumpengeluaranproyek p on p.id_produk=k.id_produk
         left join produk pr on pr.id=k.id_produk
