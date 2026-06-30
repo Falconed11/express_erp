@@ -1,7 +1,7 @@
 import TransaksiModel from "./transaksi.model.js";
 import JurnalModel from "./jurnal.model.js";
+import LaporanModel from "./laporan.model.js";
 import { withTransaction } from "../../helpers/transaction.js";
-import { patch } from "../../models/default.model.js";
 
 const validateTransaksiData = (transaksi) => {
   transaksi.map((item) => {
@@ -23,8 +23,48 @@ const validateTransaksiData = (transaksi) => {
   }
 };
 
+const resolveRelatedCoaIds = async (idLaporan, conn) => {
+  if (!idLaporan) return [];
+
+  const relatedCoas = await LaporanModel.getCoasWithoutValue(
+    idLaporan,
+    {},
+    conn,
+  );
+  return relatedCoas
+    .map((item) => item.id_coa)
+    .filter((id) => id != null && id !== "");
+};
+
 const Service = {
-  getAll: async (data) => TransaksiModel.getAll(data),
+  async getAll(data = {}) {
+    const { id_laporan, ...filters } = data;
+
+    return withTransaction(async (conn) => {
+      if (!id_laporan) {
+        return TransaksiModel.getAll(filters, conn);
+      }
+
+      const relatedCoaIds = await resolveRelatedCoaIds(id_laporan, conn);
+      const resolvedFilters = { ...filters };
+
+      if (relatedCoaIds.length > 0) {
+        const existingCoaFilters = Array.isArray(filters.id_coa)
+          ? filters.id_coa
+          : filters.id_coa != null
+            ? [filters.id_coa]
+            : [];
+        const mergedCoaIds = Array.from(
+          new Set([...existingCoaFilters, ...relatedCoaIds]),
+        );
+        resolvedFilters.id_coa = mergedCoaIds;
+      } else {
+        resolvedFilters.id_coa = [];
+      }
+
+      return TransaksiModel.getAll(resolvedFilters, conn);
+    });
+  },
   async create(data) {
     const { transaksi, ...jurnal } = data;
     validateTransaksiData(transaksi);
@@ -79,13 +119,21 @@ const Service = {
     try {
       const result = await withTransaction(async (conn) => {
         // First, delete all transaksi for this jurnal
-        const transaksiToDelete = await TransaksiModel.getAll({ id_jurnal: id }, conn);
+        const transaksiToDelete = await TransaksiModel.getAll(
+          { id_jurnal: id },
+          conn,
+        );
         await Promise.all(
-          transaksiToDelete.map((item) => TransaksiModel.destroy(item.id, conn)),
+          transaksiToDelete.map((item) =>
+            TransaksiModel.destroy(item.id, conn),
+          ),
         );
         // Then delete the jurnal
         const jurnalResult = await JurnalModel.destroy(id, conn);
-        return { jurnal: jurnalResult, transaksiDeleted: transaksiToDelete.length };
+        return {
+          jurnal: jurnalResult,
+          transaksiDeleted: transaksiToDelete.length,
+        };
       });
       return result;
     } catch (err) {
