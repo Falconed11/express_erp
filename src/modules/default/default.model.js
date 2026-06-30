@@ -25,8 +25,16 @@ export const generateDefaultCRUDModel = (
     const queryCountTotal = isPagination ? "COUNT(*) OVER () total," : "";
     const orderByClause =
       orderBySql !== null ? orderBySql : generateOrderBy("main");
+    const selectExpressions = Array.isArray(customSelect)
+      ? customSelect.filter(Boolean)
+      : customSelect
+        ? [customSelect]
+        : [];
+    const customSelectSql = selectExpressions.length
+      ? `, ${selectExpressions.join(", ")}`
+      : "";
     return `SELECT main.*, ${queryCountTotal} cb.nama created_by, ub.nama updated_by
-      ${customSelect ? `, ${customSelect}` : ""}
+      ${customSelectSql}
       FROM ${tableName} main
       left join karyawan cb on cb.id=main.created_by
       left join karyawan ub on ub.id=main.updated_by
@@ -143,7 +151,9 @@ export const generateDefaultCRUDModel = (
           let table = "main";
           let column = effectiveKey;
           if (effectiveKey.includes(".")) {
-            [table, column] = effectiveKey.split(".");
+            const parts = effectiveKey.split(".");
+            table = parts[0];
+            column = parts.slice(1).join(".");
           }
 
           // Support custom operator and value/values
@@ -283,7 +293,11 @@ export const generateStandardCRUDModel = ({
   const resolvedValidFilterColumns =
     validFilterColumns.length > 0
       ? validFilterColumns
-      : [...standardAllowedFieldsForCreate, ...extraAllowedFieldsForCreate];
+      : [
+          "id",
+          ...standardAllowedFieldsForCreate,
+          ...extraAllowedFieldsForCreate,
+        ];
 
   return generateDefaultCRUDModel(
     tableName,

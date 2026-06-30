@@ -117,282 +117,27 @@ const validateTreeRecursionFromRoot = async (rootId, conn = db) => {
   walk(+rootId);
 };
 
-const Model = generateStandardCRUDModel({
-  allowNoUpdate: true,
-  tableName: TABLE_NAME,
-  extraAllowedFieldsForCreate: extraAllowedFields,
-  extraAllowedFieldsForUpdate: extraAllowedFields,
-  filterAliases: {
-    id_parent: "lp.id",
-    id_coa_filter: "cf.id",
-    id_coa: "c.id",
-    id_coa_subtype: "cs.id",
-    id_coa_type: "ct.id",
-  },
-  customSelect: "",
-  generateCustomJoin: (mainTable) => ``,
-  prepareData: prepareLaporanData,
-  customModel: {
-    async create(data, conn = db) {
-      const preparedData = prepareLaporanData(data);
+const fetchTreeRows = async (
+  { id, from, to, id_perusahaan, includeBalance = true, nodeTypes = null } = {},
+  conn = db,
+) => {
+  const filterClauses = [];
+  const values = [id];
 
-      const filteredEntries = Object.entries(preparedData).filter(
-        ([key, value]) => {
-          const isAllowedKey = allowedFieldsForCreate.includes(key);
-          const hasValue =
-            value !== null && value !== undefined && value !== "";
-          return isAllowedKey && hasValue;
-        },
-      );
+  if (from != null && from !== "") {
+    filterClauses.push("AND j.tanggal >= ?");
+    values.push(from);
+  }
+  if (to != null && to !== "") {
+    filterClauses.push("AND j.tanggal <= ?");
+    values.push(to);
+  }
+  if (id_perusahaan != null && id_perusahaan !== "") {
+    filterClauses.push("AND j.id_perusahaan = ?");
+    values.push(id_perusahaan);
+  }
 
-      const fieldNames = filteredEntries.map(([key]) => key);
-      const values = filteredEntries.map(([_, value]) => value);
-      const placeholders = fieldNames.map(() => "?").join(", ");
-      const sql = `INSERT INTO ${TABLE_NAME} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
-      const [result] = await conn.execute(sql, values);
-
-      const newId = result.insertId;
-
-      // If a parent relation was provided, validate and create it
-      if (
-        Object.prototype.hasOwnProperty.call(data, "id_parent") &&
-        data.id_parent != null &&
-        data.id_parent !== ""
-      ) {
-        await validateTreeRecursion(
-          { id: newId, id_parent: data.id_parent },
-          conn,
-        );
-        const relCols = ["id_parent", "id_child"];
-        const relVals = [data.id_parent, newId];
-
-        const maybeCols = [
-          "id_coa_filter",
-          "id_coa_type",
-          "id_coa_subtype",
-          "id_coa",
-          "modifier",
-          "keterangan",
-          "created_by",
-        ];
-        for (const col of maybeCols) {
-          if (
-            Object.prototype.hasOwnProperty.call(data, col) &&
-            data[col] !== undefined
-          ) {
-            relCols.push(col);
-            relVals.push(data[col]);
-          }
-        }
-
-        const relPlaceholders = relCols.map(() => "?").join(", ");
-        const relSql = `INSERT INTO laporan_relation (${relCols.join(",")}) VALUES (${relPlaceholders})`;
-        await conn.execute(relSql, relVals);
-      }
-
-      // If mapping (coa/filter) provided for this laporan itself, create mapping row (id_child IS NULL)
-      const mappingCols = [];
-      const mappingVals = [];
-      const mappingFields = [
-        "id_coa_filter",
-        "id_coa_type",
-        "id_coa_subtype",
-        "id_coa",
-        "modifier",
-        "keterangan",
-        "created_by",
-      ];
-      for (const col of mappingFields) {
-        if (
-          Object.prototype.hasOwnProperty.call(data, col) &&
-          data[col] !== undefined
-        ) {
-          mappingCols.push(col);
-          mappingVals.push(data[col]);
-        }
-      }
-      if (mappingCols.length > 0) {
-        // ensure id_parent and id_child columns are present
-        mappingCols.unshift("id_child");
-        mappingVals.unshift(null);
-        mappingCols.unshift("id_parent");
-        mappingVals.unshift(newId);
-        const mapPlaceholders = mappingCols.map(() => "?").join(", ");
-        const mapSql = `INSERT INTO laporan_relation (${mappingCols.join(",")}) VALUES (${mapPlaceholders})`;
-        await conn.execute(mapSql, mappingVals);
-      }
-
-      return result;
-    },
-    async patch(id, data, conn = db) {
-      const preparedData = prepareLaporanData(data);
-
-      // Update laporan core fields
-      const fields = [];
-      const values = [];
-      for (const key in preparedData) {
-        if (allowedFieldsForUpdate.includes(key)) {
-          fields.push(`${key} = ?`);
-          values.push(preparedData[key]);
-        }
-      }
-
-      if (fields.length > 0) {
-        const sql = `
-        UPDATE ${TABLE_NAME}
-        SET ${fields.join(", ")}
-        WHERE id = ?
-      `;
-        values.push(id);
-        await conn.execute(sql, values);
-      }
-
-      // Handle parent relation (id_parent)
-      if (Object.prototype.hasOwnProperty.call(data, "id_parent")) {
-        // find existing parent relation for this child
-        const [existing] = await conn.execute(
-          `SELECT id, id_parent FROM laporan_relation WHERE id_child = ? AND id_parent IS NOT NULL LIMIT 1`,
-          [id],
-        );
-        const existingRow = existing[0];
-
-        if (data.id_parent == null || data.id_parent === "") {
-          // remove existing parent relation if any
-          if (existingRow) {
-            await conn.execute(`DELETE FROM laporan_relation WHERE id = ?`, [
-              existingRow.id,
-            ]);
-          }
-        } else {
-          // validate cycle with new parent
-          await validateTreeRecursion({ id, id_parent: data.id_parent }, conn);
-          if (existingRow) {
-            // update existing relation
-            const relFields = [];
-            const relValues = [];
-            // if parent changed
-            relFields.push(`id_parent = ?`);
-            relValues.push(data.id_parent);
-            const maybeCols = [
-              "id_coa_filter",
-              "id_coa_type",
-              "id_coa_subtype",
-              "id_coa",
-              "modifier",
-              "keterangan",
-              "updated_by",
-            ];
-            for (const col of maybeCols) {
-              if (Object.prototype.hasOwnProperty.call(data, col)) {
-                relFields.push(`${col} = ?`);
-                relValues.push(data[col]);
-              }
-            }
-            relValues.push(existingRow.id);
-            await conn.execute(
-              `UPDATE laporan_relation SET ${relFields.join(", ")} WHERE id = ?`,
-              relValues,
-            );
-          } else {
-            // insert new parent relation
-            const relCols = ["id_parent", "id_child"];
-            const relVals = [data.id_parent, id];
-            const maybeCols = [
-              "id_coa_filter",
-              "id_coa_type",
-              "id_coa_subtype",
-              "id_coa",
-              "modifier",
-              "keterangan",
-              "created_by",
-            ];
-            for (const col of maybeCols) {
-              if (Object.prototype.hasOwnProperty.call(data, col)) {
-                relCols.push(col);
-                relVals.push(data[col]);
-              }
-            }
-            const relPlaceholders = relCols.map(() => "?").join(", ");
-            const relSql = `INSERT INTO laporan_relation (${relCols.join(",")}) VALUES (${relPlaceholders})`;
-            await conn.execute(relSql, relVals);
-          }
-        }
-      }
-
-      // Handle mapping row for this laporan (id_child IS NULL)
-      const mappingFields = [
-        "id_coa_filter",
-        "id_coa_type",
-        "id_coa_subtype",
-        "id_coa",
-        "modifier",
-        "keterangan",
-        "updated_by",
-      ];
-      const hasMappingUpdate = mappingFields.some((f) =>
-        Object.prototype.hasOwnProperty.call(data, f),
-      );
-      if (hasMappingUpdate) {
-        const [existingMap] = await conn.execute(
-          `SELECT id FROM laporan_relation WHERE id_parent = ? AND id_child IS NULL LIMIT 1`,
-          [id],
-        );
-        const mapRow = existingMap[0];
-        if (mapRow) {
-          const setParts = [];
-          const vals = [];
-          for (const col of mappingFields) {
-            if (Object.prototype.hasOwnProperty.call(data, col)) {
-              setParts.push(`${col} = ?`);
-              vals.push(data[col]);
-            }
-          }
-          vals.push(mapRow.id);
-          await conn.execute(
-            `UPDATE laporan_relation SET ${setParts.join(", ")} WHERE id = ?`,
-            vals,
-          );
-        } else {
-          const cols = ["id_parent"];
-          const vals = [id];
-          for (const col of mappingFields) {
-            if (Object.prototype.hasOwnProperty.call(data, col)) {
-              cols.push(col);
-              vals.push(data[col]);
-            }
-          }
-          const placeholders = cols.map(() => "?").join(", ");
-          await conn.execute(
-            `INSERT INTO laporan_relation (${cols.join(",")}) VALUES (${placeholders})`,
-            vals,
-          );
-        }
-      }
-
-      return { affectedRows: 1 };
-    },
-    async getById(id, data, conn = db) {
-      const { from, to, id_perusahaan } = data;
-      if (data.type == "tree") {
-        // await validateTreeRecursionFromRoot(id, conn);
-
-        const filterClauses = [];
-        const values = [id];
-
-        if (from != null && from !== "") {
-          filterClauses.push("AND j.tanggal >= ?");
-          values.push(from);
-        }
-        if (to != null && to !== "") {
-          filterClauses.push("AND j.tanggal <= ?");
-          values.push(to);
-        }
-        if (id_perusahaan != null && id_perusahaan !== "") {
-          filterClauses.push("AND j.id_perusahaan = ?");
-          values.push(id_perusahaan);
-        }
-
-        const query = `WITH RECURSIVE tree AS (
+  const query = `WITH RECURSIVE tree AS (
 
     /* ROOT */
     SELECT
@@ -722,13 +467,309 @@ GROUP BY
 
 ORDER BY e.level, e.path;`;
 
-        const [rows] = await conn.execute(query, values);
-        console.log(values);
-        return rows;
+  const [rows] = await conn.execute(query, values);
+
+  let resultRows = rows;
+  if (Array.isArray(nodeTypes) && nodeTypes.length) {
+    resultRows = resultRows.filter((row) => nodeTypes.includes(row.node_type));
+  }
+
+  if (!includeBalance) {
+    resultRows = resultRows.map(({ total_balance, ...rest }) => rest);
+  }
+
+  return resultRows;
+};
+
+const Model = generateStandardCRUDModel({
+  allowNoUpdate: true,
+  tableName: TABLE_NAME,
+  extraAllowedFieldsForCreate: extraAllowedFields,
+  extraAllowedFieldsForUpdate: extraAllowedFields,
+  filterAliases: {
+    id_parent: "lp.id",
+    id_coa_filter: "cf.id",
+    id_coa: "c.id",
+    id_coa_subtype: "cs.id",
+    id_coa_type: "ct.id",
+  },
+  customSelect: "",
+  generateCustomJoin: (mainTable) => ``,
+  prepareData: prepareLaporanData,
+  customModel: {
+    async create(data, conn = db) {
+      const preparedData = prepareLaporanData(data);
+
+      const filteredEntries = Object.entries(preparedData).filter(
+        ([key, value]) => {
+          const isAllowedKey = allowedFieldsForCreate.includes(key);
+          const hasValue =
+            value !== null && value !== undefined && value !== "";
+          return isAllowedKey && hasValue;
+        },
+      );
+
+      const fieldNames = filteredEntries.map(([key]) => key);
+      const values = filteredEntries.map(([_, value]) => value);
+      const placeholders = fieldNames.map(() => "?").join(", ");
+      const sql = `INSERT INTO ${TABLE_NAME} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
+      const [result] = await conn.execute(sql, values);
+
+      const newId = result.insertId;
+
+      // If a parent relation was provided, validate and create it
+      if (
+        Object.prototype.hasOwnProperty.call(data, "id_parent") &&
+        data.id_parent != null &&
+        data.id_parent !== ""
+      ) {
+        await validateTreeRecursion(
+          { id: newId, id_parent: data.id_parent },
+          conn,
+        );
+        const relCols = ["id_parent", "id_child"];
+        const relVals = [data.id_parent, newId];
+
+        const maybeCols = [
+          "id_coa_filter",
+          "id_coa_type",
+          "id_coa_subtype",
+          "id_coa",
+          "modifier",
+          "keterangan",
+          "created_by",
+        ];
+        for (const col of maybeCols) {
+          if (
+            Object.prototype.hasOwnProperty.call(data, col) &&
+            data[col] !== undefined
+          ) {
+            relCols.push(col);
+            relVals.push(data[col]);
+          }
+        }
+
+        const relPlaceholders = relCols.map(() => "?").join(", ");
+        const relSql = `INSERT INTO laporan_relation (${relCols.join(",")}) VALUES (${relPlaceholders})`;
+        await conn.execute(relSql, relVals);
       }
+
+      // If mapping (coa/filter) provided for this laporan itself, create mapping row (id_child IS NULL)
+      const mappingCols = [];
+      const mappingVals = [];
+      const mappingFields = [
+        "id_coa_filter",
+        "id_coa_type",
+        "id_coa_subtype",
+        "id_coa",
+        "modifier",
+        "keterangan",
+        "created_by",
+      ];
+      for (const col of mappingFields) {
+        if (
+          Object.prototype.hasOwnProperty.call(data, col) &&
+          data[col] !== undefined
+        ) {
+          mappingCols.push(col);
+          mappingVals.push(data[col]);
+        }
+      }
+      if (mappingCols.length > 0) {
+        // ensure id_parent and id_child columns are present
+        mappingCols.unshift("id_child");
+        mappingVals.unshift(null);
+        mappingCols.unshift("id_parent");
+        mappingVals.unshift(newId);
+        const mapPlaceholders = mappingCols.map(() => "?").join(", ");
+        const mapSql = `INSERT INTO laporan_relation (${mappingCols.join(",")}) VALUES (${mapPlaceholders})`;
+        await conn.execute(mapSql, mappingVals);
+      }
+
+      return result;
+    },
+    async patch(id, data, conn = db) {
+      const preparedData = prepareLaporanData(data);
+
+      // Update laporan core fields
+      const fields = [];
+      const values = [];
+      for (const key in preparedData) {
+        if (allowedFieldsForUpdate.includes(key)) {
+          fields.push(`${key} = ?`);
+          values.push(preparedData[key]);
+        }
+      }
+
+      if (fields.length > 0) {
+        const sql = `
+        UPDATE ${TABLE_NAME}
+        SET ${fields.join(", ")}
+        WHERE id = ?
+      `;
+        values.push(id);
+        await conn.execute(sql, values);
+      }
+
+      // Handle parent relation (id_parent)
+      if (Object.prototype.hasOwnProperty.call(data, "id_parent")) {
+        // find existing parent relation for this child
+        const [existing] = await conn.execute(
+          `SELECT id, id_parent FROM laporan_relation WHERE id_child = ? AND id_parent IS NOT NULL LIMIT 1`,
+          [id],
+        );
+        const existingRow = existing[0];
+
+        if (data.id_parent == null || data.id_parent === "") {
+          // remove existing parent relation if any
+          if (existingRow) {
+            await conn.execute(`DELETE FROM laporan_relation WHERE id = ?`, [
+              existingRow.id,
+            ]);
+          }
+        } else {
+          // validate cycle with new parent
+          await validateTreeRecursion({ id, id_parent: data.id_parent }, conn);
+          if (existingRow) {
+            // update existing relation
+            const relFields = [];
+            const relValues = [];
+            // if parent changed
+            relFields.push(`id_parent = ?`);
+            relValues.push(data.id_parent);
+            const maybeCols = [
+              "id_coa_filter",
+              "id_coa_type",
+              "id_coa_subtype",
+              "id_coa",
+              "modifier",
+              "keterangan",
+              "updated_by",
+            ];
+            for (const col of maybeCols) {
+              if (Object.prototype.hasOwnProperty.call(data, col)) {
+                relFields.push(`${col} = ?`);
+                relValues.push(data[col]);
+              }
+            }
+            relValues.push(existingRow.id);
+            await conn.execute(
+              `UPDATE laporan_relation SET ${relFields.join(", ")} WHERE id = ?`,
+              relValues,
+            );
+          } else {
+            // insert new parent relation
+            const relCols = ["id_parent", "id_child"];
+            const relVals = [data.id_parent, id];
+            const maybeCols = [
+              "id_coa_filter",
+              "id_coa_type",
+              "id_coa_subtype",
+              "id_coa",
+              "modifier",
+              "keterangan",
+              "created_by",
+            ];
+            for (const col of maybeCols) {
+              if (Object.prototype.hasOwnProperty.call(data, col)) {
+                relCols.push(col);
+                relVals.push(data[col]);
+              }
+            }
+            const relPlaceholders = relCols.map(() => "?").join(", ");
+            const relSql = `INSERT INTO laporan_relation (${relCols.join(",")}) VALUES (${relPlaceholders})`;
+            await conn.execute(relSql, relVals);
+          }
+        }
+      }
+
+      // Handle mapping row for this laporan (id_child IS NULL)
+      const mappingFields = [
+        "id_coa_filter",
+        "id_coa_type",
+        "id_coa_subtype",
+        "id_coa",
+        "modifier",
+        "keterangan",
+        "updated_by",
+      ];
+      const hasMappingUpdate = mappingFields.some((f) =>
+        Object.prototype.hasOwnProperty.call(data, f),
+      );
+      if (hasMappingUpdate) {
+        const [existingMap] = await conn.execute(
+          `SELECT id FROM laporan_relation WHERE id_parent = ? AND id_child IS NULL LIMIT 1`,
+          [id],
+        );
+        const mapRow = existingMap[0];
+        if (mapRow) {
+          const setParts = [];
+          const vals = [];
+          for (const col of mappingFields) {
+            if (Object.prototype.hasOwnProperty.call(data, col)) {
+              setParts.push(`${col} = ?`);
+              vals.push(data[col]);
+            }
+          }
+          vals.push(mapRow.id);
+          await conn.execute(
+            `UPDATE laporan_relation SET ${setParts.join(", ")} WHERE id = ?`,
+            vals,
+          );
+        } else {
+          const cols = ["id_parent"];
+          const vals = [id];
+          for (const col of mappingFields) {
+            if (Object.prototype.hasOwnProperty.call(data, col)) {
+              cols.push(col);
+              vals.push(data[col]);
+            }
+          }
+          const placeholders = cols.map(() => "?").join(", ");
+          await conn.execute(
+            `INSERT INTO laporan_relation (${cols.join(",")}) VALUES (${placeholders})`,
+            vals,
+          );
+        }
+      }
+
+      return { affectedRows: 1 };
+    },
+    async getById(id, data, conn = db) {
+      const queryData = data || {};
+      if (queryData.type === "tree") {
+        return fetchTreeRows(
+          {
+            id,
+            from: queryData.from,
+            to: queryData.to,
+            id_perusahaan: queryData.id_perusahaan,
+            includeBalance: true,
+          },
+          conn,
+        );
+      }
+
       const query = `SELECT * FROM ${TABLE_NAME} WHERE id = ?`;
       const [rows] = await conn.execute(query, [id]);
       return rows[0];
+    },
+    async getCoasWithoutValue(id, data = {}, conn = db) {
+      const rows = await fetchTreeRows(
+        {
+          id,
+          includeBalance: false,
+          nodeTypes: ["coa"],
+        },
+        conn,
+      );
+
+      return rows
+        .filter((row) => row.id_coa != null)
+        .map((row) => ({
+          id_coa: row.id_coa,
+          nama: row.nama,
+        }));
     },
   },
 });

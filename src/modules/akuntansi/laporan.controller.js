@@ -20,6 +20,22 @@ const Controller = generateDefaultCRUDController({
         },
       );
     },
+
+    async getCoasWithoutValue(req, res, next) {
+      defaultAsyncController(
+        async (req) => {
+          const { id } = req.params;
+          const { query: data } = req;
+          if (!id) throw new Error("Id tidak boleh kosong!");
+          return Service.getCoasWithoutValue(id, data);
+        },
+        {
+          req,
+          res,
+          next,
+        },
+      );
+    },
   },
 });
 

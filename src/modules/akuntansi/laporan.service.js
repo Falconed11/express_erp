@@ -56,6 +56,17 @@ const Service = generateDefaultCRUDService({
       }
       return result;
     },
+
+    async getCoasWithoutValue(id, data) {
+      const result = await withTransaction(async (conn) => {
+        return Model.getCoasWithoutValue(id, data, conn);
+      });
+
+      if (!result) {
+        throw new Error("Data not found");
+      }
+      return result;
+    },
   },
 });
 
