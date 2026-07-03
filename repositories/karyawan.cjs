@@ -3,7 +3,7 @@ const { pool } = require("./db.2.0.0.cjs");
 
 const table = "karyawan";
 
-const list = async ({ id, id_statuskaryawan }) => {
+const list = async ({ id, id_statuskaryawan, aktif }) => {
   const sql = `Select sk.status statuskaryawan, count(distinct o.id) noperasionalkantor, count(distinct pp.id) npengeluaranproyek, count(distinct p.id) nproyek, count(distinct a.id) naktivitassales, count(distinct t.id) ntodolist, k.* From ${table} k 
   left join statuskaryawan sk on sk.id=k.id_statuskaryawan
   left join operasionalkantor o on o.id_karyawan=k.id
@@ -12,7 +12,7 @@ const list = async ({ id, id_statuskaryawan }) => {
   left join aktivitassales a on a.id_karyawan=k.id
   left join todolist t on t.id_karyawan=k.id
   where 1=1 ${id ? " and k.id=? " : ""}${
-    id_statuskaryawan == 1 ? " and k.id_statuskaryawan=1 " : ""
+    id_statuskaryawan == 1 || aktif ? " and k.id_statuskaryawan=1 " : ""
   }
   group by k.id
   order by k.nama`;
