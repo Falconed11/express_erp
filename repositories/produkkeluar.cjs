@@ -7,11 +7,22 @@ const { pool } = require("./db.2.0.0.cjs");
 
 const OUTPUT_TABLE = "produkkeluar";
 
-async function list({ id_produk }) {
+async function list({ id_produk, filterText }) {
   const conn = await pool.getConnection();
   try {
+    const hasIdProduk = Boolean(id_produk);
+    const normalizedFilterText =
+      typeof filterText === "string" ? filterText.trim() : "";
+    const words = normalizedFilterText
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean);
+    const hasFilterText = words.length > 0;
+
     let sql = `
       SELECT p.nama AS produk,
+             p.id_kustom AS pid,
+             p.nama,
              p.tipe AS tipe,
              p.stok,
              p.satuan,
@@ -30,9 +41,17 @@ async function list({ id_produk }) {
       LEFT JOIN proyek pr          ON pr.id = pk.id_proyek
       LEFT JOIN instansi i         ON i.id = pr.id_instansi
       WHERE 1 = 1
-      ${id_produk ? "AND pk.id_produk = ?" : ""}
+      ${hasIdProduk ? "AND pk.id_produk = ?" : ""}
+      ${hasFilterText ? words.map(() => "AND LOWER(CONCAT_WS(' ', COALESCE(p.id_kustom, ''), COALESCE(p.nama, ''), COALESCE(p.tipe, ''), COALESCE(m.nama, ''), COALESCE(v.nama, ''), COALESCE(pr.nama, ''), COALESCE(i.nama, ''), COALESCE(pk.keterangan, ''))) LIKE ?").join(" ") : ""}
+      order by pk.tanggal desc, pk.id desc
     `;
-    const params = id_produk ? [id_produk] : [];
+    const params = [];
+    if (hasIdProduk) params.push(id_produk);
+    if (hasFilterText) {
+      for (const word of words) {
+        params.push(`%${word.toLowerCase()}%`);
+      }
+    }
     const [rows] = await conn.execute(sql, params);
     return rows;
   } finally {

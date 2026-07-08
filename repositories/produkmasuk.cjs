@@ -4,7 +4,27 @@ const { pool } = require("./db.2.0.0.cjs");
 const table = "produkmasuk";
 
 const list = async ({ id_produk, laporan }) => {
-  const sql = `select pm.*, (pm.jumlah*pm.harga-pm.terbayar) hutang, (pm.jumlah-pm.keluar) sisa, (pm.jumlah-pm.keluar)*pm.harga sisamodal, p.id_kustom, p.nama, p.tipe, p.satuan, p.hargamodal, p.stok, p.tanggal tanggalharga, m.nama merek, v.nama vendor, kp.nama kategoriproduk from ${table} pm left join produk p on p.id=pm.id_produk left join merek m on m.id=p.id_merek left join vendor v on v.id=pm.id_vendor left join kategoriproduk kp on kp.id=p.id_kategori where 1 ${
+  const sql = `
+  select  pm.*, 
+          (pm.jumlah*pm.harga-pm.terbayar) hutang, 
+          (pm.jumlah-pm.keluar) sisa, 
+          (pm.jumlah-pm.keluar)*pm.harga sisamodal, 
+          p.id_kustom, 
+          p.nama, 
+          p.tipe, 
+          p.satuan, 
+          p.hargamodal, 
+          p.stok, 
+          p.tanggal tanggalharga, 
+          m.nama merek, 
+          v.nama vendor, 
+          kp.nama kategoriproduk 
+  from ${table} pm 
+  left join produk p            on p.id=pm.id_produk 
+  left join merek m             on m.id=p.id_merek 
+  left join vendor v            on v.id=pm.id_vendor 
+  left join kategoriproduk kp   on kp.id=p.id_kategori 
+  where 1 ${
     id_produk ? `and id_produk = ?` : ""
   } ${laporan ? "and (pm.jumlah-pm.keluar) > 0" : ""} order by ${
     laporan ? `kp.nama, p.nama,` : ""
