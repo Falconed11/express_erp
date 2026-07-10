@@ -18,7 +18,7 @@ export async function up(knex) {
       .datetime("updated_at")
       .defaultTo(knex.raw("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"));
 
-    table.string("keterangan", 500);
+    table.text("keterangan").notNullable().defaultTo("");
     table.boolean("aktif").defaultTo(true);
 
     table
@@ -50,7 +50,7 @@ export async function up(knex) {
       .datetime("updated_at")
       .defaultTo(knex.raw("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"));
 
-    table.text("keterangan");
+    table.text("keterangan").notNullable().defaultTo("");
     table.boolean("aktif").defaultTo(true);
 
     table
@@ -83,7 +83,7 @@ export async function up(knex) {
       .datetime("updated_at")
       .defaultTo(knex.raw("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"));
 
-    table.text("keterangan");
+    table.text("keterangan").notNullable().defaultTo("");
     table.boolean("aktif").defaultTo(true);
 
     table.unique(["id_jurnal_form", "id_jurnal_expression"], "uniq_jfe");

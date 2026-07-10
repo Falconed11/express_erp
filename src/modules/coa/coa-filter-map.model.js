@@ -1,12 +1,12 @@
+import { AUDIT_FIELDS } from "../../utils/const.js";
 import {
   generateStandardCRUDModel,
   generateDefaultCRUDModel,
-  defaultFields,
 } from "../default/default.model.js";
 
 const TABLE_NAME = "coa_filter_map";
 const extraAllowedFields = [
-  ...defaultFields,
+  ...AUDIT_FIELDS,
   "id_coa_filter",
   "id_coa",
   "id_coa_type",

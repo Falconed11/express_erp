@@ -1,4 +1,5 @@
 import db from "../../config/db.js";
+import { AUDIT_FIELDS } from "../../utils/const.js";
 
 export const generateDefaultCRUDModel = (
   tableName,
@@ -270,10 +271,8 @@ export const generateDefaultCRUDModel = (
   };
 };
 
-export const defaultFields = ["keterangan", "aktif", "updated_by"];
-
-const standardAllowedFieldsForCreate = ["nama", "created_by", ...defaultFields];
-const standardAllowedFieldsForUpdate = ["nama", ...defaultFields];
+const standardAllowedFieldsForCreate = ["nama", "created_by", ...AUDIT_FIELDS];
+const standardAllowedFieldsForUpdate = ["nama", ...AUDIT_FIELDS];
 
 /**
  * Generates a standard model object for database operations.
