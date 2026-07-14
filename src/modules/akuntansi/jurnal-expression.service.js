@@ -7,7 +7,7 @@ const FILTER_TYPE_TABLE_MAP = {
   laporan: "laporan",
   type: "coa_type",
   subtype: "coa_subtype",
-  coa: "coa_filter",
+  coa: "coa",
 };
 
 const validateFilterExists = async (id_filter, filter_type, conn = db) => {

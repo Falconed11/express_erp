@@ -11,7 +11,7 @@ const Model = generateStandardCRUDModel({
     id_perusahaan: "p.id",
     id_proyek: "pr.id",
   },
-  customSelect: "c.nama coa",
+  // customSelect: "c.nama coa",
   generateCustomJoin: (mainTable) => `
     left join perusahaan p on p.id=${mainTable}.id_perusahaan
     left join proyek pr on pr.id=${mainTable}.id_proyek
