@@ -124,7 +124,7 @@ export const generateDefaultCRUDModel = (
         }
       }
 
-      console.log(validFilters);
+      // console.log(validFilters);
 
       /**
        * Builds SQL filter conditions and their corresponding values for use in a WHERE clause.
@@ -258,7 +258,7 @@ export const generateDefaultCRUDModel = (
       `;
 
       values.push(id);
-
+      console.log(values);
       const [result] = await conn.execute(sql, values);
       return result;
     },

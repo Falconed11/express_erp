@@ -93,7 +93,7 @@ const Service = {
   },
   async patch(id, data) {
     const { transaksi, ...jurnal } = data;
-    console.log(jurnal);
+    console.log(data);
     validateTransaksiData(transaksi);
     try {
       const result = await withTransaction(async (conn) => {
@@ -101,6 +101,7 @@ const Service = {
         transaksi.forEach((item) => {
           item.updated_by = jurnal.updated_by;
         });
+        console.log("done");
         const transaksiResults = await Promise.all(
           transaksi.map(({ id, ...data }) =>
             TransaksiModel.patch(id, data, conn),

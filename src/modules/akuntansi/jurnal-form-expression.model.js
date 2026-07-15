@@ -47,6 +47,7 @@ const Model = generateDefaultCRUDModel(
     },
     customSelect: [
       "jf.nama jurnal_form",
+      "jf.extra_fields",
       "je.nama jurnal_expression",
       "je.filter_type",
       "je.id_filter",

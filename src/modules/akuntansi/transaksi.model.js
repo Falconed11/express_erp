@@ -23,6 +23,7 @@ const Model = generateStandardCRUDModel({
     jurnal: "j.keterangan",
     id_coa_subtype: "cs.id",
     id_coa_type: "ct.id",
+    id_jurnal_form: "jf.id",
   },
   customSelect: [
     "j.tanggal",
@@ -34,6 +35,7 @@ const Model = generateStandardCRUDModel({
     "pr.id id_proyek",
     "pr.nama proyek",
     "i.nama instansi",
+    "jf.nama jurnal_form",
   ],
   generateCustomJoin: (
     mainTable,
@@ -43,7 +45,8 @@ const Model = generateStandardCRUDModel({
     left join coa_type ct on cs.id_coa_type=ct.id
     left join perusahaan p on p.id=j.id_perusahaan
     left join proyek pr on pr.id=j.id_proyek
-    left join instansi i on i.id=pr.id_instansi`,
+    left join instansi i on i.id=pr.id_instansi
+    left join jurnal_form jf on jf.id=j.id_jurnal_form`,
   generateOrderBy: (mainTable) =>
     `ORDER BY j.tanggal DESC, ${mainTable}.id DESC`,
 });
