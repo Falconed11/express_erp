@@ -2,16 +2,39 @@ const connection = require("./db.cjs");
 const table = "pengeluaranproyek";
 
 const list = ({ id_proyek, monthyear, start, end, id_vendor, id_kategori }) => {
-  const sql = `Select kp.nama kategori, i.nama instansi,v.nama vendor, pk.id_produkmasuk, pm.harga hargaprodukmasuk, pp.id_produkkeluar, pr.id id_proyek, pr.id_second, pr.nama namaproyek, pr.id_instansi, pp.id id_pengeluaranproyek, pp.tanggal tanggalpengeluaran, pp.jumlah, pp.harga hargapengeluaran, pp.status, pp.lunas, pp.keterangan keteranganpp, k.id id_karyawan, k.nama namakaryawan, p.*, m.nama merek, coalesce(pm.harga, pp.harga, 0) as hargareal From ${table} pp 
-  left join produk p on pp.id_produk = p.id 
-  left join karyawan k on pp.id_karyawan = k.id 
-  left join proyek pr on pp.id_proyek=pr.id 
-  left join merek m on m.id=p.id_merek 
-  left join vendor v on v.id=pp.id_vendor 
-  left join produkkeluar pk on pk.id=pp.id_produkkeluar 
-  left join produkmasuk pm on pm.id=pk.id_produkmasuk 
-  left join instansi i on pr.id_instansi=i.id 
-  left join kategoriproduk kp on p.id_kategori = kp.id  
+  const sql = `Select 
+    kp.nama               kategori, 
+    i.nama                instansi,
+    v.nama                vendor, 
+    pk.id_produkmasuk,
+    pm.harga              hargaprodukmasuk,
+    pp.id_produkkeluar,
+    pr.id id_proyek,
+    pr.id_second,
+    pr.nama namaproyek,
+    pr.id_instansi,
+    pp.id                 id_pengeluaranproyek,
+    pp.tanggal            tanggalpengeluaran,
+    pp.jumlah,
+    pp.harga              hargapengeluaran,
+    pp.status,
+    pp.lunas,
+    pp.keterangan         keteranganpp,
+    k.id id_karyawan,
+    k.nama namakaryawan,
+    p.*,
+    m.nama merek,
+    coalesce(pm.harga, pp.harga, 0) as hargareal
+  From ${table} pp 
+    left join produk p            on pp.id_produk = p.id 
+    left join karyawan k          on pp.id_karyawan = k.id 
+    left join proyek pr           on pp.id_proyek=pr.id 
+    left join merek m             on m.id=p.id_merek 
+    left join vendor v            on v.id=pp.id_vendor 
+    left join produkkeluar pk     on pk.id=pp.id_produkkeluar 
+    left join produkmasuk pm      on pm.id=pk.id_produkmasuk 
+    left join instansi i          on pr.id_instansi=i.id 
+    left join kategoriproduk kp   on p.id_kategori = kp.id  
   where 1=1 ${id_proyek ? `and pr.id=?` : ""} ${
     monthyear ? `and DATE_FORMAT(pp.tanggal, '%m-%Y') =?` : ""
   } ${start ? `and pp.tanggal>=?` : ""} ${end ? `and pp.tanggal<=?` : ""} ${
