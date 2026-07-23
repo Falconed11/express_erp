@@ -5,14 +5,18 @@ import LaporanModel from "../akuntansi/laporan.model.js";
 const Service = generateDefaultCRUDService({
   ...Model,
   getAll: async (data) => {
-    const { id_laporan, ...rest } = data;
+    console.log("data", data);
+    const { id_laporan, id_perusahaan, ...rest } = data;
     if (!id_laporan) return Model.getAll(data);
-    const rawCoas = await LaporanModel.getCoasWithoutValue(id_laporan);
+    const rawCoas = await LaporanModel.getCoasWithoutValue(id_laporan, {
+      id_perusahaan,
+    });
     const coas = rawCoas || [];
     const coaIds = coas.map((coa) => coa?.id_coa).filter(Boolean);
     const finalData = {
       ...rest,
       ...(coaIds.length ? { id: coaIds } : {}),
+      id_perusahaan: [id_perusahaan, null],
     };
     return Model.getAll(finalData);
   },

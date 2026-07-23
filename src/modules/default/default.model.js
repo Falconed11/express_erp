@@ -159,10 +159,28 @@ export const generateDefaultCRUDModel = (
 
           // Support custom operator and value/values
           if (Array.isArray(rawValue)) {
-            // If the filter value is an array, use IN clause
-            const placeholders = rawValue.map(() => "?").join(", ");
-            filterSqlParts.push(`AND ${table}.${column} IN (${placeholders})`);
-            filterValues.push(...rawValue);
+            const hasNullValue = rawValue.some(
+              (value) => value === null || value === undefined,
+            );
+            const nonNullValues = rawValue.filter(
+              (value) => value !== null && value !== undefined,
+            );
+
+            if (hasNullValue && nonNullValues.length === 0) {
+              filterSqlParts.push(`AND ${table}.${column} IS NULL`);
+            } else if (hasNullValue) {
+              const placeholders = nonNullValues.map(() => "?").join(", ");
+              filterSqlParts.push(
+                `AND (${table}.${column} IN (${placeholders}) OR ${table}.${column} IS NULL)`,
+              );
+              filterValues.push(...nonNullValues);
+            } else {
+              const placeholders = rawValue.map(() => "?").join(", ");
+              filterSqlParts.push(
+                `AND ${table}.${column} IN (${placeholders})`,
+              );
+              filterValues.push(...rawValue);
+            }
           } else if (
             typeof rawValue === "object" &&
             rawValue !== null &&
@@ -176,11 +194,28 @@ export const generateDefaultCRUDModel = (
               rawValue.operator ||
               (Array.isArray(rawValue.values) ? "IN" : "=");
             if (Array.isArray(rawValue.values)) {
-              const placeholders = rawValue.values.map(() => "?").join(", ");
-              filterSqlParts.push(
-                `AND ${objTable}.${objColumn} ${operator} (${placeholders})`,
+              const hasNullValue = rawValue.values.some(
+                (value) => value === null || value === undefined,
               );
-              filterValues.push(...rawValue.values);
+              const nonNullValues = rawValue.values.filter(
+                (value) => value !== null && value !== undefined,
+              );
+
+              if (hasNullValue && nonNullValues.length === 0) {
+                filterSqlParts.push(`AND ${objTable}.${objColumn} IS NULL`);
+              } else if (hasNullValue) {
+                const placeholders = nonNullValues.map(() => "?").join(", ");
+                filterSqlParts.push(
+                  `AND (${objTable}.${objColumn} ${operator} (${placeholders}) OR ${objTable}.${objColumn} IS NULL)`,
+                );
+                filterValues.push(...nonNullValues);
+              } else {
+                const placeholders = rawValue.values.map(() => "?").join(", ");
+                filterSqlParts.push(
+                  `AND ${objTable}.${objColumn} ${operator} (${placeholders})`,
+                );
+                filterValues.push(...rawValue.values);
+              }
             } else {
               filterSqlParts.push(`AND ${objTable}.${objColumn} ${operator} ?`);
               filterValues.push(rawValue.value);

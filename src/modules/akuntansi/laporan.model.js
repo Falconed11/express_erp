@@ -123,425 +123,656 @@ const fetchTreeRows = async (
 ) => {
   const filterClauses = [];
   const values = [id];
+
   const hasCompanyFilter =
     id_perusahaan != null && id_perusahaan !== "" && id_perusahaan !== 0;
+
   const coaCompanyCondition = hasCompanyFilter
     ? "AND (c.id_perusahaan IS NULL OR c.id_perusahaan = ?)"
     : "";
 
-  if (hasCompanyFilter) {
-    values.push(id_perusahaan, id_perusahaan, id_perusahaan, id_perusahaan);
-  }
+  const companyFilterValues = hasCompanyFilter
+    ? [id_perusahaan, id_perusahaan, id_perusahaan, id_perusahaan]
+    : [];
+
+  values.push(...companyFilterValues);
 
   if (from != null && from !== "") {
     filterClauses.push("AND j.tanggal >= ?");
     values.push(from);
   }
+
   if (to != null && to !== "") {
     filterClauses.push("AND j.tanggal <= ?");
     values.push(to);
   }
+
   if (id_perusahaan != null && id_perusahaan !== "") {
     filterClauses.push("AND j.id_perusahaan = ?");
     values.push(id_perusahaan);
   }
 
-  const query = `WITH RECURSIVE tree AS (
+  const query = `
+    WITH RECURSIVE tree AS (
 
-    /* ROOT */
-    SELECT
-        CAST(CONCAT('report_', l.id) AS CHAR(100)) AS node_key,
-        CAST(NULL AS CHAR(100)) AS parent_node_key,
+      /* ROOT */
 
-        CAST(NULL AS SIGNED) AS id_laporan_relation,
-        l.id AS id_laporan,
+      SELECT
+          CAST(CONCAT('report_', l.id) AS CHAR(100)) AS node_key,
+          CAST(NULL AS CHAR(100)) AS parent_node_key,
 
-        CAST(NULL AS SIGNED) AS id_coa_type,
-        CAST(NULL AS SIGNED) AS id_coa_subtype,
-        CAST(NULL AS SIGNED) AS id_coa,
+          CAST(NULL AS SIGNED) AS id_laporan_relation,
+          l.id AS id_laporan,
 
-        CAST(COALESCE(lr_root.modifier, 1) AS DECIMAL(10,4)) AS modifier,
+          CAST(NULL AS SIGNED) AS id_coa_type,
+          CAST(NULL AS SIGNED) AS id_coa_subtype,
+          CAST(NULL AS SIGNED) AS id_coa,
 
-        CAST(CONCAT('report_', l.id) AS CHAR(4000)) AS path,
-        FALSE AS has_cycle,
-        0 AS level,
+          CAST(
+            COALESCE(lr_root.modifier, 1)
+            AS DECIMAL(10,4)
+          ) AS modifier,
 
-        CAST('report' AS CHAR(20)) AS node_type,
+          CAST(
+            CONCAT('report_', l.id)
+            AS CHAR(4000)
+          ) AS path,
 
-        l.nama,
-        l.keterangan
+          CAST(NULL AS CHAR(4000)) AS relation_path,
 
-    FROM laporan l
-    LEFT JOIN laporan_relation lr_root
-        ON lr_root.id_parent = l.id
-       AND lr_root.id_child IS NULL
-    WHERE l.id = ?
+          0 AS level,
 
-    UNION ALL
+          CAST('report' AS CHAR(20)) AS node_type,
 
-    /* LAPORAN -> RELATION */
-    SELECT
-        CAST(CONCAT('section_', lr.id, '_path_', SUBSTRING(MD5(CONCAT(t.path, ',', CONCAT('section_', lr.id))), 1, 8)) AS CHAR(100)),
-        CAST(t.node_key AS CHAR(100)),
+          l.nama,
+          l.keterangan
 
-        lr.id,
-        lr.id_child,
+      FROM laporan l
 
-        lr.id_coa_type,
-        lr.id_coa_subtype,
-        lr.id_coa,
+      LEFT JOIN laporan_relation lr_root
+          ON lr_root.id_parent = l.id
+         AND lr_root.id_child IS NULL
 
-        CAST(COALESCE(lr.modifier, 1) AS DECIMAL(10,4)) AS modifier,
+      WHERE l.id = ?
 
-        CONCAT(t.path, ',', CONCAT('section_', lr.id, '_path_', SUBSTRING(MD5(CONCAT(t.path, ',', CONCAT('section_', lr.id))), 1, 8))),
 
-        FIND_IN_SET(
-            CONCAT('section_', lr.id),
-            REPLACE(t.path, ',', ',')
-        ) > 0,
+      UNION ALL
 
-        t.level + 1,
 
-        CAST(case
-          when c.id IS NOT NULL then 'coa'
-          when lr.id_coa_subtype IS NOT NULL then 'subtype'
-          when lr.id_coa_type IS NOT NULL then 'type'
-          when lr.id_child IS NOT NULL then 'section'
-        end AS CHAR(20)),
+      /* LAPORAN -> RELATION */
 
-        coalesce(c.nama, cs.nama, ct.nama, l.nama),
-        coalesce(c.keterangan, cs.keterangan, ct.keterangan, l.keterangan)
-
-    FROM tree t
-    JOIN laporan_relation lr
-        ON lr.id_parent = t.id_laporan
-    left JOIN coa c
-       ON c.id = lr.id_coa ${coaCompanyCondition}
-    left JOIN coa_subtype cs
-       ON cs.id = lr.id_coa_subtype
-    left JOIN coa_type ct
-       ON ct.id = lr.id_coa_type
-    left JOIN laporan l
-       ON l.id = lr.id_child
-    WHERE t.node_type IN ('report','section')
-      AND NOT t.has_cycle
-),
-
-expanded AS (
-
-    /* ORIGINAL TREE */
-    SELECT *
-    FROM tree
-
-    UNION ALL
-
-    /* TYPE -> SUBTYPE */
-    SELECT
-        CAST(
+      SELECT
+          CAST(
             CONCAT(
-                'sub_',
-                cs.id,
-                '_rel_',
-                t.id_laporan_relation,
-                '_path_',
-                SUBSTRING(MD5(CONCAT(t.path, ',', 'sub_', cs.id, '_rel_', t.id_laporan_relation)), 1, 8)
-            ) AS CHAR(100)
-        ) AS node_key,
+              'section_',
+              lr.id,
+              '_path_',
+              SUBSTRING(
+                MD5(
+                  CONCAT(
+                    t.path,
+                    ',',
+                    CONCAT('section_', lr.id)
+                  )
+                ),
+                1,
+                8
+              )
+            )
+            AS CHAR(100)
+          ) AS node_key,
 
-        CAST(t.node_key AS CHAR(100)) AS parent_node_key,
+          CAST(t.node_key AS CHAR(100)) AS parent_node_key,
 
-        NULL AS id_laporan_relation,
-        NULL AS id_laporan,
+          lr.id AS id_laporan_relation,
+          lr.id_child AS id_laporan,
 
-        NULL AS id_coa_type,
-        cs.id AS id_coa_subtype,
-        NULL AS id_coa,
+          lr.id_coa_type,
+          lr.id_coa_subtype,
+          lr.id_coa,
 
-        CAST(1 AS DECIMAL(10,4)) AS modifier,
+          CAST(
+            COALESCE(lr.modifier, 1)
+            AS DECIMAL(10,4)
+          ) AS modifier,
 
-        CONCAT(
+          CONCAT(
             t.path,
             ',',
             CONCAT(
-                'sub_',
-                cs.id,
-                '_rel_',
-                t.id_laporan_relation,
-                '_path_',
-                SUBSTRING(MD5(CONCAT(t.path, ',', 'sub_', cs.id, '_rel_', t.id_laporan_relation)), 1, 8)
+              'section_',
+              lr.id,
+              '_path_',
+              SUBSTRING(
+                MD5(
+                  CONCAT(
+                    t.path,
+                    ',',
+                    CONCAT('section_', lr.id)
+                  )
+                ),
+                1,
+                8
+              )
             )
-        ),
+          ) AS path,
 
-        FALSE,
+          CONCAT_WS(
+            ',',
+            t.relation_path,
+            lr.id
+          ) AS relation_path,
 
-        t.level + 1,
+          t.level + 1 AS level,
 
-        CAST('subtype' AS CHAR(20)),
+          CAST(
+            CASE
+              WHEN c.id IS NOT NULL
+                THEN 'coa'
 
-        cs.nama,
-        NULL AS keterangan
+              WHEN lr.id_coa_subtype IS NOT NULL
+                THEN 'subtype'
 
-    FROM tree t
-    JOIN coa_subtype cs
-        ON cs.id_coa_type = t.id_coa_type
-    WHERE t.id_coa_type IS NOT NULL
+              WHEN lr.id_coa_type IS NOT NULL
+                THEN 'type'
 
-    UNION ALL
+              WHEN lr.id_child IS NOT NULL
+                THEN 'section'
+            END
+            AS CHAR(20)
+          ) AS node_type,
 
-    /* RELATION SUBTYPE -> COA */
-    SELECT
-        CAST(
+          COALESCE(
+            c.nama,
+            cs.nama,
+            ct.nama,
+            l.nama
+          ) AS nama,
+
+          COALESCE(
+            c.keterangan,
+            cs.keterangan,
+            ct.keterangan,
+            l.keterangan
+          ) AS keterangan
+
+      FROM tree t
+
+      JOIN laporan_relation lr
+          ON lr.id_parent = t.id_laporan
+
+      LEFT JOIN coa c
+          ON c.id = lr.id_coa
+         ${coaCompanyCondition}
+
+      LEFT JOIN coa_subtype cs
+          ON cs.id = lr.id_coa_subtype
+
+      LEFT JOIN coa_type ct
+          ON ct.id = lr.id_coa_type
+
+      LEFT JOIN laporan l
+          ON l.id = lr.id_child
+
+      WHERE t.node_type IN (
+        'report',
+        'section'
+      )
+
+      /*
+       * Do not traverse the same relation twice
+       * in the same branch.
+       */
+      AND (
+        t.relation_path IS NULL
+        OR FIND_IN_SET(
+          lr.id,
+          t.relation_path
+        ) = 0
+      )
+    ),
+
+
+    expanded AS (
+
+      /* ORIGINAL TREE */
+
+      SELECT *
+      FROM tree
+
+
+      UNION ALL
+
+
+      /* TYPE -> SUBTYPE */
+
+      SELECT
+          CAST(
             CONCAT(
-                'coa_',
-                c.id,
-                '_rel_',
-                t.id_laporan_relation,
-                '_path_',
-                SUBSTRING(MD5(CONCAT(t.path, ',', 'coa_', c.id, '_rel_', t.id_laporan_relation)), 1, 8)
-            ) AS CHAR(100)
-        ),
+              'sub_',
+              cs.id,
+              '_rel_',
+              t.id_laporan_relation,
+              '_path_',
+              SUBSTRING(
+                MD5(
+                  CONCAT(
+                    t.path,
+                    ',',
+                    'sub_',
+                    cs.id,
+                    '_rel_',
+                    t.id_laporan_relation
+                  )
+                ),
+                1,
+                8
+              )
+            )
+            AS CHAR(100)
+          ) AS node_key,
 
-        CAST(t.node_key AS CHAR(100)),
+          CAST(t.node_key AS CHAR(100)) AS parent_node_key,
 
-        NULL,
-        NULL,
+          NULL AS id_laporan_relation,
+          NULL AS id_laporan,
 
-        NULL,
-        t.id_coa_subtype,
-        c.id,
+          NULL AS id_coa_type,
+          cs.id AS id_coa_subtype,
+          NULL AS id_coa,
 
-        CAST(1 AS DECIMAL(10,4)) AS modifier,
+          CAST(
+            1
+            AS DECIMAL(10,4)
+          ) AS modifier,
 
-        CONCAT(
+          CONCAT(
             t.path,
             ',',
             CONCAT(
-                'coa_',
-                c.id,
-                '_rel_',
-                t.id_laporan_relation,
-                '_path_',
-                SUBSTRING(MD5(CONCAT(t.path, ',', 'coa_', c.id, '_rel_', t.id_laporan_relation)), 1, 8)
+              'sub_',
+              cs.id,
+              '_rel_',
+              t.id_laporan_relation,
+              '_path_',
+              SUBSTRING(
+                MD5(
+                  CONCAT(
+                    t.path,
+                    ',',
+                    'sub_',
+                    cs.id,
+                    '_rel_',
+                    t.id_laporan_relation
+                  )
+                ),
+                1,
+                8
+              )
             )
-        ),
+          ) AS path,
 
-        FALSE,
+          t.relation_path,
 
-        t.level + 1,
+          t.level + 1 AS level,
 
-        CAST('coa' AS CHAR(20)),
+          CAST(
+            'subtype'
+            AS CHAR(20)
+          ) AS node_type,
 
-        c.nama,
-        NULL
+          cs.nama,
 
-    FROM tree t
-    JOIN coa c
-        ON c.id_coa_subtype = t.id_coa_subtype ${coaCompanyCondition}
-    WHERE t.id_coa_subtype IS NOT NULL
+          NULL AS keterangan
 
-    UNION ALL
+      FROM tree t
 
-    /* GENERATED SUBTYPE -> COA */
-    SELECT
-        CAST(
+      JOIN coa_subtype cs
+          ON cs.id_coa_type = t.id_coa_type
+
+      WHERE t.id_coa_type IS NOT NULL
+
+
+      UNION ALL
+
+
+      /* RELATION SUBTYPE -> COA */
+
+      SELECT
+          CAST(
             CONCAT(
-                'coa_',
-                c.id,
-                '_sub_',
-                e.id_coa_subtype,
-                '_path_',
-                SUBSTRING(MD5(e.path), 1, 8)
-            ) AS CHAR(100)
-        ),
+              'coa_',
+              c.id,
+              '_rel_',
+              t.id_laporan_relation,
+              '_path_',
+              SUBSTRING(
+                MD5(
+                  CONCAT(
+                    t.path,
+                    ',',
+                    'coa_',
+                    c.id,
+                    '_rel_',
+                    t.id_laporan_relation
+                  )
+                ),
+                1,
+                8
+              )
+            )
+            AS CHAR(100)
+          ) AS node_key,
 
-        CAST(e.node_key AS CHAR(100)),
+          CAST(t.node_key AS CHAR(100)) AS parent_node_key,
 
-        NULL,
-        NULL,
+          NULL AS id_laporan_relation,
+          NULL AS id_laporan,
 
-        NULL,
-        e.id_coa_subtype,
-        c.id,
+          NULL AS id_coa_type,
+          t.id_coa_subtype,
+          c.id AS id_coa,
 
-        CAST(1 AS DECIMAL(10,4)) AS modifier,
+          CAST(
+            1
+            AS DECIMAL(10,4)
+          ) AS modifier,
 
-        CONCAT(
+          CONCAT(
+            t.path,
+            ',',
+            CONCAT(
+              'coa_',
+              c.id,
+              '_rel_',
+              t.id_laporan_relation,
+              '_path_',
+              SUBSTRING(
+                MD5(
+                  CONCAT(
+                    t.path,
+                    ',',
+                    'coa_',
+                    c.id,
+                    '_rel_',
+                    t.id_laporan_relation
+                  )
+                ),
+                1,
+                8
+              )
+            )
+          ) AS path,
+
+          t.relation_path,
+
+          t.level + 1 AS level,
+
+          CAST(
+            'coa'
+            AS CHAR(20)
+          ) AS node_type,
+
+          c.nama,
+
+          NULL AS keterangan
+
+      FROM tree t
+
+      JOIN coa c
+          ON c.id_coa_subtype = t.id_coa_subtype
+         ${coaCompanyCondition}
+
+      WHERE t.id_coa_subtype IS NOT NULL
+
+
+      UNION ALL
+
+
+      /* GENERATED SUBTYPE -> COA */
+
+      SELECT
+          CAST(
+            CONCAT(
+              'coa_',
+              c.id,
+              '_sub_',
+              e.id_coa_subtype,
+              '_path_',
+              SUBSTRING(
+                MD5(e.path),
+                1,
+                8
+              )
+            )
+            AS CHAR(100)
+          ) AS node_key,
+
+          CAST(e.node_key AS CHAR(100)) AS parent_node_key,
+
+          NULL AS id_laporan_relation,
+          NULL AS id_laporan,
+
+          NULL AS id_coa_type,
+          e.id_coa_subtype,
+          c.id AS id_coa,
+
+          CAST(
+            1
+            AS DECIMAL(10,4)
+          ) AS modifier,
+
+          CONCAT(
             e.path,
             ',',
             CONCAT(
-                'coa_',
-                c.id,
-                '_sub_',
-                e.id_coa_subtype,
-                '_path_',
-                SUBSTRING(MD5(e.path), 1, 8)
+              'coa_',
+              c.id,
+              '_sub_',
+              e.id_coa_subtype,
+              '_path_',
+              SUBSTRING(
+                MD5(e.path),
+                1,
+                8
+              )
             )
-        ),
+          ) AS path,
 
-        FALSE,
+          e.relation_path,
 
-        e.level + 1,
+          e.level + 1 AS level,
 
-        CAST('coa' AS CHAR(20)),
+          CAST(
+            'coa'
+            AS CHAR(20)
+          ) AS node_type,
 
-        c.nama,
-        NULL
+          c.nama,
 
-    FROM expanded e
-    JOIN coa c
-        ON c.id_coa_subtype = e.id_coa_subtype ${coaCompanyCondition}
-    WHERE e.node_type = 'subtype'
-      AND e.id_laporan_relation IS NULL
-),
-node_nominal AS (
-    SELECT
-        e.node_key,
+          NULL AS keterangan
 
-        COALESCE(
+      FROM expanded e
+
+      JOIN coa c
+          ON c.id_coa_subtype = e.id_coa_subtype
+         ${coaCompanyCondition}
+
+      WHERE e.node_type = 'subtype'
+        AND e.id_laporan_relation IS NULL
+    ),
+
+
+    node_nominal AS (
+
+      SELECT
+          e.node_key,
+
+          COALESCE(
             SUM(
-                CASE WHEN ct.normal_balance = 0 THEN -1 ELSE 1 END
-                * CASE WHEN t.tipe = ct.normal_balance THEN 1 ELSE -1 END
-                * t.amount
+              CASE
+                WHEN ct.normal_balance = 0
+                  THEN -1
+                ELSE 1
+              END
+
+              *
+
+              CASE
+                WHEN t.tipe = ct.normal_balance
+                  THEN 1
+                ELSE -1
+              END
+
+              *
+
+              t.amount
             ),
             0
+          ) AS own_nominal
+
+      FROM expanded e
+
+      INNER JOIN coa c
+          ON c.id = e.id_coa
+         ${coaCompanyCondition}
+
+      INNER JOIN coa_subtype cs
+          ON cs.id = c.id_coa_subtype
+
+      INNER JOIN coa_type ct
+          ON ct.id = cs.id_coa_type
+
+      INNER JOIN transaksi t
+          ON t.id_coa = c.id
+
+      INNER JOIN jurnal j
+          ON j.id = t.id_jurnal
+
+      WHERE e.node_type = 'coa'
+
+      ${filterClauses.length ? filterClauses.join("\n        ") : ""}
+
+      GROUP BY e.node_key
+    )
+
+
+    SELECT
+        e.node_key AS id,
+        e.parent_node_key AS id_parent,
+
+        e.id_laporan_relation,
+        e.id_laporan,
+
+        e.id_coa_type,
+        e.id_coa_subtype,
+        e.id_coa,
+
+        e.modifier,
+
+        e.level,
+        e.node_type,
+
+        e.nama,
+        e.keterangan,
+
+        e.path,
+        e.relation_path,
+
+        COALESCE(
+          n.own_nominal,
+          0
         ) AS own_nominal
 
     FROM expanded e
-    LEFT JOIN coa c
-        ON c.id = e.id_coa ${coaCompanyCondition}
-    LEFT JOIN coa_subtype cs
-        ON cs.id = c.id_coa_subtype
-    LEFT JOIN coa_type ct
-        ON ct.id = cs.id_coa_type
-    LEFT JOIN transaksi t
-        ON t.id_coa = c.id
-    left JOIN jurnal j
-        ON j.id = t.id_jurnal
-    where 1=1
-    ${filterClauses.length ? filterClauses.join("\n        ") : ""}
-    GROUP BY e.node_key
-)
 
-SELECT
-    e.node_key as id,
-    e.parent_node_key as id_parent,
+    LEFT JOIN node_nominal n
+        ON n.node_key = e.node_key
 
-    e.id_laporan_relation,
-    e.id_laporan,
+    GROUP BY
+        e.node_key,
+        e.parent_node_key,
 
-    e.id_coa_type,
-    e.id_coa_subtype,
-    e.id_coa,
+        e.id_laporan_relation,
+        e.id_laporan,
 
-    e.modifier,
+        e.id_coa_type,
+        e.id_coa_subtype,
+        e.id_coa,
 
-    e.level,
-    e.node_type,
+        e.modifier,
 
-    e.nama,
-    e.keterangan,
+        e.level,
+        e.node_type,
 
-    e.path,
-    e.has_cycle,
+        e.nama,
+        e.keterangan,
 
-    COALESCE(own_n.own_nominal, 0) AS own_nominal,
-    COALESCE(SUM(n.own_nominal), 0) AS subtree_nominal
+        e.path,
+        e.relation_path
 
-FROM expanded e
-
-LEFT JOIN node_nominal own_n
-    ON own_n.node_key = e.node_key
-
-LEFT JOIN expanded d
-    ON FIND_IN_SET(e.node_key, d.path) > 0
-
-LEFT JOIN node_nominal n
-    ON n.node_key = d.node_key
-
-GROUP BY
-    e.node_key,
-    e.parent_node_key,
-    e.id_laporan_relation,
-    e.id_laporan,
-    e.id_coa_type,
-    e.id_coa_subtype,
-    e.id_coa,
-    e.modifier,
-    e.level,
-    e.node_type,
-    e.nama,
-    e.keterangan,
-    e.path,
-    e.has_cycle
-
-ORDER BY e.level, e.path;`;
+    ORDER BY
+        e.level,
+        e.path;
+  `;
 
   const [rows] = await conn.execute(query, values);
 
-  const buildBranchBalances = (nodes) => {
-    const nodeMap = new Map();
-    const childrenByParent = new Map();
+  const buildBranchBalances = (rows) => {
+    const nodes = new Map();
+    const children = new Map();
 
-    for (const row of nodes) {
+    for (const row of rows) {
       const node = {
         ...row,
+
         own_nominal: Number(row.own_nominal || 0),
+
         modifier: Number(row.modifier || 1),
       };
-      nodeMap.set(node.id, node);
+
+      nodes.set(node.id, node);
+
       if (node.id_parent != null) {
-        if (!childrenByParent.has(node.id_parent)) {
-          childrenByParent.set(node.id_parent, []);
-        }
-        childrenByParent.get(node.id_parent).push(node);
+        const list = children.get(node.id_parent) || [];
+
+        list.push(node);
+
+        children.set(node.id_parent, list);
       }
     }
 
-    const memo = new Map();
-    const visit = (node) => {
-      if (memo.has(node.id)) {
-        return memo.get(node.id);
-      }
-
-      const children = childrenByParent.get(node.id) || [];
-      const childSubtotal = children.reduce(
-        (sum, child) => sum + visit(child),
+    const calculate = (node) => {
+      const childTotal = (children.get(node.id) || []).reduce(
+        (sum, child) => sum + calculate(child),
         0,
       );
-      const total = (node.own_nominal + childSubtotal) * node.modifier;
-      memo.set(node.id, total);
-      node.total_balance = total;
-      return total;
+
+      node.total_balance = (node.own_nominal + childTotal) * node.modifier;
+
+      return node.total_balance;
     };
 
-    for (const node of nodeMap.values()) {
+    for (const node of nodes.values()) {
       if (node.id_parent == null) {
-        visit(node);
+        calculate(node);
       }
     }
 
-    return Array.from(nodeMap.values()).map((node) => ({
-      ...node,
-      total_balance: node.total_balance,
-    }));
+    return [...nodes.values()];
   };
 
-  let resultRows = buildBranchBalances(rows);
+  let resultRows = includeBalance ? buildBranchBalances(rows) : rows;
+
   if (Array.isArray(nodeTypes) && nodeTypes.length) {
     resultRows = resultRows.filter((row) => nodeTypes.includes(row.node_type));
   }
 
   if (!includeBalance) {
-    resultRows = resultRows.map(
-      ({ total_balance, own_nominal, subtree_nominal, ...rest }) => rest,
-    );
-  } else {
-    resultRows = resultRows.map(
-      ({ own_nominal, subtree_nominal, ...rest }) => rest,
-    );
+    return resultRows.map(({ own_nominal, ...rest }) => rest);
   }
 
-  return resultRows;
+  return resultRows.map(({ own_nominal, ...rest }) => rest);
 };
 
 const Model = generateStandardCRUDModel({
@@ -821,6 +1052,7 @@ const Model = generateStandardCRUDModel({
       const rows = await fetchTreeRows(
         {
           id,
+          id_perusahaan: data.id_perusahaan,
           includeBalance: false,
           nodeTypes: ["coa"],
         },
