@@ -8,7 +8,7 @@ const Model = generateStandardCRUDModel({
   extraAllowedFieldsForUpdate: extraAllowedFields,
   filterAliases: { id_coa_type: "ct.id" },
   customSelect:
-    "ct.id id_coa_type, ct.nama coa_type, cs.nama coa_subtype, p.nama perusahaan",
+    "ct.id id_coa_type, ct.normal_balance, ct.nama coa_type, cs.nama coa_subtype, p.nama perusahaan",
   generateCustomJoin: (mainTable) => `
       left join coa_subtype cs on cs.id=${mainTable}.id_coa_subtype
       left join coa_type ct on ct.id=cs.id_coa_type
