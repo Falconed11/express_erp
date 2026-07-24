@@ -72,6 +72,7 @@ export const generateDefaultCRUDModel = (
       return result;
     },
     async getAll({ limit, offset, sort, ...filters }, conn = db) {
+      console.log("Filters received:", filters);
       const { from, to, ...otherFilters } = filters;
       const isPagination = limit && offset;
 
@@ -255,6 +256,7 @@ export const generateDefaultCRUDModel = (
         isPagination,
         orderBySql,
       });
+      console.log(sql);
 
       // Execute the query
       const [rows] = await conn.execute(sql, [
