@@ -33,8 +33,20 @@ SALT_ROUNDS=10
 Notes:
 
 - the current code reads `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_DATABASE`
-- `PORT` is documented but the server currently starts on a hardcoded `3001`
+- the server reads `process.env.PORT` and will fall back to `3001` if not provided
 - `MAIN_URL` and `SALT_ROUNDS` exist in the sample environment, but their usage should be confirmed per feature
+
+Available npm scripts (see `package.json`):
+
+```bash
+npm run test      # placeholder test script
+npm run knex      # run knex CLI using the local .env
+npm run latest    # run knex migrate:latest
+npm run rollback  # run knex migrate:rollback
+npm run knex-run  # helper wrapper for knex-run.js
+```
+
+Tip: `nodemon` is already a dependency; to run in watch mode you can use `npx nodemon app.js` or add an `npm run dev` script.
 
 ## Running The Server
 
@@ -85,7 +97,6 @@ Make sure these directories exist and are writable in the runtime environment.
 
 ## Suggested Next Improvements
 
-- add `npm run dev` and `npm start` scripts
 - move the server port to `process.env.PORT`
 - add an `.env.example` file instead of storing sample values inside `.env`
 - add a lightweight health-check endpoint for database connectivity

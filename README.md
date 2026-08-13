@@ -1,50 +1,26 @@
-# Express ERP Backend
+# Express ERP (Backend)
 
-Backend API server for an ERP application built with Express and MySQL.
-
-This project currently contains two API styles in the same server:
-
-- Legacy endpoints mounted directly in `app.js` under `/api/*`
-- Newer modular endpoints mounted under `/api/v2/*`
-
-The quick documentation in this repository is intended to help developers start the project, understand the folder layout, and find the main extension points.
+Express-based backend API for the internal ERP system. The codebase contains both legacy endpoints (mounted directly in `app.js`) and a newer modular `v2` API under `/api/v2`.
 
 ## Tech Stack
 
 - Node.js
 - Express
-- MySQL (`mysql2/promise`)
-- Multer for file upload handling
-- CORS and dotenv
+- MySQL / MariaDB (`mysql2/promise`)
+- Multer (file uploads)
+- CORS, dotenv
 
-## Project Structure
+## Quickstart
 
-```text
-.
-|- app.js                  # Main Express server and legacy route definitions
-|- src/
-|  |- config/              # Database connection pool
-|  |- controllers/         # v2 HTTP controllers
-|  |- middlewares/         # Shared Express middleware
-|  |- models/              # Data-access models for v2 resources
-|  |- modules/             # Reusable v2 module pattern (for example COA)
-|  |- routes/              # v2 route definitions
-|  |- services/            # Business logic layer for v2 resources
-|  |- utils/               # Shared utility helpers
-|- repositories/          # Legacy CommonJS data modules used by app.js
-|- helpers/               # Shared helper utilities
-|- logo/                  # Uploaded/static logo files
-```
+Prerequisites: Node.js, npm, and a MySQL-compatible database.
 
-## How To Run
-
-1. Install dependencies:
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Create a `.env` file with the required database settings:
+Create a `.env` in the project root. Example values:
 
 ```env
 PORT=3001
@@ -56,69 +32,43 @@ MAIN_URL=http://localhost:3001/
 SALT_ROUNDS=10
 ```
 
-3. Start the server:
+Start the server locally:
 
 ```bash
 node app.js
 ```
 
-The application currently hardcodes `const port = 3001` inside `app.js`, so `PORT` is documented for future compatibility but is not the active runtime source today.
+Or run with Docker Compose (recommended for local development):
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+```
+
+The Compose file in this repo exposes the server at `http://localhost:3002` on the host by default and runs a MariaDB service.
+
+## Project Layout (short)
+
+`app.js` (legacy routes)
+`src/` (v2 controllers, models, routes)
+`repositories/` (legacy CommonJS data modules)
+`helpers/`, `migrations/`, `logo/`
 
 ## Main Endpoints
 
-### Root
+- `GET /` — health/root (returns Hello World)
+- `GET /logo/<filename>` — serves files from `logo/`
+- `v2` modular API under `/api/v2/*` (see route files in `src/routes`)
 
-- `GET /` returns `Hello World!`
-- `GET /logo/<filename>` serves files from the `logo/` directory
+For legacy route listings see `app.js`.
 
-### v2 API
+## Docs
 
-The newer API is mounted with modular route files under `/api/v2`:
+- [Architecture](docs/architecture.md)
+- [Setup Guide](docs/setup.md)
 
-- `/api/v2/coa`
-- `/api/v2/coa-subtype`
-- `/api/v2/coa-type`
-- `/api/v2/golongan-instansi`
-- `/api/v2/jenis-instansi`
-- `/api/v2/jenis-proyek`
-- `/api/v2/keranjang-proyek`
-- `/api/v2/metode-pembayaran`
-- `/api/v2/operasional-kantor`
-- `/api/v2/pembayaran-proyek`
-- `/api/v2/pengeluaran-proyek`
-- `/api/v2/perusahaan`
-- `/api/v2/proyek`
-- `/api/v2/transfer-bank`
+## Suggested Next Tasks
 
-### Legacy API
+- Add an `.env.example` file and a small database health-check endpoint.
+- Consider adding an `npm run dev` script (e.g., `nodemon app.js`) for developer convenience.
 
-The legacy API is still active in `app.js` under `/api/*` and includes many ERP resources such as:
-
-- bank
-- customer
-- karyawan
-- kategori proyek
-- keranjang proyek
-- kwitansi
-- metode pembayaran
-- nota
-- perusahaan
-- pembayaran proyek
-- pengeluaran proyek
-- produk and stok
-- proyek
-- vendor
-- user and login
-
-For the full list, see [app.js](/d:/project/express_erp/app.js).
-
-## Documentation
-
-- [Architecture](/d:/project/express_erp/docs/architecture.md)
-- [Setup Guide](/d:/project/express_erp/docs/setup.md)
-
-## Current Notes
-
-- The codebase mixes ESM (`src/`) and legacy CommonJS repository files (`repositories/`)
-- File uploads are configured for `logo/` and a `nota/` directory path in `app.js`
-- There is no real automated test suite configured yet; `npm test` is only a placeholder
+Note: `app.js` already respects `process.env.PORT` and falls back to `3001` if unset. `package.json` contains several knex-related scripts (migrations) and `nodemon` is listed as a dependency for development use.
