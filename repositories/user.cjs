@@ -58,22 +58,26 @@ const login = async ({ username, password }) => {
 };
 
 const list = async ({ id = 0, peran = "", rank = "" }) => {
+  console.log({ id, peran, rank });
   const sql = `Select u.id, u.username, u.peran, u.id_karyawan, k.nama, p.rank, p.keterangan keteranganperan From ${table} u 
   left join karyawan k on k.id=u.id_karyawan 
   left join peran p on p.nama=u.peran 
   where 1=1${
     peran == SUPER_ROLE
       ? ""
-      : ` and (u.id=?${rank && rank <= MAX_RANK ? " or rank>?" : ""}) `
+      : // : ` and (u.id=?${rank && rank <= MAX_RANK ? " or rank>?" : ""}) `
+        ` and (u.id=?${rank ? " or rank>?" : ""}) `
   }
-  order by username`;
+  order by rank, username, id`;
   const values = [...(id ? [id] : []), ...(rank ? [rank] : [])];
+  console.log({ sql, values });
 
   const [rows] = await pool.execute(sql, values);
+  console.log(rows);
   return rows;
 };
 
-const create = async ({ username, password, peran, id_karyawan }) => {
+const create = async ({ username, password, peran, id_karyawan = null }) => {
   const hash = await hashPassword(password);
   const sql = `insert into ${table} (username, password, peran, id_karyawan) values (?,?,?,?)`;
   const values = [username, hash, peran, id_karyawan];
@@ -90,7 +94,7 @@ const update = async ({
   passwordlama,
   srcusername,
   srcperan,
-  id_karyawan,
+  id_karyawan = null,
 }) => {
   const [rows] = await pool.execute(
     `Select password From ${table} Where id=?`,
@@ -121,6 +125,12 @@ const update = async ({
 };
 
 const destroy = async ({ id }) => {
+  if (id == -1) throw new Error("Tidak bisa menghapus user super");
+  const res = await pool.execute(`Select peran From ${table} Where id=?`, [id]);
+  if (res.length === 0) throw new Error("User tidak ditemukan");
+  const selected = res[0];
+  if (selected.peran === "super")
+    throw new Error("Tidak bisa menghapus user super");
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
   const [result] = await pool.execute(sql, values);

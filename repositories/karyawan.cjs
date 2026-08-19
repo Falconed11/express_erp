@@ -15,7 +15,7 @@ const list = async ({ id, id_statuskaryawan, aktif }) => {
     id_statuskaryawan == 1 || aktif ? " and k.id_statuskaryawan=1 " : ""
   }
   group by k.id
-  order by k.nama`;
+  order by k.nama, k.id`;
   const values = [id ?? null];
   const [rows] = await pool.execute(sql, values);
   return rows;

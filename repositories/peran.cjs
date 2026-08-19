@@ -4,7 +4,6 @@ const table = "peran";
 
 const list = async ({ id = "", peran = "", rank = "" }) => {
   let mod = "";
-  console.log({ rank });
   if (rank) mod = ` and (rank>?)`;
   const sql = `select * from ${table} where 1=1${id ? " and id=?" : ""}${mod}`;
   const values = [...(id ? [id] : []), ...(rank ? [rank] : [])];
