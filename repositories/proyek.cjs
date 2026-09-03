@@ -3,12 +3,14 @@ const { create: customerCreate } = require("./customer.cjs");
 const { withTransaction } = require("./../helpers/transaction.cjs");
 const table = "proyek";
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
+
 const list = async ({
   id,
   id_instansi,
   start,
   end,
   sort,
+  id_perusahaan,
   id_karyawan,
   id_statusproyek,
   id_produk = null,
@@ -51,6 +53,7 @@ const list = async ({
   ${nama ? "and p.nama like ?" : ""}
   ${klien ? "and p.klien like ?" : ""}
   ${hide != null ? "and p.hide=?" : ""}
+  ${id_perusahaan ? "and pr.id=?" : ""}
   group by p.id
   order by 
     CASE 
@@ -78,9 +81,12 @@ const list = async ({
     ...(nama ? [`%${nama}%`] : []),
     ...(klien ? [`%${klien}%`] : []),
     ...(hide != null ? [hide] : []),
+    ...(id_perusahaan ? [id_perusahaan] : []),
     ...(isPagination ? [offset, limit] : []),
   ];
   try {
+    console.log("SQL Query:", sql);
+    console.log("Values:", values);
     const [rows] = await pool.execute(sql, values);
     return rows;
   } catch (err) {
@@ -137,7 +143,7 @@ const create = async ({
         tanggal_penawaran,
         keterangan ?? "",
       ];
-      console.log(values);
+      // console.log(values);
       const [insertResult] = await conn.execute(sql, values);
       return {
         customerInsertId: id_instansi,

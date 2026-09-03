@@ -175,7 +175,8 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// login (no JWT required)
+// (no JWT required)
+// login
 app.post("/api/login", async (req, res) => {
   console.log("Login triggered");
   try {
@@ -186,6 +187,7 @@ app.post("/api/login", async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+app.use("/api/v2/perusahaan", perusahaanRoutes);
 
 // JWT verification middleware - protect all routes below
 app.use(verifyToken);
@@ -211,7 +213,6 @@ app.use("/api/v2/pembayaran-proyek", pembayaranProyekRoutes);
 app.use("/api/v2/pengeluaran-proyek", pengeluaranProyekRoutes);
 app.use("/api/v2/peristiwa", peristiwaRoutes);
 app.use("/api/v2/peristiwa-coa-map", peristiwaCoaMapRoutes);
-app.use("/api/v2/perusahaan", perusahaanRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/produk", produkRoutes);
 app.use("/api/v2/transaksi", akuntansiRoutes);
