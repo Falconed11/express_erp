@@ -131,6 +131,7 @@ import laporanRelationRoutes from "./src/modules/akuntansi/laporan-relation.rout
 import laporanRoutes from "./src/modules/akuntansi/laporan.route.js";
 import metodePembayaranRoutes from "./src/routes/metode-pembayaran.routes.js";
 import operasionalKantorRoutes from "./src/routes/operasional-kantor.routes.js";
+import operasionalProduksiRoutes from "./src/routes/operasional-produksi.routes.js";
 import pembayaranProyekRoutes from "./src/routes/pembayaran-proyek.routes.js";
 import pengeluaranProyekRoutes from "./src/routes/pengeluaran-proyek.routes.js";
 import peristiwaCoaMapRoutes from "./src/modules/coa/peristiwa-coa-map.route.js";
@@ -211,6 +212,7 @@ app.use("/api/v2/laporan", laporanRoutes);
 app.use("/api/v2/laporan-relation", laporanRelationRoutes);
 app.use("/api/v2/metode-pembayaran", metodePembayaranRoutes);
 app.use("/api/v2/operasional-kantor", operasionalKantorRoutes);
+app.use("/api/v2/operasional-produksi", operasionalProduksiRoutes);
 app.use("/api/v2/pembayaran-proyek", pembayaranProyekRoutes);
 app.use("/api/v2/pengeluaran-proyek", pengeluaranProyekRoutes);
 app.use("/api/v2/peristiwa", peristiwaRoutes);
