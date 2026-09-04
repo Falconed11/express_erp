@@ -112,6 +112,7 @@ import user from "./repositories/user.cjs";
 import vendor from "./repositories/vendor.cjs";
 
 // v2
+import appConfigRoutes from "./src/modules/app-config/app-config.route.js";
 import akuntansiRoutes from "./src/modules/akuntansi/transaksi.route.js";
 import coaFilterMapRoutes from "./src/modules/coa/coa-filter-map.route.js";
 import coaFilterRoutes from "./src/modules/coa/coa-filter.route.js";
@@ -192,6 +193,7 @@ app.use("/api/v2/perusahaan", perusahaanRoutes);
 // JWT verification middleware - protect all routes below
 app.use(verifyToken);
 
+app.use("/api/v2/app-config", appConfigRoutes);
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
 app.use("/api/v2/coa-filter", coaFilterRoutes);
 app.use("/api/v2/coa", coaRoutes);

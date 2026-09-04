@@ -85,8 +85,6 @@ const list = async ({
     ...(isPagination ? [offset, limit] : []),
   ];
   try {
-    console.log("SQL Query:", sql);
-    console.log("Values:", values);
     const [rows] = await pool.execute(sql, values);
     return rows;
   } catch (err) {

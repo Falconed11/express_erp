@@ -15,6 +15,8 @@ export const generateDefaultCRUDModel = (
     generateOrderBy = () => "",
     generateAllowedSortFields = null,
     validFilterColumns = [],
+    generateCustomFilter = null,
+    customGetAll = null,
   },
 ) => {
   function buildSqlQuery({
@@ -61,17 +63,22 @@ export const generateDefaultCRUDModel = (
       );
 
       // 2. Extract keys and values from the filtered entries
-      const fieldNames = filteredEntries.map(([key]) => key);
+      const fieldNames = filteredEntries.map(([key]) => "`" + key + "`");
       const values = filteredEntries.map(([_, value]) => value);
 
       // 3. Create the placeholders based on the count of filtered items
       const placeholders = fieldNames.map(() => "?").join(", ");
 
       const sql = `INSERT INTO ${tableName} (${fieldNames.join(", ")}) VALUES (${placeholders})`;
+      // console.log("Executing SQL Query:", sql);
       const [result] = await conn.execute(sql, values);
       return result;
     },
     async getAll({ limit, offset, sort, ...filters }, conn = db) {
+      if (customGetAll && filters.group_jurnal) {
+        const { group_jurnal, ...customFilters } = filters;
+        return customGetAll({ limit, offset, sort, ...customFilters }, conn);
+      }
       // console.log("Filters received:", filters);
       const { from, to, ...otherFilters } = filters;
       const isPagination = limit && offset;
@@ -246,6 +253,13 @@ export const generateDefaultCRUDModel = (
         validFilters,
         filterAliases,
       );
+      if (generateCustomFilter) {
+        const customFilter = generateCustomFilter(filters);
+        if (customFilter) {
+          filterSqlParts.push(customFilter.sql || "");
+          filterValues.push(...(customFilter.values || []));
+        }
+      }
       addDateFilters(filterSqlParts, filterValues, from, to);
       const filterSql = filterSqlParts.join(" ");
 
