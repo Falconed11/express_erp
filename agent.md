@@ -10,6 +10,8 @@ Follow existing patterns and keep changes minimal.
 
 ## Architecture
 
+- Follow Clean Architecture principles for all new code and modifications: keep concerns separated, make dependencies explicit, and decouple domain logic from external frameworks and UI.
+- Prioritize maintainability for human developers. Prefer readable, idiomatic, testable code over clever or overly compact syntax.
 - `app.js` is the application entry point. Use it for middleware and route registration.
 - Legacy CRUD exists in `repositories/*.cjs` and older handlers in `app.js`.
 - New code belongs under `src/`.
@@ -18,6 +20,11 @@ Follow existing patterns and keep changes minimal.
 - Use a more specialized module under `src/modules` when the resource has custom business logic.
 - Use the older `src/routes`, `src/controllers`, `src/services`, and `src/models` structure only when extending an existing resource that already follows it.
 - Do not add new business logic directly to `app.js` unless it is route registration or application middleware.
+
+## Legacy Code Handling
+
+- Preserve existing legacy code as-is by default to avoid unintended side effects and regression bugs.
+- Refactor or update legacy code only when the task explicitly requires changes to that module, the change can be safely verified and tested without risking system stability, and the result aligns with the Clean Architecture guidelines above.
 
 ## Database and migrations
 
