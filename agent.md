@@ -2,6 +2,12 @@ This is the Express ERP backend.
 
 Follow existing patterns and keep changes minimal.
 
+## Conflict Resolution
+
+- If the user's request conflicts with existing code, project conventions, documentation, or another instruction, stop and ask the user before making changes.
+- Do not silently choose one conflicting requirement or rewrite existing behavior to resolve the conflict.
+- Explain the conflict briefly and identify the relevant files or rules before asking.
+
 ## Architecture
 
 - `app.js` is the application entry point. Use it for middleware and route registration.
