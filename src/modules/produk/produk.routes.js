@@ -6,6 +6,7 @@ const router = Router();
 router.get("/", Controller.getAll);
 router.post("/", Controller.create);
 router.get("/kategori", Controller.getKategori);
+router.get("/candidates", Controller.getCandidates);
 router.post("/transfer", Controller.transfer);
 router.get("/:id", Controller.getById);
 router.patch("/:id", Controller.patch);

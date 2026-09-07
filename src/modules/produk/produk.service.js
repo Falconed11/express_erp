@@ -1,9 +1,16 @@
 import produkRepo from "../../../repositories/produk.cjs";
 import Model from "./produk.model.js";
+import { findProductCandidates } from "./produk-matching.service.js";
 
 const Service = {
   async getAll(filters) {
     return produkRepo.list(filters);
+  },
+
+  async getCandidates({ nama = "", merek = "", tipe = "" }) {
+    if (!nama.trim() && !merek.trim() && !tipe.trim()) return [];
+    const products = await produkRepo.list({ aktif: 1 });
+    return findProductCandidates(products, { nama, merek, tipe });
   },
 
   async create(data) {

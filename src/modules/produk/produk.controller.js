@@ -14,6 +14,14 @@ const Controller = generateDefaultCRUDController({
       });
     },
 
+    async getCandidates(req, res, next) {
+      defaultAsyncController(async () => Service.getCandidates(req.query), {
+        req,
+        res,
+        next,
+      });
+    },
+
     async transfer(req, res, next) {
       defaultAsyncController(async () => Service.transfer(req.body), {
         req,

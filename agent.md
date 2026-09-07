@@ -2,6 +2,16 @@ This is the Express ERP backend.
 
 Follow existing patterns and keep changes minimal.
 
+## Workspace Stack
+
+This workspace contains a paired ERP system:
+
+- `express_erp` is the backend: Node.js ESM, Express 4, JWT authentication, bcrypt, Multer, and Knex.
+- `next_erp` is the frontend: Next.js 16, React 19, HeroUI, Tailwind CSS, SWR, and mixed JavaScript/TypeScript.
+- MariaDB is the primary database, accessed through the MySQL-compatible `mysql2` driver and managed with Knex migrations.
+
+Keep API changes compatible with the Next.js frontend, its existing data-fetching conventions, and both legacy routes and `/api/v2` modular routes.
+
 ## Conflict Resolution
 
 - If the user's request conflicts with existing code, project conventions, documentation, or another instruction, stop and ask the user before making changes.
