@@ -5,11 +5,17 @@ import LaporanModel from "../akuntansi/laporan.model.js";
 const Service = generateDefaultCRUDService({
   ...Model,
   getAll: async (data) => {
-    const { id_laporan, id_perusahaan, ...rest } = data;
+    const { id_laporan, id_perusahaan, exact_id_perusahaan, ...rest } = data;
     if (!id_laporan)
       return Model.getAll({
         ...rest,
-        ...(id_perusahaan ? { id_perusahaan: [id_perusahaan, null] } : {}),
+        ...(id_perusahaan
+          ? {
+              id_perusahaan: exact_id_perusahaan
+                ? [id_perusahaan]
+                : [id_perusahaan, null],
+            }
+          : {}),
       });
     const rawCoas = await LaporanModel.getCoasWithoutValue(id_laporan, {
       id_perusahaan,
