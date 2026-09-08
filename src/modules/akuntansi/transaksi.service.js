@@ -2,6 +2,7 @@ import TransaksiModel from "./transaksi.model.js";
 import JurnalModel from "./jurnal.model.js";
 import LaporanModel from "./laporan.model.js";
 import { withTransaction } from "../../helpers/transaction.js";
+import produkkeluar from "../../../repositories/produkkeluar.cjs";
 
 const validateTransaksiData = (transaksi) => {
   transaksi.map((item) => {
@@ -66,11 +67,26 @@ const Service = {
     });
   },
   async create(data) {
-    const { transaksi, ...jurnal } = data;
+    const { transaksi, produk, nama: _productName, ...jurnal } = data;
     validateTransaksiData(transaksi);
     try {
       const result = await withTransaction(async (conn) => {
         const jurnalResult = await JurnalModel.create(jurnal, conn);
+        if (produk?.id_produk) {
+          await produkkeluar.createInTransaction(
+            {
+              ...produk,
+              id_jurnal: jurnalResult.insertId,
+              created_by: jurnal.created_by,
+              updated_by: jurnal.created_by,
+              metodepengeluaran: "operasionalkantor",
+              tanggal: jurnal.tanggal,
+              keterangan: jurnal.keterangan || "",
+              sn: 0,
+            },
+            conn,
+          );
+        }
         transaksi.forEach((item) => {
           item.id_jurnal = jurnalResult.insertId;
           item.created_by = jurnal.created_by;
@@ -92,12 +108,30 @@ const Service = {
     return { ...jurnal, transaksi };
   },
   async patch(id, data) {
-    const { transaksi, ...jurnal } = data;
+    const { transaksi, produk, nama: _productName, ...jurnal } = data;
     console.log(data);
     validateTransaksiData(transaksi);
     try {
       const result = await withTransaction(async (conn) => {
         const jurnalResult = await JurnalModel.patch(id, jurnal, conn);
+        if (produk !== undefined) {
+          await produkkeluar.destroyByJurnalInTransaction(id, conn);
+          if (produk?.id_produk) {
+            await produkkeluar.createInTransaction(
+              {
+                ...produk,
+                id_jurnal: id,
+                created_by: jurnal.created_by ?? jurnal.updated_by,
+                updated_by: jurnal.updated_by,
+                metodepengeluaran: "operasionalkantor",
+                tanggal: jurnal.tanggal,
+                keterangan: jurnal.keterangan || "",
+                sn: 0,
+              },
+              conn,
+            );
+          }
+        }
         transaksi.forEach((item) => {
           item.updated_by = jurnal.updated_by;
         });
@@ -119,6 +153,7 @@ const Service = {
   async destroy(id) {
     try {
       const result = await withTransaction(async (conn) => {
+        await produkkeluar.destroyByJurnalInTransaction(id, conn);
         // First, delete all transaksi for this jurnal
         const transaksiToDelete = await TransaksiModel.getAll(
           { id_jurnal: id },

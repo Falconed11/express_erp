@@ -7,7 +7,7 @@ const { pool } = require("./db.2.0.0.cjs");
 
 const OUTPUT_TABLE = "produkkeluar";
 
-async function list({ id_produk, filterText }) {
+async function list({ id_produk, id_jurnal, filterText }) {
   const conn = await pool.getConnection();
   try {
     const hasIdProduk = Boolean(id_produk);
@@ -42,11 +42,13 @@ async function list({ id_produk, filterText }) {
       LEFT JOIN instansi i         ON i.id = pr.id_instansi
       WHERE 1 = 1
       ${hasIdProduk ? "AND pk.id_produk = ?" : ""}
+      ${id_jurnal ? "AND pk.id_jurnal = ?" : ""}
       ${hasFilterText ? words.map(() => "AND LOWER(CONCAT_WS(' ', COALESCE(p.id_kustom, ''), COALESCE(p.nama, ''), COALESCE(p.tipe, ''), COALESCE(m.nama, ''), COALESCE(v.nama, ''), COALESCE(pr.nama, ''), COALESCE(i.nama, ''), COALESCE(pk.keterangan, ''))) LIKE ?").join(" ") : ""}
       order by pk.tanggal desc, pk.id desc
     `;
     const params = [];
     if (hasIdProduk) params.push(id_produk);
+    if (id_jurnal) params.push(id_jurnal);
     if (hasFilterText) {
       for (const word of words) {
         params.push(`%${word.toLowerCase()}%`);
@@ -63,6 +65,9 @@ async function create(data) {
     return await _createInTransaction({ ...data, conn });
   });
 }
+async function createInTransaction(data, conn) {
+  return await _createInTransaction({ ...data, conn });
+}
 async function update(params) {
   return await withTransaction(pool, async (conn) => {
     const {
@@ -70,6 +75,7 @@ async function update(params) {
       sn = null,
       id_produkmasuk,
       id_produk,
+      id_jurnal,
       oldJumlah,
       harga = 0,
       metodepengeluaran,
@@ -111,16 +117,55 @@ async function update(params) {
 }
 async function destroy(params) {
   return await withTransaction(pool, async (conn) => {
+    if (params.id_jurnal) {
+      const [rows] = await conn.execute(
+        `SELECT id, jumlah, id_produkmasuk, id_produk, metodepengeluaran
+         FROM ${OUTPUT_TABLE}
+         WHERE id_jurnal = ?
+         FOR UPDATE`,
+        [params.id_jurnal],
+      );
+
+      for (const row of rows) {
+        await _deleteInTransaction({ ...row, conn });
+      }
+
+      await conn.execute("DELETE FROM transaksi WHERE id_jurnal = ?", [
+        params.id_jurnal,
+      ]);
+      await conn.execute("DELETE FROM jurnal WHERE id = ?", [params.id_jurnal]);
+      return { success: true, deleted: rows.length };
+    }
     return await _deleteInTransaction({ ...params, conn });
   });
+}
+
+async function destroyByJurnalInTransaction(id_jurnal, conn) {
+  const [rows] = await conn.execute(
+    `SELECT id, jumlah, id_produkmasuk, id_produk, metodepengeluaran
+     FROM ${OUTPUT_TABLE}
+     WHERE id_jurnal = ?
+     FOR UPDATE`,
+    [id_jurnal],
+  );
+
+  for (const row of rows) {
+    await _deleteInTransaction({ ...row, conn });
+  }
+
+  return { success: true, deleted: rows.length };
 }
 
 // Internal helper: create inside transaction
 async function _createInTransaction({
   id_produk,
+  id_jurnal = null,
+  created_by = null,
+  updated_by = null,
   sn,
   metodepengeluaran,
   serialnumbers,
+  produkmasuk = [],
   jumlah = 0,
   harga = 0,
   tanggal,
@@ -135,7 +180,11 @@ async function _createInTransaction({
   conn,
 }) {
   assertTransaction(conn, "_createInTransaction");
-  if ((!sn || sn === 0) && (!jumlah || jumlah === 0))
+  if (
+    produkmasuk.length === 0 &&
+    (!sn || sn === 0) &&
+    (!jumlah || jumlah === 0)
+  )
     throw new Error("Jumlah tidak boleh 0!");
   let [produkRows] = await conn.execute(
     `SELECT stok, satuan FROM produk WHERE id = ? FOR UPDATE`,
@@ -147,6 +196,63 @@ async function _createInTransaction({
     throw new Error(
       `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`,
     );
+  if (produkmasuk.length > 0) {
+    const totalJumlah = produkmasuk.reduce(
+      (total, item) => total + (+item.jumlah || 0),
+      0,
+    );
+    if (totalJumlah > produk.stok)
+      throw new Error(
+        `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`,
+      );
+
+    for (const allocation of produkmasuk) {
+      const requested = +allocation.jumlah || 0;
+      if (requested <= 0) throw new Error("Jumlah produk tidak boleh 0!");
+      const [pmRows] = await conn.execute(
+        `SELECT id, id_produk, jumlah, keluar, harga
+         FROM produkmasuk WHERE id = ? FOR UPDATE`,
+        [allocation.id_produkmasuk],
+      );
+      if (pmRows.length === 0) throw new Error("Produk masuk tidak ditemukan");
+      const pm = pmRows[0];
+      const available = pm.jumlah - pm.keluar;
+      if (pm.id_produk != id_produk)
+        throw new Error("Produk masuk tidak sesuai dengan produk yang dipilih");
+      if (requested > available)
+        throw new Error(
+          `Stok produk masuk tidak mencukupi. Maks. ${available}.`,
+        );
+
+      await conn.execute(
+        `UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?`,
+        [requested, pm.id],
+      );
+      await conn.execute(`UPDATE produk SET stok = stok - ? WHERE id = ?`, [
+        requested,
+        id_produk,
+      ]);
+      await conn.execute(
+        `INSERT INTO ${OUTPUT_TABLE}
+         (id_produk, id_produkmasuk, id_jurnal, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id_produk,
+          pm.id,
+          id_jurnal,
+          created_by,
+          updated_by,
+          metodepengeluaran,
+          0,
+          requested,
+          pm.harga,
+          tanggal,
+          keterangan,
+        ],
+      );
+    }
+    return { success: true };
+  }
   if (sn === 1) {
     for (const snObj of serialnumbers) {
       // Lock one eligible produkmasuk row
@@ -175,11 +281,14 @@ async function _createInTransaction({
       // Insert into produkkeluar
       await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (id_produk, id_produkmasuk, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_produk, id_produkmasuk, id_jurnal, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_produk,
           pm.id,
+          id_jurnal,
+          created_by,
+          updated_by,
           metodepengeluaran,
           snObj.value,
           1,
@@ -222,15 +331,18 @@ async function _createInTransaction({
       // Insert into produkkeluar
       const [insertRes] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, id_jurnal, created_by, updated_by, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           metodepengeluaran ?? "proyek",
           id_produk,
           pm.id,
           id_proyek || null,
+          id_jurnal,
+          created_by,
+          updated_by,
           take,
-          isSelected ? pm.harga : harga,
+          isSelected || id_jurnal ? pm.harga : harga,
           tanggal,
           keterangan,
         ],
@@ -322,4 +434,11 @@ async function _deleteInTransaction({
   return { success: true };
 }
 
-module.exports = { list, create, update, destroy };
+module.exports = {
+  list,
+  create,
+  createInTransaction,
+  update,
+  destroy,
+  destroyByJurnalInTransaction,
+};

@@ -85,6 +85,7 @@ const Model = generateStandardCRUDModel({
       id_perusahaan,
       id_coa_debit,
       id_coa_kredit,
+      id_jurnal,
     } = {},
     conn = db,
   ) => {
@@ -125,6 +126,10 @@ const Model = generateStandardCRUDModel({
         )`);
       values.push(id_coa_kredit);
     }
+    if (id_jurnal) {
+      where.push("j.id = ?");
+      values.push(id_jurnal);
+    }
 
     const hasPagination = limit != null && offset != null;
     const parsedLimit = Number(limit);
@@ -139,14 +144,27 @@ const Model = generateStandardCRUDModel({
           MAX(CASE WHEN t.tipe = 0 THEN c.nama END) kas,
           SUM(CASE WHEN t.tipe = 1 THEN t.amount ELSE 0 END) nominal,
           SUM(CASE WHEN t.tipe = 1 THEN t.amount ELSE 0 END) biaya,
+          pk.id_produkkeluar,
+          pk.id_produk,
+          pk.jumlah_produk,
+          ppk.nama produk,
+          ppk.stok,
           pr.nama proyek,
           COUNT(*) OVER () total
         FROM jurnal j
         INNER JOIN transaksi t ON t.id_jurnal = j.id
         LEFT JOIN coa c ON c.id = t.id_coa
+        LEFT JOIN (
+          SELECT id_jurnal, MAX(id) id_produkkeluar,
+                 MAX(id_produk) id_produk, SUM(jumlah) jumlah_produk
+          FROM produkkeluar
+          GROUP BY id_jurnal
+        ) pk ON pk.id_jurnal = j.id
+        LEFT JOIN produk ppk ON ppk.id = pk.id_produk
         LEFT JOIN proyek pr ON pr.id = j.id_proyek
         WHERE ${where.length ? where.join(" AND ") : "1=1"}
-        GROUP BY j.id, j.tanggal, j.keterangan, pr.nama
+        GROUP BY j.id, j.tanggal, j.keterangan, pk.id_produkkeluar,
+                 pk.id_produk, pk.jumlah_produk, ppk.nama, ppk.stok, pr.nama
         ORDER BY j.tanggal DESC, j.id DESC
         ${paginationSql}`;
 
