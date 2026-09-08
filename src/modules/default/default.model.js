@@ -294,7 +294,7 @@ export const generateDefaultCRUDModel = (
       const values = [];
       for (const key in preparedData) {
         if (allowedFieldsForUpdate.includes(key)) {
-          fields.push(`${key} = ?`);
+          fields.push(`\`${key}\` = ?`);
           values.push(preparedData[key]);
         }
       }

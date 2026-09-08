@@ -3,8 +3,8 @@ import { generateStandardCRUDModel } from "../default/default.model.js";
 
 const TABLE_NAME = "jurnal_form";
 
-const extraAllowedFieldsForCreate = ["extra_fields"];
-const extraAllowedFieldsForUpdate = ["extra_fields"];
+const extraAllowedFieldsForCreate = ["extra_fields", "system_key"];
+const extraAllowedFieldsForUpdate = ["extra_fields", "system_key"];
 
 const Model = generateStandardCRUDModel({
   tableName: TABLE_NAME,
@@ -17,6 +17,7 @@ const Model = generateStandardCRUDModel({
     "created_by",
     "updated_by",
     "extra_fields",
+    "system_key",
   ],
 });
 
