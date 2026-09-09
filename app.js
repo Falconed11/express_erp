@@ -896,7 +896,10 @@ app.post("/api/produk", async (req, res) => {
 });
 app.put("/api/produk", async (req, res) => {
   const result = await produk
-    .update(req.body)
+    .update({
+      ...req.body,
+      updated_by: req.user?.id_karyawan ?? req.body.updated_by ?? null,
+    })
     .then((result) => res.json({ message: "Data berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
@@ -910,7 +913,10 @@ app.put("/api/transferproduk", async (req, res) => {
 });
 app.delete("/api/produk", async (req, res) => {
   produk
-    .destroy(req.body)
+    .destroy({
+      ...req.body,
+      changed_by: req.user?.id_karyawan ?? req.body.changed_by ?? null,
+    })
     .then((result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });

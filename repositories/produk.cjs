@@ -8,6 +8,21 @@ const { create: createKategori } = require("./kategoriproduk.cjs");
 const { create: createMerek } = require("./merek.cjs");
 const { create: createVendor } = require("./vendor.cjs");
 
+const getIndonesiaDateTime = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const part = (type) => parts.find((item) => item.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
+};
+
 const list = async ({
   id,
   kategori,
@@ -183,7 +198,7 @@ const insertProduk = async ({
       id_kategori,
       id_kustom,
       nama ? nama : tipe,
-      id_merek ?? 0,
+      id_merek ?? null,
       tipe,
       stok,
       satuan,
@@ -299,6 +314,74 @@ const transfer = async ({ curId, newId }) => {
     throw err;
   }
 };
+const normalizeAuditValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  return JSON.stringify(value);
+};
+
+const buildAuditEntries = ({
+  id_produk,
+  action,
+  before = {},
+  after = {},
+  changed_by,
+  changed_at,
+}) => {
+  const fields = [
+    "id_kategori",
+    "id_kustom",
+    "nama",
+    "id_merek",
+    "tipe",
+    "stok",
+    "satuan",
+    "hargamodal",
+    "hargajual",
+    "tanggal",
+    "keterangan",
+    "aktif",
+  ];
+
+  const changes = fields.reduce((acc, field) => {
+    const beforeValue = normalizeAuditValue(before[field]);
+    const afterValue = normalizeAuditValue(after[field]);
+
+    if (beforeValue === afterValue) return acc;
+    acc[field] = { before: beforeValue, after: afterValue };
+    return acc;
+  }, {});
+
+  if (Object.keys(changes).length === 0) return [];
+  return [
+    {
+      table_name: "produk",
+      record_id: id_produk,
+      action,
+      changes,
+      changed_by,
+      changed_at,
+    },
+  ];
+};
+
+const writeAuditEntries = async (conn, entries) => {
+  if (!entries || entries.length === 0) return [];
+  const placeholders = entries.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+  const values = entries.flatMap((entry) => [
+    entry.table_name,
+    entry.record_id,
+    entry.action,
+    JSON.stringify(entry.changes),
+    entry.changed_by ?? null,
+    entry.changed_at || getIndonesiaDateTime(),
+  ]);
+  const sql = `INSERT INTO audit_log (table_name, record_id, action, changes, changed_by, changed_at) VALUES ${placeholders}`;
+  await conn.execute(sql, values);
+  return entries;
+};
+
 const update = async ({ id, ...rest }) => {
   const allowedFields = [
     "id_kustom",
@@ -316,6 +399,12 @@ const update = async ({ id, ...rest }) => {
   const values = [];
   try {
     const result = await withTransaction(pool, async (conn) => {
+      const [beforeRows] = await conn.execute(
+        `SELECT * FROM ${table} WHERE id = ? LIMIT 1`,
+        [id],
+      );
+      const before = beforeRows[0] || {};
+
       if (rest.kategoriproduk && rest.id_kategori == null) {
         rest.id_kategori = await createKategori({
           nama: rest.kategoriproduk,
@@ -326,7 +415,10 @@ const update = async ({ id, ...rest }) => {
         rest.id_merek = await createMerek({ nama: rest.merek, conn });
       }
       for (const [key, value] of Object.entries(rest)) {
-        if (allowedFields.includes(key) && value != null) {
+        if (
+          allowedFields.includes(key) &&
+          (value != null || key === "id_merek")
+        ) {
           fields.push(`${key}=?`);
           values.push(value);
         }
@@ -335,8 +427,22 @@ const update = async ({ id, ...rest }) => {
         return { affectedRows: 0, message: "No fields to update" };
       values.push(id);
       const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-      console.log(values);
       const [result] = await conn.execute(sql, values);
+
+      const [afterRows] = await conn.execute(
+        `SELECT * FROM ${table} WHERE id = ? LIMIT 1`,
+        [id],
+      );
+      const after = afterRows[0] || {};
+      const auditEntries = buildAuditEntries({
+        id_produk: id,
+        action: "update",
+        before,
+        after,
+        changed_by: rest.updated_by ?? rest.changed_by ?? null,
+        changed_at: getIndonesiaDateTime(),
+      });
+      await writeAuditEntries(conn, auditEntries);
       return {
         insertKategoriId: rest.id_kategori,
         insertMerekId: rest.id_merek,
@@ -349,10 +455,45 @@ const update = async ({ id, ...rest }) => {
     throw err;
   }
 };
-const destroy = async ({ id }) => {
+const destroy = async ({ id, changed_by = null }) => {
+  const [beforeRows] = await pool.execute(
+    `SELECT * FROM ${table} WHERE id = ? LIMIT 1`,
+    [id],
+  );
+  const before = beforeRows[0] || {};
+
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
   const [results] = await pool.execute(sql, values);
+
+  const after = Object.fromEntries(
+    Object.keys(before).map((field) => [field, null]),
+  );
+  const entries = buildAuditEntries({
+    id_produk: id,
+    action: "delete",
+    before,
+    after,
+    changed_by,
+    changed_at: getIndonesiaDateTime(),
+  });
+
+  if (entries.length > 0) {
+    const placeholders = entries.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+    const values = entries.flatMap((entry) => [
+      entry.table_name,
+      entry.record_id,
+      entry.action,
+      JSON.stringify(entry.changes),
+      entry.changed_by ?? null,
+      entry.changed_at || getIndonesiaDateTime(),
+    ]);
+    await pool.execute(
+      `INSERT INTO audit_log (table_name, record_id, action, changes, changed_by, changed_at) VALUES ${placeholders}`,
+      values,
+    );
+  }
+
   return results;
 };
 
