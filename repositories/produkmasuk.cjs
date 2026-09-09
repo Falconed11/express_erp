@@ -46,7 +46,9 @@ const create = async ({
   tanggalHarga,
   jatuhtempo,
   isUpdateHarga,
+  pinjaman,
 }) => {
+  const isPinjaman = pinjaman === true || pinjaman === 1 || pinjaman === "1";
   jumlah = jumlah ?? 0;
   if (jumlah <= 0) throw new Error("Jumlah tidak boleh 0!");
   if (!id_vendor) throw new Error("Vendor belum dipilih!");
@@ -58,15 +60,16 @@ const create = async ({
       await conn.execute("select stok from produk where id =? for update", [
         id_produk,
       ]);
-      let sql = `insert into ${table} (id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo) values (?,?,?,?,?,?,?)`;
+      let sql = `insert into ${table} (id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo, pinjaman) values (?,?,?,?,?,?,?,?)`;
       let values = [
         id_produk,
         id_vendor,
         jumlah,
         harga,
-        lunas == "1" ? jumlah * harga : terbayar,
+        isPinjaman ? 0 : lunas == "1" ? jumlah * harga : terbayar,
         tanggal,
-        lunas == "0" ? jatuhtempo : null,
+        !isPinjaman && lunas == "0" ? jatuhtempo : null,
+        isPinjaman ? 1 : 0,
       ];
       // console.log(sql, values);
       const [result1] = await conn.execute(sql, values);
@@ -101,7 +104,9 @@ const update = async ({
   terbayar,
   tanggalHarga,
   jatuhTempo,
+  pinjaman,
 }) => {
+  const isPinjaman = pinjaman === true || pinjaman === 1 || pinjaman === "1";
   oldJumlah = oldJumlah ?? 0;
   jumlah = jumlah ?? 0;
   if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
@@ -115,15 +120,16 @@ const update = async ({
       await conn.execute("select stok from produk where id=? for update", [
         id_produk,
       ]);
-      let sql = `update ${table} set id_produk=?, jumlah=?, harga=?, id_vendor=?, tanggal=?, terbayar=?, jatuhtempo=? where id=?`;
+      let sql = `update ${table} set id_produk=?, jumlah=?, harga=?, id_vendor=?, tanggal=?, terbayar=?, jatuhtempo=?, pinjaman=? where id=?`;
       let values = [
         id_produk,
         jumlah,
         harga,
         id_vendor,
         tanggal,
-        lunas == "1" ? jumlah * harga : terbayar,
-        lunas == "0" ? jatuhTempo : null,
+        isPinjaman ? 0 : lunas == "1" ? jumlah * harga : terbayar,
+        !isPinjaman && lunas == "0" ? jatuhTempo : null,
+        isPinjaman ? 1 : 0,
         id,
       ];
       console.log(sql, values);

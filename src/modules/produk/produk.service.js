@@ -9,9 +9,10 @@ const AUDIT_TABLE = "audit_log";
 
 const formatAuditDateTime = (value) => {
   if (!value) return null;
-  const source = value instanceof Date
-    ? `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}T${String(value.getUTCHours()).padStart(2, "0")}:${String(value.getUTCMinutes()).padStart(2, "0")}:${String(value.getUTCSeconds()).padStart(2, "0")}Z`
-    : `${String(value).replace(" ", "T").replace(/Z$/, "")}Z`;
+  const source =
+    value instanceof Date
+      ? `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}T${String(value.getUTCHours()).padStart(2, "0")}:${String(value.getUTCMinutes()).padStart(2, "0")}:${String(value.getUTCSeconds()).padStart(2, "0")}Z`
+      : `${String(value).replace(" ", "T").replace(/Z$/, "")}Z`;
   const formatted = new Intl.DateTimeFormat("id-ID", {
     timeZone: "UTC",
     dateStyle: "medium",
