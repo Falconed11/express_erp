@@ -109,6 +109,7 @@ import subkategoriproduk from "./repositories/subkategoriproduk.cjs";
 import subproyek from "./repositories/subproyek.cjs";
 import todolist from "./repositories/todolist.cjs";
 import user from "./repositories/user.cjs";
+import userSettings from "./repositories/user-settings.cjs";
 import vendor from "./repositories/vendor.cjs";
 
 // v2
@@ -1465,6 +1466,22 @@ app.delete("/api/user", async (req, res) => {
   user
     .destroy(req.body)
     .then((result) => res.json({ message: "user berhasil dihapus" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.get("/api/user/settings", async (req, res) => {
+  userSettings
+    .get(req.user.id)
+    .then((mode_interaksi_baris_tabel) =>
+      res.json({ mode_interaksi_baris_tabel }),
+    )
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/user/settings", async (req, res) => {
+  userSettings
+    .update(req.user.id, req.body.mode_interaksi_baris_tabel)
+    .then((mode_interaksi_baris_tabel) =>
+      res.json({ mode_interaksi_baris_tabel }),
+    )
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
