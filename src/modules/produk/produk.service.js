@@ -1,7 +1,10 @@
 import db from "../../config/db.js";
 import produkRepo from "../../../repositories/produk.cjs";
 import Model from "./produk.model.js";
-import { findProductCandidates } from "./produk-matching.service.js";
+import {
+  rankCandidates,
+  DEFAULT_FIELD_CONFIG,
+} from "../similarity/similarity.service.js";
 import { buildProductAuditEntries } from "./produk-audit.util.js";
 import { getIndonesiaDateTime } from "../../utils/audit.util.js";
 
@@ -45,14 +48,39 @@ const getAuditProductState = async (id) => {
 };
 
 const Service = {
-  async getAll(filters) {
-    return produkRepo.list(filters);
+  async getAll(filters = {}) {
+    const rows = await produkRepo.list(filters);
+
+    const searchInput = {
+      nama: filters.nama ?? filters.search ?? "",
+      merek: filters.merek ?? "",
+      id_kustom: filters.id_kustom ?? "",
+      tipe: filters.tipe ?? "",
+    };
+
+    const hasSearchSignal = Object.values(searchInput).some((value) =>
+      String(value ?? "").trim(),
+    );
+
+    if (!hasSearchSignal) return rows;
+
+    const limit = Number.isFinite(Number(filters.limit))
+      ? Number(filters.limit)
+      : 8;
+
+    return rankCandidates(rows, searchInput, DEFAULT_FIELD_CONFIG, limit);
   },
 
-  async getCandidates({ nama = "", merek = "", tipe = "" }) {
-    if (!nama.trim() && !merek.trim() && !tipe.trim()) return [];
+  async getCandidates({ nama = "", merek = "", tipe = "", id_kustom = "" }) {
+    if (!nama.trim() && !merek.trim() && !tipe.trim() && !id_kustom.trim())
+      return [];
     const products = await produkRepo.list({ aktif: 1 });
-    return findProductCandidates(products, { nama, merek, tipe });
+    return rankCandidates(
+      products,
+      { nama, merek, id_kustom, tipe },
+      DEFAULT_FIELD_CONFIG,
+      8,
+    );
   },
 
   async create(data) {
