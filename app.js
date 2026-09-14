@@ -419,6 +419,7 @@ app.post("/api/proyek", async (req, res) => {
     .then((result) =>
       res.json({
         message: "Proyek berhasil ditambahkan",
+        ...result,
       }),
     )
     .catch((e) => res.status(400).json({ message: e.message }));
