@@ -139,8 +139,9 @@ import pengeluaranProyekRoutes from "./src/routes/pengeluaran-proyek.routes.js";
 import peristiwaCoaMapRoutes from "./src/modules/coa/peristiwa-coa-map.route.js";
 import peristiwaRoutes from "./src/modules/coa/peristiwa.route.js";
 import perusahaanRoutes from "./src/routes/perusahaan.routes.js";
-import proyekRoutes from "./src/routes/proyek.routes.js";
 import produkRoutes from "./src/modules/produk/produk.routes.js";
+import produkKeluarRoutes from "./src/modules/produk/produk-keluar.routes.js";
+import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";
 
@@ -222,6 +223,7 @@ app.use("/api/v2/peristiwa", peristiwaRoutes);
 app.use("/api/v2/peristiwa-coa-map", peristiwaCoaMapRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/produk", produkRoutes);
+app.use("/api/v2/produk-keluar", produkKeluarRoutes);
 app.use("/api/v2/transaksi", akuntansiRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
 app.use("/api/v2/vendor-jenis", vendorJenisRoutes);
