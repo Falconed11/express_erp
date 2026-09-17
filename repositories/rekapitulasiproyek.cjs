@@ -31,10 +31,24 @@ const listVersion = ({ id_proyek }) => {
   });
 };
 
-const create = ({ id_proyek, versi, diskon, diskoninstalasi, pajak }) => {
+const create = ({
+  id_proyek,
+  versi,
+  diskon,
+  diskoninstalasi,
+  pajak,
+  pajakinstalasi = 0,
+}) => {
   console.log({ id_proyek, versi });
-  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak) values ( ?, ?, ?, ?, ?)`;
-  const values = [id_proyek, versi, diskon, diskoninstalasi, pajak];
+  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak, pajakinstalasi) values ( ?, ?, ?, ?, ?, ?)`;
+  const values = [
+    id_proyek,
+    versi,
+    diskon,
+    diskoninstalasi,
+    pajak,
+    pajakinstalasi,
+  ];
   return new Promise((resolve, reject) => {
     connection.query(sql, values, (err, res) => {
       console.log(err);
@@ -59,7 +73,7 @@ const createkategoriProyek = ({ id_proyek, versi, jenis_proyek }) => {
 };
 
 const createNewVersion = ({ id_proyek, versi }) => {
-  const sql = `INSERT INTO ${table} (id_proyek, diskon, pajak, audio, cctv, multimedia, versi) SELECT id_proyek, diskon, pajak, audio, cctv, multimedia, (SELECT max(versi) + 1 from ${table} where id_proyek=?) FROM ${table}
+  const sql = `INSERT INTO ${table} (id_proyek, diskon, diskoninstalasi, pajak, pajakinstalasi, audio, cctv, multimedia, versi) SELECT id_proyek, diskon, diskoninstalasi, pajak, pajakinstalasi, audio, cctv, multimedia, (SELECT max(versi) + 1 from ${table} where id_proyek=?) FROM ${table}
   WHERE id_proyek=? and versi=?`;
   const values = [id_proyek, id_proyek, versi];
   return new Promise((resolve, reject) => {
@@ -70,7 +84,7 @@ const createNewVersion = ({ id_proyek, versi }) => {
   });
 };
 
-const update = ({ id, diskon, diskoninstalasi, pajak }) => {
+const update = ({ id, diskon, diskoninstalasi, pajak, pajakinstalasi }) => {
   const fields = [];
   const values = [];
   const isExist = (v) => v != null;
@@ -85,6 +99,10 @@ const update = ({ id, diskon, diskoninstalasi, pajak }) => {
   if (isExist(pajak)) {
     fields.push("pajak=?");
     values.push(pajak);
+  }
+  if (isExist(pajakinstalasi)) {
+    fields.push("pajakinstalasi=?");
+    values.push(pajakinstalasi);
   }
   if (fields.length === 0)
     return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
