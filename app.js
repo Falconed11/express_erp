@@ -140,7 +140,7 @@ import peristiwaCoaMapRoutes from "./src/modules/coa/peristiwa-coa-map.route.js"
 import peristiwaRoutes from "./src/modules/coa/peristiwa.route.js";
 import perusahaanRoutes from "./src/routes/perusahaan.routes.js";
 import produkRoutes from "./src/modules/produk/produk.routes.js";
-import produkKeluarRoutes from "./src/modules/produk/produk-keluar.routes.js";
+import produkKeluarRoutes from "./src/modules/produk-keluar/produk-keluar.routes.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";

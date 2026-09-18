@@ -156,6 +156,20 @@ async function destroyByJurnalInTransaction(id_jurnal, conn) {
   return { success: true, deleted: rows.length };
 }
 
+async function destroyInTransaction(id, conn) {
+  assertTransaction(conn, "destroyInTransaction");
+  const [rows] = await conn.execute(
+    `SELECT id, jumlah, id_produkmasuk, id_produk, metodepengeluaran
+     FROM ${OUTPUT_TABLE}
+     WHERE id = ?
+     FOR UPDATE`,
+    [id],
+  );
+  if (rows.length === 0) throw new Error("Produk keluar tidak ditemukan.");
+
+  return _deleteInTransaction({ ...rows[0], conn });
+}
+
 // Internal helper: create inside transaction
 async function _createInTransaction({
   id_produk,
@@ -210,7 +224,7 @@ async function _createInTransaction({
       const requested = +allocation.jumlah || 0;
       if (requested <= 0) throw new Error("Jumlah produk tidak boleh 0!");
       const [pmRows] = await conn.execute(
-        `SELECT id, id_produk, jumlah, keluar, harga
+        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga
          FROM produkmasuk WHERE id = ? FOR UPDATE`,
         [allocation.id_produkmasuk],
       );
@@ -232,13 +246,14 @@ async function _createInTransaction({
         requested,
         id_produk,
       ]);
-      await conn.execute(
+      const [insertResult] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (id_produk, id_produkmasuk, id_jurnal, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_produk, id_produkmasuk, id_proyek, id_jurnal, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_produk,
           pm.id,
+          id_proyek || null,
           id_jurnal,
           created_by,
           updated_by,
@@ -250,6 +265,24 @@ async function _createInTransaction({
           keterangan,
         ],
       );
+      if (isSelected) {
+        await conn.execute(
+          `INSERT INTO pengeluaranproyek
+           (id_proyek, tanggal, id_karyawan, id_produk, id_produkkeluar, id_vendor, jumlah, harga, status, keterangan)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+          [
+            idproyek ?? id_proyek,
+            tanggal,
+            karyawan ?? id_karyawan ?? created_by,
+            idproduk ?? id_produk,
+            insertResult.insertId,
+            pm.id_vendor,
+            requested,
+            pm.harga,
+            keterangan,
+          ],
+        );
+      }
     }
     return { success: true };
   }
@@ -441,4 +474,5 @@ module.exports = {
   update,
   destroy,
   destroyByJurnalInTransaction,
+  destroyInTransaction,
 };

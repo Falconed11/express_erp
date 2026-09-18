@@ -120,7 +120,7 @@ const commitProduk = async (job, actor) => {
             hargamodal: row.hargamodal,
             hargajual: 0,
             tanggal: job.context.tanggal,
-            satuan: "",
+            satuan: row.satuan,
             keterangan: "",
             manualinput: 1,
             inputcode,
@@ -139,6 +139,7 @@ const commitProduk = async (job, actor) => {
             tipe: row.tipe,
             hargamodal: row.hargamodal,
             tanggal: job.context.tanggal,
+            satuan: row.satuan,
             inputcode,
           }),
         ),
@@ -167,13 +168,14 @@ const commitProduk = async (job, actor) => {
 
 export const produkImportDefinition = {
   type: "products",
-  columns: ["produk", "kategori", "merek", "tipe", "hargamodal"],
+  columns: ["produk", "kategori", "merek", "tipe", "satuan", "hargamodal"],
   normalize(values) {
     return {
       produk: normalizeText(values.produk),
       kategori: normalizeText(values.kategori),
       merek: normalizeText(values.merek),
       tipe: normalizeText(values.tipe),
+      satuan: normalizeText(values.satuan),
       hargamodal: parseNumber(values.hargamodal),
     };
   },
@@ -187,7 +189,7 @@ export const produkImportDefinition = {
     }
     const types = new Map();
     for (const row of rows) {
-      for (const field of ["produk", "kategori", "merek", "tipe"]) {
+      for (const field of ["produk", "kategori", "merek", "tipe", "satuan"]) {
         if (!row[field]) addError(errors, row, field, "EMPTY_REQUIRED_FIELD", `${field} wajib diisi.`);
       }
       if (row.hargamodal === null || row.hargamodal < 0) {
