@@ -1,8 +1,9 @@
 import db from "../config/knex.js";
 
 const TABLE = "operasionalproduksi";
+const HPP_FORM_NAME = "HPP";
 
-const list = (idProyek) =>
+const listLegacy = (idProyek) =>
   db(TABLE)
     .select(
       "operasionalproduksi.id",
@@ -24,16 +25,66 @@ const list = (idProyek) =>
       "updater.id",
       "operasionalproduksi.updated_by",
     )
-    .where("id_proyek", idProyek)
-    .orderBy("tanggal", "desc")
-    .orderBy("id", "desc");
+    .where("operasionalproduksi.id_proyek", idProyek);
 
-const total = (idProyek) =>
-  db(TABLE)
-    .where({ id_proyek: idProyek, aktif: true })
-    .sum({ total: "nominal" })
-    .first()
-    .then((row) => ({ total: Number(row?.total || 0) }));
+const listHppJournals = (idProyek) =>
+  db("jurnal as j")
+    .select(
+      "j.id as id_jurnal",
+      "j.id_proyek",
+      "j.tanggal",
+      "j.keterangan as deskripsi",
+      "debit.amount as nominal",
+      db.raw("1 as aktif"),
+    )
+    .join("jurnal_form as jf", "jf.id", "j.id_jurnal_form")
+    .join("transaksi as debit", function () {
+      this.on("debit.id_jurnal", "j.id").andOn(
+        "debit.tipe",
+        "=",
+        db.raw("?", [1]),
+      );
+    })
+    .where("j.id_proyek", idProyek)
+    .andWhere("jf.nama", HPP_FORM_NAME);
+
+const list = async (idProyek) => {
+  const [legacyRows, journalRows] = await Promise.all([
+    listLegacy(idProyek),
+    listHppJournals(idProyek),
+  ]);
+  return [...legacyRows, ...journalRows].sort(
+    (first, second) =>
+      new Date(second.tanggal) - new Date(first.tanggal) ||
+      (second.id_jurnal || second.id || 0) - (first.id_jurnal || first.id || 0),
+  );
+};
+
+const total = async (idProyek) => {
+  const [legacyTotal, journalTotal] = await Promise.all([
+    db(TABLE)
+      .where({ id_proyek: idProyek, aktif: true })
+      .sum({ total: "nominal" })
+      .first(),
+    db("jurnal as j")
+      .join("jurnal_form as jf", "jf.id", "j.id_jurnal_form")
+      .join("transaksi as debit", function () {
+        this.on("debit.id_jurnal", "j.id").andOn(
+          "debit.tipe",
+          "=",
+          db.raw("?", [1]),
+        );
+      })
+      .where("j.id_proyek", idProyek)
+      .andWhere("jf.nama", HPP_FORM_NAME)
+      .sum({ total: "debit.amount" })
+      .first(),
+  ]);
+
+  return {
+    total: Number(legacyTotal?.total || 0) + Number(journalTotal?.total || 0),
+  };
+};
 
 const create = ({
   id_proyek,
