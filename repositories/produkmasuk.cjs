@@ -1,4 +1,5 @@
 const { withTransaction } = require("../helpers/transaction.cjs");
+const { create: createVendor } = require("./vendor.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 
 const table = "produkmasuk";
@@ -47,11 +48,12 @@ const create = async ({
   jatuhtempo,
   isUpdateHarga,
   pinjaman,
+  ...rest
 }) => {
   const isPinjaman = pinjaman === true || pinjaman === 1 || pinjaman === "1";
   jumlah = jumlah ?? 0;
   if (jumlah <= 0) throw new Error("Jumlah tidak boleh 0!");
-  if (!id_vendor) throw new Error("Vendor belum dipilih!");
+  if (!id_vendor && !rest.vendor) throw new Error("Vendor belum dipilih!");
   harga = harga ?? 0;
   terbayar = terbayar ?? 0;
   jatuhtempo = jatuhtempo ?? null;
@@ -60,6 +62,13 @@ const create = async ({
       await conn.execute("select stok from produk where id =? for update", [
         id_produk,
       ]);
+      if (rest.vendor && !id_vendor)
+        id_vendor = await createVendor({
+          nama: rest.vendor,
+          alamat: rest.alamatVendor || "",
+          id_vendor_jenis: rest.id_vendor_jenis || null,
+          conn,
+        });
       let sql = `insert into ${table} (id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo, pinjaman) values (?,?,?,?,?,?,?,?)`;
       let values = [
         id_produk,
