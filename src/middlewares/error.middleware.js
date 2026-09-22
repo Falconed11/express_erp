@@ -1,5 +1,6 @@
 export default (err, req, res, next) => {
-  const status = err.message === "User not found" ? 404 : 500;
+  const status =
+    err.statusCode || (err.message === "User not found" ? 404 : 500);
 
   console.error("Error : ", err.message);
 
