@@ -13,11 +13,14 @@ const Service = generateDefaultCRUDService({
       id_perusahaan,
       exact_id_perusahaan,
       visible_peran,
+      unconnected,
+      include_id,
       ...rest
     } = data;
     const rows = !id_laporan
       ? await Model.getAll({
           ...rest,
+          ...(unconnected ? { unconnected, include_id } : {}),
           ...(id_perusahaan
             ? {
                 id_perusahaan: exact_id_perusahaan

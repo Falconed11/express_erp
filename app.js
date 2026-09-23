@@ -198,6 +198,10 @@ app.use("/api/v2/perusahaan", perusahaanRoutes);
 // JWT verification middleware - protect all routes below
 app.use(verifyToken);
 
+app.get("/api/auth/me", (req, res) => {
+  res.json(req.user);
+});
+
 app.use("/api/v2/app-config", appConfigRoutes);
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
 app.use("/api/v2/coa-filter", coaFilterRoutes);
@@ -692,40 +696,73 @@ app.get("/api/laporanpenawaran", async (req, res) => {
 
 // metodepembayaran
 app.get("/api/metodepembayaran", async (req, res) => {
-  const list = metodepembayaran.list(req.query);
-  res.json(await list);
+  try {
+    const list = metodepembayaran.list({
+      ...req.query,
+      id_perusahaan: req.user?.id_perusahaan,
+    });
+    const data = await list;
+    if (req.query.config_sumber_dana) {
+      return res.json({ success: true, message: "Success", data });
+    }
+    res.json(data);
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
 });
 app.get("/api/totalbank", async (req, res) => {
   const list = metodepembayaran.total(req.query);
   res.json(await list);
 });
 app.post("/api/metodepembayaran", async (req, res) => {
-  const result = await metodepembayaran
-    .create(req.body)
-    .then((result) =>
-      res.json({ message: "metodepembayaran berhasil ditambahkan" }),
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    const result = await metodepembayaran.create({
+      ...req.body,
+      companyId: req.user?.id_perusahaan,
+    });
+    res.json({
+      message: "metodepembayaran berhasil ditambahkan",
+      insertId: result.insertId,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
 });
 app.put("/api/metodepembayaran", async (req, res) => {
-  const result = await metodepembayaran
-    .update(req.body)
-    .then((result) => res.json({ message: "metodepembayaran berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    const result = await metodepembayaran.update({
+      ...req.body,
+      companyId: req.user?.id_perusahaan,
+    });
+    res.json({
+      message: "metodepembayaran berhasil diubah",
+      affectedRows: result?.affectedRows ?? 0,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
 });
 app.put("/api/transferbank", async (req, res) => {
-  const result = await metodepembayaran
-    .transferBank(req.body)
-    .then((result) => res.json({ message: "metodepembayaran berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    await metodepembayaran.transferBank({
+      ...req.body,
+      companyId: req.user?.id_perusahaan,
+    });
+    res.json({ message: "metodepembayaran berhasil diubah" });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
 });
 app.delete("/api/metodepembayaran", async (req, res) => {
-  metodepembayaran
-    .destroy(req.body)
-    .then((result) =>
-      res.json({ message: "metodepembayaran berhasil dihapus" }),
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    await metodepembayaran.destroy({
+      ...req.body,
+      companyId: req.user?.id_perusahaan,
+    });
+    res.json({ message: "metodepembayaran berhasil dihapus" });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
 });
 
 // nota
@@ -831,7 +868,10 @@ app.get("/api/totalpembayaranproyek", async (req, res) => {
 });
 app.post("/api/pembayaranproyek", async (req, res) => {
   const result = await pembayaranproyek
-    .create(req.body)
+    .create({
+      ...req.body,
+      created_by: req.user?.id_karyawan ?? req.body.created_by ?? null,
+    })
     .then((result) =>
       res.json({ message: "Pembayaran Proyek berhasil ditambahkan" }),
     )
@@ -839,7 +879,10 @@ app.post("/api/pembayaranproyek", async (req, res) => {
 });
 app.put("/api/pembayaranproyek", async (req, res) => {
   const result = await pembayaranproyek
-    .update(req.body)
+    .update({
+      ...req.body,
+      updated_by: req.user?.id_karyawan ?? req.body.updated_by ?? null,
+    })
     .then((result) =>
       res.json({ message: "Pembayaran Proyek berhasil diubah" }),
     )

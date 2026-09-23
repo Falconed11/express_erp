@@ -20,7 +20,8 @@ const hashPassword = (password) => {
   });
 };
 
-const login = async ({ username, password }) => {
+const login = async ({ username, password, id_perusahaan }) => {
+  if (!id_perusahaan) throw new Error("Perusahaan wajib dipilih");
   const sql = `Select u.*, p.rank, p.keterangan keteranganperan, k.nama From ${table} u 
   left join peran p on p.nama=u.peran
   left join karyawan k on k.id=u.id_karyawan
@@ -47,6 +48,14 @@ const login = async ({ username, password }) => {
     console.log("Incorrect password");
     throw new Error("Password salah");
   }
+
+  const [companies] = await pool.execute(
+    "SELECT id FROM perusahaan WHERE id = ?",
+    [id_perusahaan],
+  );
+  if (companies.length === 0) throw new Error("Perusahaan tidak ditemukan");
+
+  user.id_perusahaan = Number(id_perusahaan);
 
   const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "8h" });
   console.log("Logged in successfully");

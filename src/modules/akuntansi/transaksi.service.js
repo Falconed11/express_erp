@@ -154,6 +154,13 @@ const Service = {
     try {
       const result = await withTransaction(async (conn) => {
         await produkkeluar.destroyByJurnalInTransaction(id, conn);
+        // A paid project payment owns its generated revenue journal. Remove
+        // that payment first so deleting the journal does not leave it behind
+        // (and so the payment's journal foreign key remains valid).
+        const [pembayaranResult] = await conn.execute(
+          "DELETE FROM pembayaranproyek WHERE id_jurnal = ?",
+          [id],
+        );
         // First, delete all transaksi for this jurnal
         const transaksiToDelete = await TransaksiModel.getAll(
           { id_jurnal: id },
@@ -169,6 +176,7 @@ const Service = {
         return {
           jurnal: jurnalResult,
           transaksiDeleted: transaksiToDelete.length,
+          pembayaranDeleted: pembayaranResult.affectedRows || 0,
         };
       });
       return result;
