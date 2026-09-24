@@ -6,7 +6,7 @@ const Model = generateStandardCRUDModel({
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
-  filterAliases: { id_coa_type: "ct.id" },
+  filterAliases: { id_coa_type: "ct.id", coa_subtype: "cs.nama" },
   customSelect:
     "ct.id id_coa_type, ct.normal_balance, ct.nama coa_type, cs.nama coa_subtype, p.nama perusahaan",
   generateCustomFilter: (filters) => {

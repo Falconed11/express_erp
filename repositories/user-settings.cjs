@@ -18,6 +18,7 @@ const get = async (idUser) => {
 };
 
 const update = async (idUser, mode) => {
+  console.log(idUser, mode);
   const normalizedMode = normalizeMode(mode);
   await pool.execute(
     `insert into user_settings (id_user, mode_interaksi_baris_tabel)

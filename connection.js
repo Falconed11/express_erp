@@ -3,5 +3,5 @@ export default {
   port: 3306,
   user: "david",
   password: process.env.DB_PASSWORD,
-  database: "erp",
+  database: process.env.DB_DATABASE,
 };
