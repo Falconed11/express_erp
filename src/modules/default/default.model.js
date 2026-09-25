@@ -17,6 +17,7 @@ export const generateDefaultCRUDModel = (
     validFilterColumns = [],
     generateCustomFilter = null,
     customGetAll = null,
+    handleServiceOptions = () => {},
   },
 ) => {
   function buildSqlQuery({
@@ -270,13 +271,19 @@ export const generateDefaultCRUDModel = (
         isPagination,
         orderBySql,
       });
-      // console.log(sql);
 
-      // Execute the query
-      const [rows] = await conn.execute(sql, [
+      const params = [
         ...filterValues,
         ...(isPagination ? [limit, offset] : []),
-      ]);
+      ];
+
+      // console.log("start");
+      // console.log(sql);
+      // console.log(params);
+      // console.log("end");
+
+      // Execute the query
+      const [rows] = await conn.execute(sql, params);
 
       return rows;
     },

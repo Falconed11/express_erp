@@ -3,6 +3,7 @@ import JurnalModel from "./jurnal.model.js";
 import LaporanModel from "./laporan.model.js";
 import { withTransaction } from "../../helpers/transaction.js";
 import produkkeluar from "../../../repositories/produkkeluar.cjs";
+import CoaVisibilityService from "../coa/coa-role-visibility.service.js";
 
 const validateTransaksiData = (transaksi) => {
   transaksi.map((item) => {
@@ -39,11 +40,16 @@ const resolveRelatedCoaIds = async (idLaporan, conn) => {
 
 const Service = {
   async getAll(data = {}) {
-    const { id_laporan, ...filters } = data;
+    const { id_laporan, user, ...filters } = data;
 
     return withTransaction(async (conn) => {
       if (!id_laporan) {
-        return TransaksiModel.getAll(filters, conn);
+        const coaVisibility = await CoaVisibilityService.getAll(
+          { peran: user.peran },
+          conn,
+        );
+        const excludeCoaIds = coaVisibility.map((item) => item.id_coa);
+        return TransaksiModel.getAll({ ...filters, excludeCoaIds }, conn);
       }
 
       const relatedCoaIds = await resolveRelatedCoaIds(id_laporan, conn);

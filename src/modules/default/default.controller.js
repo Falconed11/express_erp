@@ -50,7 +50,7 @@ export const generateDefaultCRUDController = ({
     }
     defaultAsyncController(
       async (req) => {
-        return getAll(parsedQuery);
+        return getAll({ ...parsedQuery, user: req.user });
       },
       {
         req,
