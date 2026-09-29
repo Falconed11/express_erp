@@ -8,11 +8,12 @@ export const parseNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   const raw = normalizeText(value);
   if (!raw) return null;
-  const normalized = raw.includes(",") && raw.includes(".")
-    ? raw.lastIndexOf(",") > raw.lastIndexOf(".")
-      ? raw.replace(/\./g, "").replace(",", ".")
-      : raw.replace(/,/g, "")
-    : raw.replace(",", ".");
+  const normalized =
+    raw.includes(",") && raw.includes(".")
+      ? raw.lastIndexOf(",") > raw.lastIndexOf(".")
+        ? raw.replace(/\./g, "").replace(",", ".")
+        : raw.replace(/,/g, "")
+      : raw.replace(",", ".");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 };
@@ -29,63 +30,140 @@ const findByNames = async (connection, table, names) => {
   if (!names.length) return [];
   const rows = [];
   for (const group of chunk(names)) {
-    rows.push(...(await connection(table).select("id", "nama").whereIn("nama", group)));
+    rows.push(
+      ...(await connection(table).select("id", "nama").whereIn("nama", group)),
+    );
   }
   return rows;
 };
 
-const resolveDependencies = async (connection, table, names, inputcode) => {
-  const uniqueNames = [...new Set(names)];
-  const current = await findByNames(connection, table, uniqueNames);
-  const existingNames = new Set(current.map((row) => row.nama));
-  const missing = uniqueNames.filter((name) => !existingNames.has(name));
-  if (missing.length) {
-    for (const group of chunk(missing)) {
-      await connection(table).insert(group.map((nama) => ({ nama, inputcode })));
+const resolveDependencies = async (
+  connection,
+  table,
+  rows,
+  field,
+  inputcode,
+) => {
+  // Deduplicate using lowercase keys while keeping the first-seen original string casing for insertions
+  const uniqueNamesMap = new Map();
+  for (const row of rows) {
+    const original = row[field];
+    if (original) {
+      const lower = original.toLowerCase();
+      if (!uniqueNamesMap.has(lower)) {
+        uniqueNamesMap.set(lower, original);
+      }
     }
   }
-  return findByNames(connection, table, uniqueNames);
+
+  const searchNames = Array.from(uniqueNamesMap.values());
+  const current = await findByNames(connection, table, searchNames);
+
+  // Track existing records in lowercase
+  const existingNamesLower = new Set(current.map((r) => r.nama.toLowerCase()));
+
+  // Find missing entries based on lowercased names
+  const missingOriginals = searchNames.filter(
+    (name) => !existingNamesLower.has(name.toLowerCase()),
+  );
+
+  if (missingOriginals.length) {
+    for (const group of chunk(missingOriginals)) {
+      await connection(table).insert(
+        group.map((nama) => ({ nama, inputcode })),
+      );
+    }
+  }
+
+  // Re-fetch all names so we have IDs for newly created + existing entries
+  return findByNames(connection, table, searchNames);
 };
 
 const createPreview = async (rows, errors, context) => {
   const invalidRows = new Set(errors.map((error) => error.row));
   const validRows = rows.filter((row) => !invalidRows.has(row.rowNumber));
-  const [vendor] = await db("vendor").select("id").where("id", context.id_vendor).limit(1);
+  const [vendor] = await db("vendor")
+    .select("id")
+    .where("id", context.id_vendor)
+    .limit(1);
   if (!vendor) {
-    errors.push(createImportError(null, "id_vendor", "INVALID_VENDOR", "Vendor tidak ditemukan."));
+    errors.push(
+      createImportError(
+        null,
+        "id_vendor",
+        "INVALID_VENDOR",
+        "Vendor tidak ditemukan.",
+      ),
+    );
   }
 
+  // Deduplicate array values while maintaining a clean lookup list
   const categories = [...new Set(validRows.map((row) => row.kategori))];
   const brands = [...new Set(validRows.map((row) => row.merek))];
   const types = [...new Set(validRows.map((row) => row.tipe))];
-  const [existingCategories, existingBrands, existingProducts] = await Promise.all([
-    findByNames(db, "kategoriproduk", categories),
-    findByNames(db, "merek", brands),
-    types.length ? db("produk").select("id", "tipe").whereIn("tipe", types) : [],
-  ]);
-  const categorySet = new Set(existingCategories.map((row) => row.nama));
-  const brandSet = new Set(existingBrands.map((row) => row.nama));
-  const productSet = new Set(existingProducts.map((row) => row.tipe));
-  const finalInvalidRows = new Set(errors.map((error) => error.row).filter(Boolean));
+
+  const [existingCategories, existingBrands, existingProducts] =
+    await Promise.all([
+      findByNames(db, "kategoriproduk", categories),
+      findByNames(db, "merek", brands),
+      types.length
+        ? db("produk").select("id", "tipe").whereIn("tipe", types)
+        : [],
+    ]);
+
+  // Use lowercased keys for Sets to handle case-insensitive matching
+  const categorySet = new Set(
+    existingCategories.map((row) => row.nama.toLowerCase()),
+  );
+  const brandSet = new Set(existingBrands.map((row) => row.nama.toLowerCase()));
+  const productSet = new Set(
+    existingProducts.map((row) => row.tipe.toLowerCase()),
+  );
+
+  const finalInvalidRows = new Set(
+    errors.map((error) => error.row).filter(Boolean),
+  );
   const hasGlobalError = errors.some((error) => !error.row);
   const finalValidRows = hasGlobalError
     ? []
     : rows.filter((row) => !finalInvalidRows.has(row.rowNumber));
 
+  // Count distinct missing entities case-insensitively
+  const uniqueValidCategoriesLower = new Set(
+    finalValidRows.map((r) => r.kategori.toLowerCase()),
+  );
+  const uniqueValidBrandsLower = new Set(
+    finalValidRows.map((r) => r.merek.toLowerCase()),
+  );
+
+  let newCategoriesCount = 0;
+  for (const cat of uniqueValidCategoriesLower) {
+    if (!categorySet.has(cat)) newCategoriesCount++;
+  }
+
+  let newBrandsCount = 0;
+  for (const brand of uniqueValidBrandsLower) {
+    if (!brandSet.has(brand)) newBrandsCount++;
+  }
+
   return {
     totalRows: rows.length,
     validRows: finalValidRows.length,
     invalidRows: rows.length - finalValidRows.length,
-    newProducts: finalValidRows.filter((row) => !productSet.has(row.tipe)).length,
-    updateProducts: finalValidRows.filter((row) => productSet.has(row.tipe)).length,
-    newCategories: categories.filter((name) => !categorySet.has(name)).length,
-    newBrands: brands.filter((name) => !brandSet.has(name)).length,
+    newProducts: finalValidRows.filter(
+      (row) => !productSet.has(row.tipe.toLowerCase()),
+    ).length,
+    updateProducts: finalValidRows.filter((row) =>
+      productSet.has(row.tipe.toLowerCase()),
+    ).length,
+    newCategories: newCategoriesCount,
+    newBrands: newBrandsCount,
     rows: rows.map((row) => ({
       row: row.rowNumber,
       tipe: row.tipe,
       status: finalInvalidRows.has(row.rowNumber)
         ? "ERROR"
-        : productSet.has(row.tipe)
+        : productSet.has(row.tipe?.toLowerCase())
           ? "UPDATE"
           : "CREATE",
     })),
@@ -96,27 +174,46 @@ const commitProduk = async (job, actor) => {
   const inputcode = `${INPUT_CODE_PREFIX}-${job.id}`;
   return db.transaction(async (trx) => {
     const rows = job.rows;
+
     const [categories, brands] = await Promise.all([
-      resolveDependencies(trx, "kategoriproduk", rows.map((row) => row.kategori), inputcode),
-      resolveDependencies(trx, "merek", rows.map((row) => row.merek), inputcode),
+      resolveDependencies(trx, "kategoriproduk", rows, "kategori", inputcode),
+      resolveDependencies(trx, "merek", rows, "merek", inputcode),
     ]);
-    const categoryIds = new Map(categories.map((row) => [row.nama, row.id]));
-    const brandIds = new Map(brands.map((row) => [row.nama, row.id]));
+
+    // Store maps with lowercased keys for safe case-insensitive lookup
+    const categoryIds = new Map(
+      categories.map((row) => [row.nama.toLowerCase(), row.id]),
+    );
+    const brandIds = new Map(
+      brands.map((row) => [row.nama.toLowerCase(), row.id]),
+    );
+
     const types = [...new Set(rows.map((row) => row.tipe))];
-    const existing = await trx("produk").select("id", "tipe").whereIn("tipe", types);
-    const existingByType = new Map(existing.map((row) => [row.tipe, row.id]));
-    const newRows = rows.filter((row) => !existingByType.has(row.tipe));
-    const updateRows = rows.filter((row) => existingByType.has(row.tipe));
+    const existing = await trx("produk")
+      .select("id", "tipe")
+      .whereIn("tipe", types);
+
+    // Map existing products using lowercase key
+    const existingByType = new Map(
+      existing.map((row) => [row.tipe.toLowerCase(), row.id]),
+    );
+
+    const newRows = rows.filter(
+      (row) => !existingByType.has(row.tipe.toLowerCase()),
+    );
+    const updateRows = rows.filter((row) =>
+      existingByType.has(row.tipe.toLowerCase()),
+    );
 
     if (newRows.length) {
       for (const group of chunk(newRows)) {
         await trx("produk").insert(
           group.map((row) => ({
             id_kustom: row.tipe,
-            nama: row.produk,
-            id_kategori: categoryIds.get(row.kategori),
-            id_merek: brandIds.get(row.merek),
-            tipe: row.tipe,
+            nama: row.produk, // Retains original input casing
+            id_kategori: categoryIds.get(row.kategori.toLowerCase()),
+            id_merek: brandIds.get(row.merek.toLowerCase()),
+            tipe: row.tipe, // Retains original input casing
             hargamodal: row.hargamodal,
             hargajual: 0,
             tanggal: job.context.tanggal,
@@ -132,30 +229,39 @@ const commitProduk = async (job, actor) => {
     for (const group of chunk(updateRows)) {
       await Promise.all(
         group.map((row) =>
-          trx("produk").where("id", existingByType.get(row.tipe)).update({
-            nama: row.produk,
-            id_kategori: categoryIds.get(row.kategori),
-            id_merek: brandIds.get(row.merek),
-            tipe: row.tipe,
-            hargamodal: row.hargamodal,
-            tanggal: job.context.tanggal,
-            satuan: row.satuan,
-            inputcode,
-          }),
+          trx("produk")
+            .where("id", existingByType.get(row.tipe.toLowerCase()))
+            .update({
+              nama: row.produk, // Updates with original input casing
+              id_kategori: categoryIds.get(row.kategori.toLowerCase()),
+              id_merek: brandIds.get(row.merek.toLowerCase()),
+              tipe: row.tipe, // Updates with original input casing
+              hargamodal: row.hargamodal,
+              tanggal: job.context.tanggal,
+              satuan: row.satuan,
+              inputcode,
+            }),
         ),
       );
     }
 
-    const finalProducts = await trx("produk").select("id", "tipe").whereIn("tipe", types);
-    const productIds = new Map(finalProducts.map((row) => [row.tipe, row.id]));
+    const finalProducts = await trx("produk")
+      .select("id", "tipe")
+      .whereIn("tipe", types);
+    const productIds = new Map(
+      finalProducts.map((row) => [row.tipe.toLowerCase(), row.id]),
+    );
+
     const stockRows = rows.map((row) => ({
-      id_produk: productIds.get(row.tipe),
+      id_produk: productIds.get(row.tipe.toLowerCase()),
       id_vendor: job.context.id_vendor,
       tanggal: job.context.tanggal,
       jumlah: 0,
       harga: row.hargamodal,
     }));
-    for (const group of chunk(stockRows)) await trx("produkmasuk").insert(group);
+
+    for (const group of chunk(stockRows))
+      await trx("produkmasuk").insert(group);
 
     return {
       created: newRows.length,
@@ -182,25 +288,64 @@ export const produkImportDefinition = {
   validate(rows, context) {
     const errors = [];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(context.tanggal ?? ""))) {
-      errors.push(createImportError(null, "tanggal", "INVALID_DATE", "Tanggal import tidak valid."));
+      errors.push(
+        createImportError(
+          null,
+          "tanggal",
+          "INVALID_DATE",
+          "Tanggal import tidak valid.",
+        ),
+      );
     }
     if (!context.id_vendor) {
-      errors.push(createImportError(null, "id_vendor", "INVALID_VENDOR", "Vendor wajib dipilih."));
+      errors.push(
+        createImportError(
+          null,
+          "id_vendor",
+          "INVALID_VENDOR",
+          "Vendor wajib dipilih.",
+        ),
+      );
     }
+
+    // Case-insensitive duplicate check within the import file
     const types = new Map();
     for (const row of rows) {
       for (const field of ["produk", "kategori", "merek", "tipe", "satuan"]) {
-        if (!row[field]) addError(errors, row, field, "EMPTY_REQUIRED_FIELD", `${field} wajib diisi.`);
+        if (!row[field])
+          addError(
+            errors,
+            row,
+            field,
+            "EMPTY_REQUIRED_FIELD",
+            `${field} wajib diisi.`,
+          );
       }
       if (row.hargamodal === null || row.hargamodal < 0) {
-        addError(errors, row, "hargamodal", "INVALID_NUMBER", "hargamodal harus berupa angka nol atau lebih.");
+        addError(
+          errors,
+          row,
+          "hargamodal",
+          "INVALID_NUMBER",
+          "hargamodal harus berupa angka nol atau lebih.",
+        );
       }
-      if (row.tipe) types.set(row.tipe, [...(types.get(row.tipe) ?? []), row]);
+      if (row.tipe) {
+        const lowerTipe = row.tipe.toLowerCase();
+        types.set(lowerTipe, [...(types.get(lowerTipe) ?? []), row]);
+      }
     }
-    for (const [tipe, duplicates] of types) {
+
+    for (const [, duplicates] of types) {
       if (duplicates.length > 1) {
         duplicates.forEach((row) =>
-          addError(errors, row, "tipe", "DUPLICATE_TIPE", `tipe ${tipe} muncul lebih dari sekali.`),
+          addError(
+            errors,
+            row,
+            "tipe",
+            "DUPLICATE_TIPE",
+            `tipe ${row.tipe} muncul lebih dari sekali.`,
+          ),
         );
       }
     }
