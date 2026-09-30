@@ -9,6 +9,7 @@ const saltRounds = +process.env.SALT_ROUNDS;
 const table = "user";
 
 const SUPER_ROLE = "super";
+const HIGH_ROLES = ["super", "owner"];
 const MAX_RANK = 10;
 
 const hashPassword = (password) => {
@@ -115,7 +116,7 @@ const update = async ({
 
   const oldHash = rows[0].password;
   const oldPasswordMatches = await bcrypt.compare(passwordlama, oldHash);
-  if (!oldPasswordMatches && srcperan != SUPER_ROLE) {
+  if (!oldPasswordMatches && !HIGH_ROLES.includes(srcperan)) {
     throw new Error("Password lama tidak sesuai");
   }
 
