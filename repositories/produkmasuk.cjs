@@ -29,7 +29,7 @@ const list = async ({ id_produk, laporan }) => {
     id_produk ? `and id_produk = ?` : ""
   } ${laporan ? "and (pm.jumlah-pm.keluar) > 0" : ""} order by ${
     laporan ? `kp.nama, p.nama,` : ""
-  } pm.tanggal desc`;
+  } pm.tanggal desc, p.id`;
   const values = [];
   if (id_produk) values.push(id_produk);
   const [rows] = await pool.execute(sql, values);

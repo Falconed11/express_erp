@@ -48,6 +48,16 @@ const getAuditProductState = async (id) => {
 };
 
 const Service = {
+  async getStockCount() {
+    return { count: await Model.getStockCount() };
+  },
+  async getStockEntriesForExport() {
+    return Model.getStockEntriesForExport();
+  },
+  async cleanStock() {
+    return Model.cleanStock();
+  },
+
   async getAll(filters = {}) {
     const rows = await produkRepo.list(filters);
 

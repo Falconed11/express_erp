@@ -3,11 +3,41 @@ import { generateDefaultCRUDController } from "../default/default.controller.js"
 import Service from "./produk.service.js";
 
 const canViewAuditLog = (req) => ["owner", "super"].includes(req.user?.peran);
+const canCleanStock = (req) => ["owner", "super"].includes(req.user?.peran);
 
 const Controller = generateDefaultCRUDController({
   ...Service,
   disableNama: true,
   customController: {
+    async getStockCount(req, res, next) {
+      defaultAsyncController(async () => Service.getStockCount(), {
+        req,
+        res,
+        next,
+      });
+    },
+    async getStockEntriesForExport(req, res, next) {
+      defaultAsyncController(async () => Service.getStockEntriesForExport(), {
+        req,
+        res,
+        next,
+      });
+    },
+    async cleanStock(req, res, next) {
+      if (!canCleanStock(req)) {
+        return res.status(403).json({
+          success: false,
+          message: "Hanya owner atau super yang dapat membersihkan stok.",
+        });
+      }
+
+      defaultAsyncController(async () => Service.cleanStock(), {
+        req,
+        res,
+        next,
+      });
+    },
+
     async getKategori(req, res, next) {
       defaultAsyncController(async () => Service.listKategori(), {
         req,
