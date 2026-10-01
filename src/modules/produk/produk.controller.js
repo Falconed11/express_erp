@@ -23,6 +23,13 @@ const Controller = generateDefaultCRUDController({
         next,
       });
     },
+    async getPage(req, res, next) {
+      defaultAsyncController(async () => Service.getPage(req.query), {
+        req,
+        res,
+        next,
+      });
+    },
     async cleanStock(req, res, next) {
       if (!canCleanStock(req)) {
         return res.status(403).json({

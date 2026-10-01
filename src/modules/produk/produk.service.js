@@ -54,6 +54,9 @@ const Service = {
   async getStockEntriesForExport() {
     return Model.getStockEntriesForExport();
   },
+  async getPage(filters) {
+    return Model.getPage(filters);
+  },
   async cleanStock() {
     return Model.cleanStock();
   },

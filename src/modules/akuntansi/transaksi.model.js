@@ -169,6 +169,9 @@ const Model = generateStandardCRUDModel({
       pk.id_produk,
       pk.jumlah_produk,
       ppk.nama AS produk,
+      ppk.tipe AS tipe_produk,
+      kp.nama AS kategori,
+      m.nama AS merek,
       ppk.stok,
       pr.nama AS proyek
     FROM jurnal j
@@ -180,6 +183,8 @@ const Model = generateStandardCRUDModel({
       GROUP BY id_jurnal
     ) pk ON pk.id_jurnal = j.id
     LEFT JOIN produk ppk ON ppk.id = pk.id_produk
+    LEFT JOIN kategoriproduk kp ON kp.id = ppk.id_kategori
+    LEFT JOIN merek m ON m.id = ppk.id_merek
     LEFT JOIN proyek pr ON pr.id = j.id_proyek
     WHERE ${whereClause}
     GROUP BY j.id, pk.id_produkkeluar

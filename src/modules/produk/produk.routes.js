@@ -22,6 +22,7 @@ const upload = multer({
 
 router.get("/", Controller.getAll);
 router.post("/", Controller.create);
+router.get("/page", Controller.getPage);
 router.get("/stock-count", Controller.getStockCount);
 router.get("/stock-export", Controller.getStockEntriesForExport);
 router.post("/clean-stock", Controller.cleanStock);
