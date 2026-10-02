@@ -4,6 +4,7 @@ import LaporanModel from "../akuntansi/laporan.model.js";
 import db from "../../config/db.js";
 import { withTransaction } from "../../helpers/transaction.js";
 import { resolveCoaSubtype, resolveCoaType } from "./coa-resolver.js";
+import { assertNotSystemSeededCoa } from "./system-seed-guard.js";
 
 const Service = generateDefaultCRUDService({
   ...Model,
@@ -70,16 +71,18 @@ const Service = generateDefaultCRUDService({
     async patch(id, data) {
       return withTransaction(async (conn) => {
         const [currentRows] = await conn.execute(
-          `SELECT c.id_coa_subtype, cs.id_coa_type, cs.nama coa_subtype,
+          `SELECT c.nama, c.id_coa_subtype, cs.id_coa_type,
+                  cs.nama coa_subtype,
                   ct.nama coa_type
            FROM coa c
            LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
            LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
-           WHERE c.id = ? LIMIT 1`,
+           WHERE c.id = ? LIMIT 1 FOR UPDATE`,
           [id],
         );
         const current = currentRows[0];
         if (!current) throw new Error("Data not found");
+        assertNotSystemSeededCoa("coa", current);
 
         const resolvedData = { ...current, ...data };
         const id_coa_type = await resolveCoaType(resolvedData, conn);
@@ -96,6 +99,22 @@ const Service = generateDefaultCRUDService({
           },
           conn,
         );
+      });
+    },
+    async destroy(id) {
+      return withTransaction(async (conn) => {
+        const [currentRows] = await conn.execute(
+          `SELECT c.nama, cs.nama coa_subtype, ct.nama coa_type
+           FROM coa c
+           LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
+           LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
+           WHERE c.id = ? LIMIT 1 FOR UPDATE`,
+          [id],
+        );
+        const current = currentRows[0];
+        if (!current) throw new Error("Data not found");
+        assertNotSystemSeededCoa("coa", current);
+        return Model.destroy(id, conn);
       });
     },
   },

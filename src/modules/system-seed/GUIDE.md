@@ -932,6 +932,40 @@ and:
 syncExpression();
 ```
 
+### Protect system-generated COA records
+
+The seed currently identifies COA records by name and relationships rather
+than a dedicated system-generated database marker. Seeded COA types, subtypes,
+and COAs are matched by their `nama` and parent names. The COA management UI
+marks those rows as system-managed, and the
+`src/modules/coa/system-seed-guard.js` backend guard rejects PATCH and DELETE
+requests for them. Keep the guard's name sets aligned with every seed that
+creates or renames these records; otherwise a generated row could become
+editable or deletable, or a user-created row with the same name and parent
+could be protected unintentionally.
+
+Current protected records are:
+
+| Entity | Name | Parent |
+| --- | --- | --- |
+| COA type | Aktiva Lancar | - |
+| COA type | Biaya Operasional | - |
+| COA type | HPP | - |
+| COA type | Pendapatan | - |
+| COA subtype | Kas | Aktiva Lancar |
+| COA subtype | Operasional Kantor | Biaya Operasional |
+| COA subtype | HPP | HPP |
+| COA subtype | Bank | Aktiva Lancar |
+| COA subtype | Pendapatan | Pendapatan |
+| COA | HPP | HPP subtype |
+| COA | Pendapatan | Pendapatan subtype |
+
+When adding, removing, or renaming a seeded COA type, subtype, or COA, update
+both `src/modules/coa/system-seed-guard.js` in the Express backend and
+`app/utils/systemCoaSeed.js` in the frontend. Preserve the parent-name checks
+for subtypes and COAs so matching is limited to the seeded accounting
+relationships.
+
 ---
 
 # 21. Recommended Implementation Order
