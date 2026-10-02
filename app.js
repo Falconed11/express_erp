@@ -4,6 +4,8 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import multer from "multer";
 import cookieParser from "cookie-parser";
+import { randomUUID } from "node:crypto";
+import { writeApiLog } from "./src/utils/api-logger.js";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -172,7 +174,38 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // app.use(multer({ storage }).single("file"));
 
 app.use((req, res, next) => {
-  console.log(`IP: ${req.ip} ${req.method}${req.url} ${new Date()}`);
+  if (req.path.startsWith("/api/")) {
+    const requestId = randomUUID();
+    const startedAt = Date.now();
+    req.requestId = requestId;
+    res.setHeader("X-Request-Id", requestId);
+    writeApiLog("request_started", {
+      requestId,
+      method: req.method,
+      path: req.path,
+    });
+
+    res.once("finish", () => {
+      writeApiLog("request_finished", {
+        requestId,
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        durationMs: Date.now() - startedAt,
+      });
+    });
+    res.once("close", () => {
+      if (!res.writableFinished) {
+        writeApiLog("response_aborted", {
+          requestId,
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
+          durationMs: Date.now() - startedAt,
+        });
+      }
+    });
+  }
   next();
 });
 app.use("/logo", express.static("logo"));
@@ -630,6 +663,15 @@ app.get("/api/keteranganpenawaran", async (req, res) => {
     const list = await keteranganpenawaran.list(req.query);
     res.json(list);
   } catch (e) {
+    writeApiLog("handler_error", {
+      requestId: req.requestId,
+      method: req.method,
+      path: req.path,
+      errorName: e.name,
+      errorCode: e.code,
+      errorNumber: e.errno,
+      sqlState: e.sqlState,
+    });
     res.status(400).json({ error: e.message || "Unknown error" });
   }
 });
@@ -1022,7 +1064,18 @@ app.get("/api/proyek", async (req, res) => {
   const list = proyek
     .list(req.query)
     .then((result) => res.json(result))
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) => {
+      writeApiLog("handler_error", {
+        requestId: req.requestId,
+        method: req.method,
+        path: req.path,
+        errorName: e.name,
+        errorCode: e.code,
+        errorNumber: e.errno,
+        sqlState: e.sqlState,
+      });
+      res.status(400).json({ message: e.message });
+    });
 });
 app.get("/api/exportpenawaran", async (req, res) => {
   const list = proyek
