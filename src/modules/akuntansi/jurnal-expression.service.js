@@ -1,6 +1,8 @@
 import db from "../../config/db.js";
 import { generateDefaultCRUDService } from "../default/default.service.js";
 import Model from "./jurnal-expression.model.js";
+import { withTransaction } from "../../helpers/transaction.js";
+import { assertNotSystemGenerated } from "./system-seed-guard.js";
 
 // Map filter_type to table names
 const FILTER_TYPE_TABLE_MAP = {
@@ -42,21 +44,60 @@ const Service = generateDefaultCRUDService({
     },
 
     async patch(id, data) {
-      // Validate filter exists before updating (if id_filter or filter_type is being updated)
-      if (data.id_filter !== undefined || data.filter_type !== undefined) {
-        // Get current record to use existing values if not provided
-        const current = await Model.getById(id);
-        const id_filter = data.id_filter ?? current.id_filter;
-        const filter_type = data.filter_type ?? current.filter_type;
+      return withTransaction(async (conn) => {
+        const [rows] = await conn.execute(
+          `SELECT je.nama, je.keterangan, je.id_filter, je.filter_type,
+             EXISTS (
+               SELECT 1
+               FROM jurnal_form_expression jfe
+               JOIN jurnal_form jf ON jf.id = jfe.id_jurnal_form
+               WHERE jfe.id_jurnal_expression = je.id
+                 AND jf.system_key IS NOT NULL
+                 AND jf.system_key <> ''
+             ) system_form_linked
+           FROM jurnal_expression je
+           WHERE je.id = ? LIMIT 1 FOR UPDATE`,
+          [id],
+        );
+        const current = rows[0];
+        if (!current) throw new Error("Data not found");
+        assertNotSystemGenerated(current, "Jurnal Expression");
 
-        await validateFilterExists(id_filter, filter_type);
-      }
+        if (data.id_filter !== undefined || data.filter_type !== undefined) {
+          const id_filter = data.id_filter ?? current.id_filter;
+          const filter_type = data.filter_type ?? current.filter_type;
 
-      const result = await Model.patch(id, data);
-      if (result.affectedRows === 0) {
-        throw new Error("No data updated");
-      }
-      return result;
+          await validateFilterExists(id_filter, filter_type, conn);
+        }
+
+        const result = await Model.patch(id, data, conn);
+        if (result.affectedRows === 0) {
+          throw new Error("No data updated");
+        }
+        return result;
+      });
+    },
+    async destroy(id) {
+      return withTransaction(async (conn) => {
+        const [rows] = await conn.execute(
+          `SELECT je.nama, je.keterangan,
+             EXISTS (
+               SELECT 1
+               FROM jurnal_form_expression jfe
+               JOIN jurnal_form jf ON jf.id = jfe.id_jurnal_form
+               WHERE jfe.id_jurnal_expression = je.id
+                 AND jf.system_key IS NOT NULL
+                 AND jf.system_key <> ''
+             ) system_form_linked
+           FROM jurnal_expression je
+           WHERE je.id = ? LIMIT 1 FOR UPDATE`,
+          [id],
+        );
+        const current = rows[0];
+        if (!current) throw new Error("Data not found");
+        assertNotSystemGenerated(current, "Jurnal Expression");
+        return Model.destroy(id, conn);
+      });
     },
   },
 });

@@ -932,17 +932,28 @@ and:
 syncExpression();
 ```
 
-### Protect system-generated COA records
+### Protect system-generated accounting records
 
-The seed currently identifies COA records by name and relationships rather
-than a dedicated system-generated database marker. Seeded COA types, subtypes,
-and COAs are matched by their `nama` and parent names. The COA management UI
-marks those rows as system-managed, and the
-`src/modules/coa/system-seed-guard.js` backend guard rejects PATCH and DELETE
-requests for them. Keep the guard's name sets aligned with every seed that
-creates or renames these records; otherwise a generated row could become
-editable or deletable, or a user-created row with the same name and parent
-could be protected unintentionally.
+System-seeded journal forms use a non-empty `system_key`. Seeded expressions
+and form expressions use `keterangan: "System default"`; expressions linked
+to a seeded form and its form expressions are also protected by that form's
+`system_key`. System-generated report-structure rows use
+`keterangan: "System default"`.
+
+The frontend marks these records as system-managed. The backend guards reject
+PATCH and DELETE requests for protected records in the
+`jurnal_form`, `jurnal_expression`, `jurnal_form_expression`, and
+`laporan_relation` tables. Keep `app/utils/systemSeedRecords.js` and
+`src/modules/akuntansi/system-seed-guard.js` aligned with the metadata used
+when adding new system-generated records.
+
+COA types, subtypes, and COAs currently have no dedicated system-generated
+database marker. They are matched by their `nama` and parent names in
+`app/utils/systemCoaSeed.js` and `src/modules/coa/system-seed-guard.js`.
+Keep these name sets aligned with every seed that creates or renames these
+records; otherwise a generated row could become editable or deletable, or a
+user-created row with the same name and parent could be protected
+unintentionally.
 
 Current protected records are:
 

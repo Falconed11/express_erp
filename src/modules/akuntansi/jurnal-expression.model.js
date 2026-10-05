@@ -28,6 +28,14 @@ const Model = generateStandardCRUDModel({
       WHEN 'coa' THEN c.nama
       ELSE NULL
     END filter_name`,
+    `EXISTS (
+      SELECT 1
+      FROM jurnal_form_expression jfe
+      JOIN jurnal_form jf ON jf.id = jfe.id_jurnal_form
+      WHERE jfe.id_jurnal_expression = main.id
+        AND jf.system_key IS NOT NULL
+        AND jf.system_key <> ''
+    ) system_form_linked`,
   ],
   generateCustomJoin: (mainTable) => `
     left join laporan l on l.id=${mainTable}.id_filter and ${mainTable}.filter_type='laporan'
