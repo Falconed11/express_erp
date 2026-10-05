@@ -5,6 +5,16 @@ import { withTransaction } from "../../helpers/transaction.js";
 const Service = generateDefaultCRUDService({
   ...Model,
   customService: {
+    async setNodeDefaultOpen(id, nodeKey, defaultOpen) {
+      return withTransaction(async (conn) =>
+        Model.setNodeDefaultOpen(id, nodeKey, defaultOpen, conn),
+      );
+    },
+    async setNodeOrder(id, parentNodeKey, nodeKeys) {
+      return withTransaction(async (conn) =>
+        Model.setNodeOrder(id, parentNodeKey, nodeKeys, conn),
+      );
+    },
     async getById(id, data) {
       const result = await withTransaction(async (conn) => {
         const isFullReport =

@@ -680,6 +680,25 @@ const fetchTreeRows = async (
         e.relation_path,
 
         COALESCE(
+          (
+            SELECT preference.default_open
+            FROM laporan_tree_node_preference preference
+            WHERE preference.id_laporan = ?
+              AND preference.node_key COLLATE utf8mb4_general_ci
+                = e.node_key COLLATE utf8mb4_general_ci
+          ),
+          1
+        ) AS default_open,
+
+        (
+          SELECT preference.sort_order
+          FROM laporan_tree_node_preference preference
+          WHERE preference.id_laporan = ?
+            AND preference.node_key COLLATE utf8mb4_general_ci
+              = e.node_key COLLATE utf8mb4_general_ci
+        ) AS sort_order,
+
+        COALESCE(
           n.own_nominal,
           0
         ) AS own_nominal
@@ -716,6 +735,7 @@ const fetchTreeRows = async (
         e.path;
   `;
 
+  values.push(id, id);
   const [rows] = await conn.execute(query, values);
 
   const buildBranchBalances = (rows) => {
@@ -791,6 +811,57 @@ const Model = generateStandardCRUDModel({
   generateCustomJoin: (mainTable) => ``,
   prepareData: prepareLaporanData,
   customModel: {
+    async setNodeDefaultOpen(id, nodeKey, defaultOpen, conn = db) {
+      const rows = await fetchTreeRows(
+        { id, includeBalance: false },
+        conn,
+      );
+      if (!rows.some((row) => String(row.id) === String(nodeKey))) {
+        throw new Error("Laporan tree node not found");
+      }
+
+      const [result] = await conn.execute(
+        `INSERT INTO laporan_tree_node_preference
+          (id_laporan, node_key, default_open)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE default_open = VALUES(default_open)`,
+        [id, nodeKey, defaultOpen],
+      );
+      return result;
+    },
+    async setNodeOrder(id, parentNodeKey, nodeKeys, conn = db) {
+      const rows = await fetchTreeRows(
+        { id, includeBalance: false },
+        conn,
+      );
+      const siblings = rows.filter((row) =>
+        parentNodeKey == null
+          ? row.id_parent == null
+          : String(row.id_parent) === String(parentNodeKey),
+      );
+      const siblingKeys = new Set(siblings.map((row) => String(row.id)));
+      const orderedKeys = nodeKeys.map(String);
+
+      if (
+        orderedKeys.length !== siblings.length ||
+        new Set(orderedKeys).size !== orderedKeys.length ||
+        orderedKeys.some((nodeKey) => !siblingKeys.has(nodeKey))
+      ) {
+        throw new Error("Node keys must contain every direct child exactly once");
+      }
+
+      for (const [sortOrder, nodeKey] of orderedKeys.entries()) {
+        await conn.execute(
+          `INSERT INTO laporan_tree_node_preference
+            (id_laporan, node_key, sort_order)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order)`,
+          [id, nodeKey, sortOrder],
+        );
+      }
+
+      return { affectedRows: orderedKeys.length };
+    },
     async create(data, conn = db) {
       const preparedData = prepareLaporanData(data);
 
