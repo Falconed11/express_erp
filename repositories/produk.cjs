@@ -382,7 +382,7 @@ const writeAuditEntries = async (conn, entries) => {
   return entries;
 };
 
-const update = async ({ id, ...rest }) => {
+const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
   const allowedFields = [
     "id_kustom",
     "id_kategori",
@@ -398,7 +398,7 @@ const update = async ({ id, ...rest }) => {
   const fields = [];
   const values = [];
   try {
-    const result = await withTransaction(pool, async (conn) => {
+    const performUpdate = async (conn) => {
       const [beforeRows] = await conn.execute(
         `SELECT * FROM ${table} WHERE id = ? LIMIT 1`,
         [id],
@@ -422,6 +422,10 @@ const update = async ({ id, ...rest }) => {
           fields.push(`${key}=?`);
           values.push(value);
         }
+      }
+      if (stokDelta != null) {
+        fields.push("stok = stok + ?");
+        values.push(stokDelta);
       }
       if (fields.length === 0)
         return { affectedRows: 0, message: "No fields to update" };
@@ -448,13 +452,19 @@ const update = async ({ id, ...rest }) => {
         insertMerekId: rest.id_merek,
         insertProdukId: result.insertId,
       };
-    });
+    };
+    if (transactionConn) {
+      assertTransaction(transactionConn, update.name);
+      return await performUpdate(transactionConn);
+    }
+    const result = await withTransaction(pool, performUpdate);
     return result;
   } catch (err) {
     console.log(err);
     throw err;
   }
 };
+
 const destroy = async ({ id, changed_by = null }) => {
   const [beforeRows] = await pool.execute(
     `SELECT * FROM ${table} WHERE id = ? LIMIT 1`,

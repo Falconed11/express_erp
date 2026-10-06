@@ -2,6 +2,7 @@ const { pool } = require("./db.2.0.0.cjs");
 const { create: customerCreate } = require("./customer.cjs");
 const { withTransaction } = require("./../helpers/transaction.cjs");
 const table = "proyek";
+const SEARCHABLE_PROJECT_COLUMNS = ["p.nama", "p.klien", "i.nama", "pr.nama"];
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
 
 const list = async ({
@@ -17,12 +18,19 @@ const list = async ({
   id_jenisproyek,
   nama,
   klien,
+  search,
   countProgressNoOffer,
   hide,
   limit,
   offset,
 }) => {
   const isPagination = limit != null && offset != null;
+  const searchTerms = String(search ?? "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort)
     if (validColumns.includes(sort)) {
@@ -52,6 +60,7 @@ const list = async ({
   ${id_produk ? "and cp.id_produk=?" : ""}
   ${nama ? "and p.nama like ?" : ""}
   ${klien ? "and p.klien like ?" : ""}
+  ${searchTerms.length > 0 ? `and (${searchTerms.flatMap(() => SEARCHABLE_PROJECT_COLUMNS.map((column) => `LOWER(COALESCE(${column}, '')) LIKE ?`)).join(" OR ")})` : ""}
   ${hide != null ? "and p.hide=?" : ""}
   ${id_perusahaan ? "and pr.id=?" : ""}
   group by p.id
@@ -80,6 +89,9 @@ const list = async ({
     ...(id_produk ? [id_produk] : []),
     ...(nama ? [`%${nama}%`] : []),
     ...(klien ? [`%${klien}%`] : []),
+    ...searchTerms.flatMap((term) =>
+      SEARCHABLE_PROJECT_COLUMNS.map(() => `%${term}%`),
+    ),
     ...(hide != null ? [hide] : []),
     ...(id_perusahaan ? [id_perusahaan] : []),
     ...(isPagination ? [offset, limit] : []),

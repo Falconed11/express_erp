@@ -1,5 +1,6 @@
 const { withTransaction } = require("../helpers/transaction.cjs");
 const { create: createVendor } = require("./vendor.cjs");
+const { update: updateProduk } = require("./produk.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 
 const table = "produkmasuk";
@@ -83,14 +84,14 @@ const create = async ({
       // console.log(sql, values);
       const [result1] = await conn.execute(sql, values);
 
-      sql = `update produk set stok = stok + ? ${isUpdateHarga ? ", hargamodal = ?, hargajual = ?, tanggal=?" : ""} where id=?;`;
-      // console.log(sql, values);
-      values = [
-        jumlah,
-        ...(isUpdateHarga ? [harga, hargajual, tanggalHarga] : []),
-        id_produk,
-      ];
-      const [result2] = await conn.execute(sql, values);
+      await updateProduk({
+        conn,
+        id: id_produk,
+        stokDelta: jumlah,
+        ...(isUpdateHarga
+          ? { hargamodal: harga, hargajual, tanggal: tanggalHarga }
+          : {}),
+      });
       return { message: "Sukses" };
     });
     return result;
@@ -143,14 +144,14 @@ const update = async ({
       ];
       console.log(sql, values);
       const [result1] = await conn.execute(sql, values);
-      sql = `update produk set stok=stok + ? ${isUpdateHarga ? ", hargamodal = ?, hargajual = ?, tanggal=?" : ""} where id = ?`;
-      values = [
-        jumlah - oldJumlah,
-        ...(isUpdateHarga ? [harga, hargajual, tanggalHarga] : []),
-        id_produk,
-      ];
-      console.log(sql, values);
-      const [result2] = await conn.execute(sql, values);
+      await updateProduk({
+        conn,
+        id: id_produk,
+        stokDelta: jumlah - oldJumlah,
+        ...(isUpdateHarga
+          ? { hargamodal: harga, hargajual, tanggal: tanggalHarga }
+          : {}),
+      });
       return { message: "Sukses" };
     });
     return result;
@@ -173,9 +174,11 @@ const destroy = async ({ id, id_produk, jumlah }) => {
       sql = `delete from ${table} where id = ?`;
       values = [id];
       const [result1] = await conn.execute(sql, values);
-      sql = `update produk set stok=stok - ? where id = ?`;
-      values = [jumlah, id_produk];
-      const [result2] = await conn.execute(sql, values);
+      await updateProduk({
+        conn,
+        id: id_produk,
+        stokDelta: -jumlah,
+      });
       return { message: "Sukses" };
     });
     return result;
