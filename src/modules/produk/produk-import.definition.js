@@ -260,6 +260,7 @@ const commitProduk = async (job, actor) => {
     const stockRows = rows.map((row) => ({
       id_produk: productIds.get(row.tipe.toLowerCase()),
       id_vendor: job.context.id_vendor,
+      id_perusahaan: job.context.id_perusahaan,
       tanggal: job.context.tanggal,
       jumlah: 0,
       harga: row.hargamodal,

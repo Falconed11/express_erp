@@ -4,10 +4,42 @@ const {
   assertTransaction,
 } = require("../helpers/transaction.cjs");
 const { pool } = require("./db.2.0.0.cjs");
+const {
+  adjust: adjustCompanyStock,
+  recordLoan: recordCompanyLoan,
+} = require("../src/modules/produk-stock/produk-stock.repository.cjs");
 
 const OUTPUT_TABLE = "produkkeluar";
 
-async function list({ id_produk, id_jurnal, filterText }) {
+const getCompanyForOutput = async (
+  conn,
+  { id_jurnal, id_proyek, idproyek, id_perusahaan },
+) => {
+  if (id_jurnal) {
+    const [rows] = await conn.execute(
+      "SELECT id_perusahaan FROM jurnal WHERE id = ?",
+      [id_jurnal],
+    );
+    if (rows[0]?.id_perusahaan != null) return rows[0].id_perusahaan;
+  }
+  if (id_proyek) {
+    const [rows] = await conn.execute(
+      "SELECT id_perusahaan FROM proyek WHERE id = ?",
+      [id_proyek],
+    );
+    if (rows[0]?.id_perusahaan != null) return rows[0].id_perusahaan;
+  }
+  if (idproyek) {
+    const [rows] = await conn.execute(
+      "SELECT id_perusahaan FROM proyek WHERE id_second = ?",
+      [idproyek],
+    );
+    if (rows[0]?.id_perusahaan != null) return rows[0].id_perusahaan;
+  }
+  return id_perusahaan ?? null;
+};
+
+async function list({ id_produk, id_jurnal, id_perusahaan, filterText }) {
   const conn = await pool.getConnection();
   try {
     const hasIdProduk = Boolean(id_produk);
@@ -43,12 +75,14 @@ async function list({ id_produk, id_jurnal, filterText }) {
       WHERE 1 = 1
       ${hasIdProduk ? "AND pk.id_produk = ?" : ""}
       ${id_jurnal ? "AND pk.id_jurnal = ?" : ""}
+      ${id_perusahaan ? "AND pk.id_perusahaan = ?" : ""}
       ${hasFilterText ? words.map(() => "AND LOWER(CONCAT_WS(' ', COALESCE(p.id_kustom, ''), COALESCE(p.nama, ''), COALESCE(p.tipe, ''), COALESCE(m.nama, ''), COALESCE(v.nama, ''), COALESCE(pr.nama, ''), COALESCE(i.nama, ''), COALESCE(pk.keterangan, ''))) LIKE ?").join(" ") : ""}
       order by pk.tanggal desc, pk.id desc
     `;
     const params = [];
     if (hasIdProduk) params.push(id_produk);
     if (id_jurnal) params.push(id_jurnal);
+    if (id_perusahaan) params.push(id_perusahaan);
     if (hasFilterText) {
       for (const word of words) {
         params.push(`%${word.toLowerCase()}%`);
@@ -187,6 +221,7 @@ async function _createInTransaction({
   isSelected,
   idproyek,
   id_proyek,
+  id_perusahaan,
   karyawan,
   id_karyawan = null,
   idproduk,
@@ -206,6 +241,12 @@ async function _createInTransaction({
   );
   if (produkRows.length === 0) throw new Error("Produk tidak ditemukan");
   const produk = produkRows[0];
+  const consumingCompanyId = await getCompanyForOutput(conn, {
+    id_jurnal,
+    id_proyek,
+    idproyek,
+    id_perusahaan,
+  });
   if (jumlah > produk.stok)
     throw new Error(
       `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`,
@@ -224,7 +265,7 @@ async function _createInTransaction({
       const requested = +allocation.jumlah || 0;
       if (requested <= 0) throw new Error("Jumlah produk tidak boleh 0!");
       const [pmRows] = await conn.execute(
-        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga
+        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga, id_perusahaan
          FROM produkmasuk WHERE id = ? FOR UPDATE`,
         [allocation.id_produkmasuk],
       );
@@ -246,15 +287,24 @@ async function _createInTransaction({
         requested,
         id_produk,
       ]);
+      await adjustCompanyStock({
+        conn,
+        id_produk,
+        id_perusahaan: consumingCompanyId,
+        jumlah: -requested,
+        created_by,
+        updated_by,
+      });
       const [insertResult] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (id_produk, id_produkmasuk, id_proyek, id_jurnal, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_produk, id_produkmasuk, id_proyek, id_jurnal, id_perusahaan, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_produk,
           pm.id,
           id_proyek || null,
           id_jurnal,
+          consumingCompanyId,
           created_by,
           updated_by,
           metodepengeluaran,
@@ -265,6 +315,15 @@ async function _createInTransaction({
           keterangan,
         ],
       );
+      await recordCompanyLoan(conn, {
+        id_produkkeluar: insertResult.insertId,
+        id_produkmasuk: pm.id,
+        id_produk,
+        id_perusahaan_pemberi: pm.id_perusahaan,
+        id_perusahaan_peminjam: consumingCompanyId,
+        jumlah: requested,
+        created_by,
+      });
       if (isSelected) {
         await conn.execute(
           `INSERT INTO pengeluaranproyek
@@ -290,7 +349,7 @@ async function _createInTransaction({
     for (const snObj of serialnumbers) {
       // Lock one eligible produkmasuk row
       let [pmRows] = await conn.execute(
-        `SELECT id FROM produkmasuk
+        `SELECT id, id_perusahaan FROM produkmasuk
          WHERE jumlah > keluar AND id_produk = ?
          ORDER BY harga DESC
          LIMIT 1
@@ -311,15 +370,24 @@ async function _createInTransaction({
       await conn.execute(`UPDATE produk SET stok = stok - 1 WHERE id = ?`, [
         id_produk,
       ]);
+      await adjustCompanyStock({
+        conn,
+        id_produk,
+        id_perusahaan: consumingCompanyId,
+        jumlah: -1,
+        created_by,
+        updated_by,
+      });
       // Insert into produkkeluar
-      await conn.execute(
+      const [insertResult] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (id_produk, id_produkmasuk, id_jurnal, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_produk, id_produkmasuk, id_jurnal, id_perusahaan, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_produk,
           pm.id,
           id_jurnal,
+          consumingCompanyId,
           created_by,
           updated_by,
           metodepengeluaran,
@@ -330,12 +398,21 @@ async function _createInTransaction({
           keterangan,
         ],
       );
+      await recordCompanyLoan(conn, {
+        id_produkkeluar: insertResult.insertId,
+        id_produkmasuk: pm.id,
+        id_produk,
+        id_perusahaan_pemberi: pm.id_perusahaan,
+        id_perusahaan_peminjam: consumingCompanyId,
+        jumlah: 1,
+        created_by,
+      });
     }
   } else {
     let sisa = jumlah;
     while (sisa > 0) {
       let [pmRows] = await conn.execute(
-        `SELECT id, (jumlah - keluar) AS available, harga, id_vendor
+        `SELECT id, (jumlah - keluar) AS available, harga, id_vendor, id_perusahaan
          FROM produkmasuk
          WHERE jumlah > keluar AND id_produk = ?
          ORDER BY harga DESC
@@ -361,17 +438,26 @@ async function _createInTransaction({
         take,
         id_produk,
       ]);
+      await adjustCompanyStock({
+        conn,
+        id_produk,
+        id_perusahaan: consumingCompanyId,
+        jumlah: -take,
+        created_by,
+        updated_by,
+      });
       // Insert into produkkeluar
       const [insertRes] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, id_jurnal, created_by, updated_by, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, id_jurnal, id_perusahaan, created_by, updated_by, jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           metodepengeluaran ?? "proyek",
           id_produk,
           pm.id,
           id_proyek || null,
           id_jurnal,
+          consumingCompanyId,
           created_by,
           updated_by,
           take,
@@ -380,6 +466,15 @@ async function _createInTransaction({
           keterangan,
         ],
       );
+      await recordCompanyLoan(conn, {
+        id_produkkeluar: insertRes.insertId,
+        id_produkmasuk: pm.id,
+        id_produk,
+        id_perusahaan_pemberi: pm.id_perusahaan,
+        id_perusahaan_peminjam: consumingCompanyId,
+        jumlah: take,
+        created_by,
+      });
 
       if (isSelected) {
         // Insert pengeluaranproyek
@@ -430,6 +525,11 @@ async function _deleteInTransaction({
   if (existing.length === 0) {
     throw new Error("Produkkeluar record not found");
   }
+  const output = existing[0];
+  jumlah = Number(output.jumlah);
+  id_produkmasuk = output.id_produkmasuk;
+  id_produk = output.id_produk;
+  metodepengeluaran = output.metodepengeluaran;
 
   if (metodepengeluaran === "proyek") {
     // lock related pengeluaranproyek row(s)
@@ -463,6 +563,13 @@ async function _deleteInTransaction({
     jumlah,
     id_produk,
   ]);
+  await adjustCompanyStock({
+    conn,
+    id_produk,
+    id_perusahaan: output.id_perusahaan,
+    jumlah,
+    updated_by: output.updated_by,
+  });
 
   return { success: true };
 }

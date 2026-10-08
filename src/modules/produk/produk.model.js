@@ -64,6 +64,7 @@ const Model = {
     isReadyStock,
     nama,
     id_kustom,
+    id_perusahaan,
     page = 1,
     pageSize = 25,
   } = {}) {
@@ -145,6 +146,7 @@ const Model = {
     const [items] = await db.execute(
       `SELECT
          p.*,
+         COALESCE(psp.stok, 0) AS stok_perusahaan,
          kp.nama AS kategoriproduk,
          m.nama AS nmerek,
          v.nama AS nvendor,
@@ -158,10 +160,12 @@ const Model = {
        LEFT JOIN vendor v ON v.id = p.id_vendor
        LEFT JOIN vendor mv ON mv.id = p.main_vendor
        LEFT JOIN kategoriproduk kp ON kp.id = p.id_kategori
+       LEFT JOIN produkstokperusahaan psp
+         ON psp.id_produk = p.id AND psp.id_perusahaan = ?
        ${where}
        ORDER BY p.tanggal DESC, kategoriproduk, p.nama, m.nama, p.id
        LIMIT ? OFFSET ?`,
-      [...values, normalizedPageSize, offset],
+      [id_perusahaan ?? null, ...values, normalizedPageSize, offset],
     );
 
     return {

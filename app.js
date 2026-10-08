@@ -143,6 +143,7 @@ import peristiwaRoutes from "./src/modules/coa/peristiwa.route.js";
 import perusahaanRoutes from "./src/routes/perusahaan.routes.js";
 import produkRoutes from "./src/modules/produk/produk.routes.js";
 import produkKeluarRoutes from "./src/modules/produk-keluar/produk-keluar.routes.js";
+import produkStockRoutes from "./src/modules/produk-stock/produk-stock.routes.js";
 import systemSeedRoutes from "./src/modules/system-seed/system-seed.route.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
@@ -262,6 +263,7 @@ app.use("/api/v2/peristiwa-coa-map", peristiwaCoaMapRoutes);
 app.use("/api/v2/proyek", proyekRoutes);
 app.use("/api/v2/produk", produkRoutes);
 app.use("/api/v2/produk-keluar", produkKeluarRoutes);
+app.use("/api/v2/produk-stock", produkStockRoutes);
 app.use("/api/v2/system-seed", systemSeedRoutes);
 app.use("/api/v2/transaksi", akuntansiRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
@@ -1029,7 +1031,18 @@ app.delete("/api/produk", async (req, res) => {
 
 // produkmasuk
 app.get("/api/produkmasuk", async (req, res) => {
-  const list = produkmasuk.list(req.query);
+  const filters = { ...req.query };
+  if (filters.scope === "company") {
+    const idPerusahaan = Number(req.user?.id_perusahaan);
+    if (!Number.isInteger(idPerusahaan) || idPerusahaan <= 0) {
+      return res
+        .status(400)
+        .json({ message: "Perusahaan pengguna tidak valid." });
+    }
+    filters.id_perusahaan = idPerusahaan;
+  }
+  delete filters.scope;
+  const list = produkmasuk.list(filters);
   res.json(await list);
 });
 app.post("/api/produkmasuk", async (req, res) => {
@@ -1053,7 +1066,18 @@ app.delete("/api/produkmasuk", async (req, res) => {
 
 // produkkeluar
 app.get("/api/produkkeluar", async (req, res) => {
-  const list = produkkeluar.list(req.query);
+  const filters = { ...req.query };
+  if (filters.scope === "company") {
+    const idPerusahaan = Number(req.user?.id_perusahaan);
+    if (!Number.isInteger(idPerusahaan) || idPerusahaan <= 0) {
+      return res
+        .status(400)
+        .json({ message: "Perusahaan pengguna tidak valid." });
+    }
+    filters.id_perusahaan = idPerusahaan;
+  }
+  delete filters.scope;
+  const list = produkkeluar.list(filters);
   res.json(await list);
 });
 app.post("/api/produkkeluar", async (req, res) => {

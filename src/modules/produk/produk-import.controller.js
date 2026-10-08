@@ -22,6 +22,11 @@ export const createProdukImport = async (req, res) => {
       .json({ success: false, message: "Tidak memiliki izin import produk." });
   }
   try {
+    const idPerusahaan = Number(
+      req.user?.id_perusahaan ?? req.body.id_perusahaan,
+    );
+    if (!Number.isInteger(idPerusahaan) || idPerusahaan <= 0)
+      throw new Error("Perusahaan belum dipilih.");
     const job = await stageImport({
       definition: produkImportDefinition,
       file: req.file,
@@ -29,6 +34,7 @@ export const createProdukImport = async (req, res) => {
         tanggal: req.body.tanggal,
         id_vendor: Number(req.body.id_vendor),
         main_vendor: Number(req.body.id_vendor),
+        id_perusahaan: idPerusahaan,
       },
     });
     return res.status(201).json({ success: true, data: jobResponse(job) });

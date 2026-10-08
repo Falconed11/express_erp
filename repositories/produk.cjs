@@ -7,6 +7,7 @@ const {
 const { create: createKategori } = require("./kategoriproduk.cjs");
 const { create: createMerek } = require("./merek.cjs");
 const { create: createVendor } = require("./vendor.cjs");
+const { adjust: adjustCompanyStock } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
 
 const getIndonesiaDateTime = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -179,6 +180,9 @@ const insertProduk = async ({
   tanggal,
   tanggalMasuk,
   jatuhTempo = null,
+  id_perusahaan = null,
+  created_by = null,
+  updated_by = null,
   conn = null,
 }) => {
   let sql, values;
@@ -214,7 +218,7 @@ const insertProduk = async ({
     const [result1] = await conn.execute(sql, values);
     let result2 = null;
     if (stok > 0) {
-      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor) values (?, ?, ?, ?, ?, ?, ?)`;
+      sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor, id_perusahaan) values (?, ?, ?, ?, ?, ?, ?, ?)`;
       values = [
         result1.insertId,
         stok,
@@ -223,8 +227,17 @@ const insertProduk = async ({
         jatuhTempo,
         lunas == "1" ? stok * hargamodal : terbayar,
         id_vendor,
+        id_perusahaan,
       ];
       [result2] = await conn.execute(sql, values);
+      await adjustCompanyStock({
+        conn,
+        id_produk: result1.insertId,
+        id_perusahaan,
+        jumlah: stok,
+        created_by,
+        updated_by,
+      });
     }
     let finalResult = {
       kategoriInsertId: id_kategori,
