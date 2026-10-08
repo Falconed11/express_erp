@@ -970,25 +970,41 @@ app.delete("/api/pengeluaranproyek", async (req, res) => {
 });
 
 // produk
+const canViewHargaBatas = (req) =>
+  ["owner", "super"].includes(req.user?.peran) ||
+  (req.user?.rank != null &&
+    Number.isFinite(Number(req.user.rank)) &&
+    Number(req.user.rank) <= 20);
 app.get("/api/produk", async (req, res) => {
   const list = produk.list(req.query);
-  res.json(await list);
+  const products = await list;
+  res.json(
+    canViewHargaBatas(req)
+      ? products
+      : products.map(({ hargabatas, ...product }) => product),
+  );
 });
 // app.get("/api/kategoriproduk", async (req, res) => {
 //   const list = produk.listKategori(req.query);
 //   res.json(await list);
 // });
 app.post("/api/produk", async (req, res) => {
+  const data = { ...req.body };
+  if (!canViewHargaBatas(req)) delete data.hargabatas;
+  if (data.hargabatas === "") data.hargabatas = null;
   const result = await produk
-    .create(req.body)
+    .create(data)
     .then((result) => res.json({ message: "Produk berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/produk", async (req, res) => {
+  const data = { ...req.body };
+  if (!canViewHargaBatas(req)) delete data.hargabatas;
+  if (data.hargabatas === "") data.hargabatas = null;
   const result = await produk
     .update({
-      ...req.body,
-      updated_by: req.user?.id_karyawan ?? req.body.updated_by ?? null,
+      ...data,
+      updated_by: req.user?.id_karyawan ?? data.updated_by ?? null,
     })
     .then((result) => res.json({ message: "Data berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));

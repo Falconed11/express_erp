@@ -167,6 +167,8 @@ const insertProduk = async ({
   satuan = "",
   hargamodal = 0,
   hargajual = 0,
+  hargabatas = null,
+  main_vendor = null,
   terbayar = 0,
   lunas = 0,
   keterangan = "",
@@ -193,7 +195,7 @@ const insertProduk = async ({
     if (vendor && !id_vendor) {
       id_vendor = await createVendor({ nama: vendor, alamat, conn });
     }
-    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, hargabatas, main_vendor, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
     values = [
       id_kategori,
       id_kustom,
@@ -204,6 +206,8 @@ const insertProduk = async ({
       satuan,
       hargamodal,
       hargajual,
+      hargabatas,
+      main_vendor,
       tanggal,
       keterangan ?? "",
     ];
@@ -339,6 +343,8 @@ const buildAuditEntries = ({
     "satuan",
     "hargamodal",
     "hargajual",
+    "hargabatas",
+    "main_vendor",
     "tanggal",
     "keterangan",
     "aktif",
@@ -392,6 +398,8 @@ const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
     "satuan",
     "hargamodal",
     "hargajual",
+    "hargabatas",
+    "main_vendor",
     "tanggal",
     "keterangan",
   ];
@@ -417,7 +425,8 @@ const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
       for (const [key, value] of Object.entries(rest)) {
         if (
           allowedFields.includes(key) &&
-          (value != null || key === "id_merek")
+          (value != null ||
+            ["id_merek", "hargabatas", "main_vendor"].includes(key))
         ) {
           fields.push(`${key}=?`);
           values.push(value);

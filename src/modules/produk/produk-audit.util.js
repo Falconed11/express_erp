@@ -8,6 +8,8 @@ export const PRODUCT_AUDIT_FIELDS = [
   "satuan",
   "hargamodal",
   "hargajual",
+  "hargabatas",
+  "main_vendor",
   "tanggal",
   "keterangan",
   "aktif",

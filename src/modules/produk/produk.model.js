@@ -12,6 +12,8 @@ const extraAllowedFields = [
   "satuan",
   "hargamodal",
   "hargajual",
+  "hargabatas",
+  "main_vendor",
   "tanggal",
   "jatuhtempo",
   "terbayar",
@@ -146,6 +148,7 @@ const Model = {
          kp.nama AS kategoriproduk,
          m.nama AS nmerek,
          v.nama AS nvendor,
+         mv.nama AS nmain_vendor,
          (SELECT COUNT(DISTINCT kpy.id_proyek)
             FROM keranjangproyek kpy WHERE kpy.id_produk = p.id) AS nkeranjangproyek,
          (SELECT COUNT(*) FROM produkmasuk pm WHERE pm.id_produk = p.id) AS nprodukmasuk,
@@ -153,6 +156,7 @@ const Model = {
        FROM ${TABLE_NAME} p
        LEFT JOIN merek m ON m.id = p.id_merek
        LEFT JOIN vendor v ON v.id = p.id_vendor
+       LEFT JOIN vendor mv ON mv.id = p.main_vendor
        LEFT JOIN kategoriproduk kp ON kp.id = p.id_kategori
        ${where}
        ORDER BY p.tanggal DESC, kategoriproduk, p.nama, m.nama, p.id

@@ -4,11 +4,53 @@ import Service from "./produk.service.js";
 
 const canViewAuditLog = (req) => ["owner", "super"].includes(req.user?.peran);
 const canCleanStock = (req) => ["owner", "super"].includes(req.user?.peran);
+const canViewHargaBatas = (req) =>
+  ["owner", "super"].includes(req.user?.peran) ||
+  (req.user?.rank != null &&
+    Number.isFinite(Number(req.user.rank)) &&
+    Number(req.user.rank) <= 20);
+
+const hideHargaBatas = (data, req) => {
+  if (canViewHargaBatas(req) || data == null) return data;
+  if (Array.isArray(data)) return data.map((item) => hideHargaBatas(item, req));
+  if (Array.isArray(data.items)) {
+    return {
+      ...data,
+      items: data.items.map((item) => hideHargaBatas(item, req)),
+    };
+  }
+  const { hargabatas, ...visibleData } = data;
+  return visibleData;
+};
 
 const Controller = generateDefaultCRUDController({
   ...Service,
   disableNama: true,
   customController: {
+    async create(req, res, next) {
+      defaultAsyncController(
+        async () => {
+          const data = { ...req.body };
+          if (!canViewHargaBatas(req)) delete data.hargabatas;
+          if (data.hargabatas === "") data.hargabatas = null;
+          return Service.create(data);
+        },
+        { req, res, next },
+      );
+    },
+    async getAll(req, res, next) {
+      defaultAsyncController(
+        async () => hideHargaBatas(await Service.getAll(req.query), req),
+        { req, res, next },
+      );
+    },
+    async getById(req, res, next) {
+      defaultAsyncController(
+        async () =>
+          hideHargaBatas(await Service.getById(req.params.id), req),
+        { req, res, next },
+      );
+    },
     async getStockCount(req, res, next) {
       defaultAsyncController(async () => Service.getStockCount(), {
         req,
@@ -24,11 +66,10 @@ const Controller = generateDefaultCRUDController({
       });
     },
     async getPage(req, res, next) {
-      defaultAsyncController(async () => Service.getPage(req.query), {
-        req,
-        res,
-        next,
-      });
+      defaultAsyncController(
+        async () => hideHargaBatas(await Service.getPage(req.query), req),
+        { req, res, next },
+      );
     },
     async cleanStock(req, res, next) {
       if (!canCleanStock(req)) {
@@ -54,11 +95,11 @@ const Controller = generateDefaultCRUDController({
     },
 
     async getCandidates(req, res, next) {
-      defaultAsyncController(async () => Service.getCandidates(req.query), {
-        req,
-        res,
-        next,
-      });
+      defaultAsyncController(
+        async () =>
+          hideHargaBatas(await Service.getCandidates(req.query), req),
+        { req, res, next },
+      );
     },
 
     async getAuditLogs(req, res, next) {
@@ -86,6 +127,8 @@ const Controller = generateDefaultCRUDController({
 
     async patch(req, res, next) {
       if (!req.body) req.body = {};
+      if (!canViewHargaBatas(req)) delete req.body.hargabatas;
+      if (req.body.hargabatas === "") req.body.hargabatas = null;
       req.body.updated_by =
         req.user?.id_karyawan ?? req.body.updated_by ?? null;
       return generateDefaultCRUDController({ ...Service }).patch(
