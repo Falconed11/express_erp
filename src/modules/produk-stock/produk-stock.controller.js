@@ -21,6 +21,18 @@ const Controller = {
       next,
     });
   },
+  returnLoan(req, res, next) {
+    defaultAsyncController(
+      () => Service.returnLoan(req.params.id, req.body, req.user),
+      { req, res, next },
+    );
+  },
+  revertReturn(req, res, next) {
+    defaultAsyncController(
+      () => Service.revertReturn(req.params.id, req.user),
+      { req, res, next },
+    );
+  },
   listUnclaimedEntries(req, res, next) {
     defaultAsyncController(
       () => Service.listUnclaimedEntries(req.query, req.user),

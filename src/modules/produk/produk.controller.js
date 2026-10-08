@@ -67,7 +67,14 @@ const Controller = generateDefaultCRUDController({
     },
     async getPage(req, res, next) {
       defaultAsyncController(
-        async () => hideHargaBatas(await Service.getPage(req.query), req),
+        async () =>
+          hideHargaBatas(
+            await Service.getPage({
+              ...req.query,
+              id_perusahaan: req.user?.id_perusahaan ?? null,
+            }),
+            req,
+          ),
         { req, res, next },
       );
     },

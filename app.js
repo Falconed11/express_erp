@@ -1078,14 +1078,18 @@ app.delete("/api/produkmasuk", async (req, res) => {
 // produkkeluar
 app.get("/api/produkkeluar", async (req, res) => {
   const filters = { ...req.query };
-  if (filters.scope === "company") {
+  if (filters.scope === "company" || filters.scope === "produkmasuk") {
     const idPerusahaan = Number(req.user?.id_perusahaan);
     if (!Number.isInteger(idPerusahaan) || idPerusahaan <= 0) {
       return res
         .status(400)
         .json({ message: "Perusahaan pengguna tidak valid." });
     }
-    filters.id_perusahaan = idPerusahaan;
+    if (filters.scope === "produkmasuk") {
+      filters.id_perusahaan_produkmasuk = idPerusahaan;
+    } else {
+      filters.id_perusahaan = idPerusahaan;
+    }
   }
   delete filters.scope;
   const list = produkkeluar.list(filters);

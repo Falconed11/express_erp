@@ -92,6 +92,10 @@ const Model = {
         loan.id_perusahaan_pemberi,
         lender.nama AS perusahaan_pemberi,
         loan.jumlah,
+        COALESCE(returns.jumlah_dikembalikan, 0) AS jumlah_dikembalikan,
+        loan.jumlah - COALESCE(returns.jumlah_dikembalikan, 0) AS sisa_pinjaman,
+        loan.id_produkmasuk_peminjam,
+        source.harga AS harga_asal,
         outflow.tanggal,
         outflow.metodepengeluaran,
         product.nama AS nama,
@@ -103,6 +107,8 @@ const Model = {
         journal.keterangan AS keterangan_jurnal,
         outflow.keterangan
       FROM produkpinjaman loan
+      INNER JOIN produkmasuk source
+        ON source.id = loan.id_produkmasuk
       INNER JOIN perusahaan lender
         ON lender.id = loan.id_perusahaan_pemberi
       INNER JOIN produk product ON product.id = loan.id_produk
@@ -110,9 +116,36 @@ const Model = {
       INNER JOIN produkkeluar outflow ON outflow.id = loan.id_produkkeluar
       LEFT JOIN proyek project ON project.id = outflow.id_proyek
       LEFT JOIN jurnal journal ON journal.id = outflow.id_jurnal
+      LEFT JOIN (
+        SELECT id_produkpinjaman, SUM(jumlah) AS jumlah_dikembalikan
+        FROM produkpinjamanpengembalian
+        GROUP BY id_produkpinjaman
+      ) returns ON returns.id_produkpinjaman = loan.id
       WHERE loan.id_perusahaan_peminjam = ?
       ORDER BY outflow.tanggal DESC, loan.id DESC
     `, [idPerusahaan]);
+    const [returnRows] = await db.execute(
+      `SELECT returned.id,
+              returned.id_produkpinjaman,
+              returned.jumlah,
+              returned.tanggal
+       FROM produkpinjamanpengembalian returned
+       INNER JOIN produkpinjaman loan
+         ON loan.id = returned.id_produkpinjaman
+       WHERE loan.id_perusahaan_peminjam = ?
+       ORDER BY returned.tanggal DESC, returned.id DESC`,
+      [idPerusahaan],
+    );
+    const returnsByLoan = new Map();
+    for (const returned of returnRows) {
+      const loanId = String(returned.id_produkpinjaman);
+      const loanReturns = returnsByLoan.get(loanId) ?? [];
+      loanReturns.push(returned);
+      returnsByLoan.set(loanId, loanReturns);
+    }
+    for (const loan of rows) {
+      loan.pengembalian = returnsByLoan.get(String(loan.id)) ?? [];
+    }
     return rows;
   },
 };

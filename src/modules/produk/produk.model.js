@@ -147,6 +147,17 @@ const Model = {
       `SELECT
          p.*,
          COALESCE(psp.stok, 0) AS stok_perusahaan,
+         COALESCE((
+           SELECT SUM(loan.jumlah - COALESCE(returns.jumlah_dikembalikan, 0))
+           FROM produkpinjaman loan
+           LEFT JOIN (
+             SELECT id_produkpinjaman, SUM(jumlah) AS jumlah_dikembalikan
+             FROM produkpinjamanpengembalian
+             GROUP BY id_produkpinjaman
+           ) returns ON returns.id_produkpinjaman = loan.id
+           WHERE loan.id_produk = p.id
+             AND loan.id_perusahaan_pemberi = ?
+         ), 0) AS stok_dipinjam,
          kp.nama AS kategoriproduk,
          m.nama AS nmerek,
          v.nama AS nvendor,
@@ -165,7 +176,13 @@ const Model = {
        ${where}
        ORDER BY p.tanggal DESC, kategoriproduk, p.nama, m.nama, p.id
        LIMIT ? OFFSET ?`,
-      [id_perusahaan ?? null, ...values, normalizedPageSize, offset],
+      [
+        id_perusahaan ?? null,
+        id_perusahaan ?? null,
+        ...values,
+        normalizedPageSize,
+        offset,
+      ],
     );
 
     return {

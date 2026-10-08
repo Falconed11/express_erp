@@ -39,7 +39,87 @@ const getCompanyForOutput = async (
   return id_perusahaan ?? null;
 };
 
-async function list({ id_produk, id_jurnal, id_perusahaan, filterText }) {
+const createIntercompanyLoan = async ({
+  conn,
+  id_produk,
+  sourceEntry,
+  id_perusahaan_peminjam,
+  id_proyek,
+  jumlah,
+  tanggal,
+  keterangan,
+  created_by,
+  updated_by,
+}) => {
+  if (
+    sourceEntry.id_perusahaan == null ||
+    id_perusahaan_peminjam == null ||
+    String(sourceEntry.id_perusahaan) === String(id_perusahaan_peminjam)
+  )
+    return null;
+
+  await conn.execute(
+    "UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?",
+    [jumlah, sourceEntry.id],
+  );
+  await adjustCompanyStock({
+    conn,
+    id_produk,
+    id_perusahaan: sourceEntry.id_perusahaan,
+    jumlah: -jumlah,
+    updated_by,
+  });
+  await adjustCompanyStock({
+    conn,
+    id_produk,
+    id_perusahaan: id_perusahaan_peminjam,
+    jumlah,
+    created_by,
+    updated_by,
+  });
+
+  const [outflowResult] = await conn.execute(
+    `INSERT INTO ${OUTPUT_TABLE}
+     (id_produk, id_produkmasuk, id_proyek, id_perusahaan,
+      created_by, updated_by, metodepengeluaran, jenis_transaksi, sn,
+      jumlah, harga, tanggal, keterangan)
+     VALUES (?, ?, ?, ?, ?, ?, 'pinjaman', 'pinjaman', 0, ?, ?, ?, ?)`,
+    [
+      id_produk,
+      sourceEntry.id,
+      id_proyek || null,
+      id_perusahaan_peminjam,
+      created_by,
+      updated_by,
+      jumlah,
+      sourceEntry.harga,
+      tanggal,
+      keterangan,
+    ],
+  );
+  const loan = await recordCompanyLoan(conn, {
+    id_produkkeluar: outflowResult.insertId,
+    id_produkmasuk: sourceEntry.id,
+    id_produk,
+    id_perusahaan_pemberi: sourceEntry.id_perusahaan,
+    id_perusahaan_peminjam,
+    jumlah,
+    id_vendor: sourceEntry.id_vendor,
+    harga: sourceEntry.harga,
+    tanggal,
+    created_by,
+  });
+
+  return loan.id_produkmasuk_peminjam;
+};
+
+async function list({
+  id_produk,
+  id_jurnal,
+  id_perusahaan,
+  id_perusahaan_produkmasuk,
+  filterText,
+}) {
   const conn = await pool.getConnection();
   try {
     const hasIdProduk = Boolean(id_produk);
@@ -59,15 +139,19 @@ async function list({ id_produk, id_jurnal, id_perusahaan, filterText }) {
              p.stok,
              p.satuan,
              pm.harga AS hargaprodukmasuk,
+             pm.id_perusahaan AS id_perusahaan_produkmasuk,
              m.nama AS merek,
              v.nama AS vendor,
              pk.*,
+             return_record.id AS id_produkpinjamanpengembalian,
              pr.id AS id_proyek,
              pr.nama AS nama_proyek,
              i.nama AS nama_instansi
       FROM ${OUTPUT_TABLE} pk
       LEFT JOIN produk p           ON p.id = pk.id_produk
       LEFT JOIN produkmasuk pm     ON pm.id = pk.id_produkmasuk
+      LEFT JOIN produkpinjamanpengembalian return_record
+                                    ON return_record.id_produkkeluar = pk.id
       LEFT JOIN merek m            ON m.id = p.id_merek
       LEFT JOIN vendor v           ON v.id = p.id_vendor
       LEFT JOIN proyek pr          ON pr.id = pk.id_proyek
@@ -76,6 +160,7 @@ async function list({ id_produk, id_jurnal, id_perusahaan, filterText }) {
       ${hasIdProduk ? "AND pk.id_produk = ?" : ""}
       ${id_jurnal ? "AND pk.id_jurnal = ?" : ""}
       ${id_perusahaan ? "AND pk.id_perusahaan = ?" : ""}
+      ${id_perusahaan_produkmasuk ? "AND pm.id_perusahaan = ?" : ""}
       ${hasFilterText ? words.map(() => "AND LOWER(CONCAT_WS(' ', COALESCE(p.id_kustom, ''), COALESCE(p.nama, ''), COALESCE(p.tipe, ''), COALESCE(m.nama, ''), COALESCE(v.nama, ''), COALESCE(pr.nama, ''), COALESCE(i.nama, ''), COALESCE(pk.keterangan, ''))) LIKE ?").join(" ") : ""}
       order by pk.tanggal desc, pk.id desc
     `;
@@ -83,6 +168,8 @@ async function list({ id_produk, id_jurnal, id_perusahaan, filterText }) {
     if (hasIdProduk) params.push(id_produk);
     if (id_jurnal) params.push(id_jurnal);
     if (id_perusahaan) params.push(id_perusahaan);
+    if (id_perusahaan_produkmasuk)
+      params.push(id_perusahaan_produkmasuk);
     if (hasFilterText) {
       for (const word of words) {
         params.push(`%${word.toLowerCase()}%`);
@@ -116,6 +203,21 @@ async function update(params) {
       tanggal,
       ...rest
     } = params;
+    const [existingRows] = await conn.execute(
+      `SELECT jenis_transaksi
+       FROM ${OUTPUT_TABLE}
+       WHERE id = ?
+       FOR UPDATE`,
+      [id],
+    );
+    if (
+      existingRows[0]?.jenis_transaksi === "pinjaman" ||
+      existingRows[0]?.jenis_transaksi === "pengembalian"
+    ) {
+      throw new Error(
+        "Transaksi pinjaman/pengembalian tidak dapat diubah langsung.",
+      );
+    }
 
     if (metodepengeluaran !== "proyek") {
       // Simple update case
@@ -279,10 +381,30 @@ async function _createInTransaction({
           `Stok produk masuk tidak mencukupi. Maks. ${available}.`,
         );
 
-      await conn.execute(
-        `UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?`,
-        [requested, pm.id],
-      );
+      const loanStockEntryId = await createIntercompanyLoan({
+        conn,
+        id_produk,
+        sourceEntry: pm,
+        id_perusahaan_peminjam: consumingCompanyId,
+        id_proyek,
+        jumlah: requested,
+        tanggal,
+        keterangan,
+        created_by,
+        updated_by,
+      });
+      const outputStockEntryId = loanStockEntryId ?? pm.id;
+      if (loanStockEntryId) {
+        await conn.execute(
+          "UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?",
+          [requested, loanStockEntryId],
+        );
+      } else {
+        await conn.execute(
+          `UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?`,
+          [requested, pm.id],
+        );
+      }
       await conn.execute(`UPDATE produk SET stok = stok - ? WHERE id = ?`, [
         requested,
         id_produk,
@@ -297,11 +419,13 @@ async function _createInTransaction({
       });
       const [insertResult] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (id_produk, id_produkmasuk, id_proyek, id_jurnal, id_perusahaan, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_produk, id_produkmasuk, id_proyek, id_jurnal, id_perusahaan,
+          created_by, updated_by, metodepengeluaran, jenis_transaksi, sn,
+          jumlah, harga, tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pengeluaran', ?, ?, ?, ?, ?)`,
         [
           id_produk,
-          pm.id,
+          outputStockEntryId,
           id_proyek || null,
           id_jurnal,
           consumingCompanyId,
@@ -315,15 +439,6 @@ async function _createInTransaction({
           keterangan,
         ],
       );
-      await recordCompanyLoan(conn, {
-        id_produkkeluar: insertResult.insertId,
-        id_produkmasuk: pm.id,
-        id_produk,
-        id_perusahaan_pemberi: pm.id_perusahaan,
-        id_perusahaan_peminjam: consumingCompanyId,
-        jumlah: requested,
-        created_by,
-      });
       if (isSelected) {
         await conn.execute(
           `INSERT INTO pengeluaranproyek
@@ -349,22 +464,36 @@ async function _createInTransaction({
     for (const snObj of serialnumbers) {
       // Lock one eligible produkmasuk row
       let [pmRows] = await conn.execute(
-        `SELECT id, id_perusahaan FROM produkmasuk
+        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga, id_perusahaan,
+                (jumlah - keluar) AS available
+         FROM produkmasuk
          WHERE jumlah > keluar AND id_produk = ?
-         ORDER BY harga DESC
+         ORDER BY CASE WHEN id_perusahaan = ? THEN 0 ELSE 1 END, harga DESC
          LIMIT 1
          FOR UPDATE`,
-        [id_produk],
+        [id_produk, consumingCompanyId],
       );
       if (pmRows.length === 0) {
         throw new Error("Tidak ada produkmasuk tersedia");
       }
       const pm = pmRows[0];
 
-      // Update produkmasuk
+      const loanStockEntryId = await createIntercompanyLoan({
+        conn,
+        id_produk,
+        sourceEntry: pm,
+        id_perusahaan_peminjam: consumingCompanyId,
+        id_proyek,
+        jumlah: 1,
+        tanggal,
+        keterangan,
+        created_by,
+        updated_by,
+      });
+      const outputStockEntryId = loanStockEntryId ?? pm.id;
       await conn.execute(
         `UPDATE produkmasuk SET keluar = keluar + 1 WHERE id = ?`,
-        [pm.id],
+        [outputStockEntryId],
       );
       // Update produk stock
       await conn.execute(`UPDATE produk SET stok = stok - 1 WHERE id = ?`, [
@@ -378,14 +507,16 @@ async function _createInTransaction({
         created_by,
         updated_by,
       });
-      // Insert into produkkeluar
+      // Insert the actual stock use against the borrower-side loan lot.
       const [insertResult] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (id_produk, id_produkmasuk, id_jurnal, id_perusahaan, created_by, updated_by, metodepengeluaran, sn, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id_produk, id_produkmasuk, id_jurnal, id_perusahaan, created_by,
+          updated_by, metodepengeluaran, jenis_transaksi, sn, jumlah, harga,
+          tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pengeluaran', ?, ?, ?, ?, ?)`,
         [
           id_produk,
-          pm.id,
+          outputStockEntryId,
           id_jurnal,
           consumingCompanyId,
           created_by,
@@ -398,27 +529,19 @@ async function _createInTransaction({
           keterangan,
         ],
       );
-      await recordCompanyLoan(conn, {
-        id_produkkeluar: insertResult.insertId,
-        id_produkmasuk: pm.id,
-        id_produk,
-        id_perusahaan_pemberi: pm.id_perusahaan,
-        id_perusahaan_peminjam: consumingCompanyId,
-        jumlah: 1,
-        created_by,
-      });
     }
   } else {
     let sisa = jumlah;
     while (sisa > 0) {
       let [pmRows] = await conn.execute(
-        `SELECT id, (jumlah - keluar) AS available, harga, id_vendor, id_perusahaan
-         FROM produkmasuk
-         WHERE jumlah > keluar AND id_produk = ?
-         ORDER BY harga DESC
-         LIMIT 1
-         FOR UPDATE`,
-        [id_produk],
+        `SELECT id, (jumlah - keluar) AS available, harga, id_vendor,
+                id_perusahaan, jumlah, keluar
+        FROM produkmasuk
+        WHERE jumlah > keluar AND id_produk = ?
+        ORDER BY CASE WHEN id_perusahaan = ? THEN 0 ELSE 1 END, harga DESC
+        LIMIT 1
+        FOR UPDATE`,
+        [id_produk, consumingCompanyId],
       );
       if (pmRows.length === 0) {
         throw new Error("Tidak ada produkmasuk tersedia");
@@ -428,10 +551,22 @@ async function _createInTransaction({
       const take = sisa >= available ? available : sisa;
       sisa -= take;
 
-      // Update produkmasuk
+      const loanStockEntryId = await createIntercompanyLoan({
+        conn,
+        id_produk,
+        sourceEntry: pm,
+        id_perusahaan_peminjam: consumingCompanyId,
+        id_proyek,
+        jumlah: take,
+        tanggal,
+        keterangan,
+        created_by,
+        updated_by,
+      });
+      const outputStockEntryId = loanStockEntryId ?? pm.id;
       await conn.execute(
         `UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?`,
-        [take, pm.id],
+        [take, outputStockEntryId],
       );
       // Update produk stock
       await conn.execute(`UPDATE produk SET stok = stok - ? WHERE id = ?`, [
@@ -446,15 +581,17 @@ async function _createInTransaction({
         created_by,
         updated_by,
       });
-      // Insert into produkkeluar
+      // Insert the actual stock use against the borrower-side loan lot.
       const [insertRes] = await conn.execute(
         `INSERT INTO ${OUTPUT_TABLE}
-         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, id_jurnal, id_perusahaan, created_by, updated_by, jumlah, harga, tanggal, keterangan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (metodepengeluaran, id_produk, id_produkmasuk, id_proyek, id_jurnal,
+          id_perusahaan, created_by, updated_by, jenis_transaksi, jumlah, harga,
+          tanggal, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pengeluaran', ?, ?, ?, ?)`,
         [
           metodepengeluaran ?? "proyek",
           id_produk,
-          pm.id,
+          outputStockEntryId,
           id_proyek || null,
           id_jurnal,
           consumingCompanyId,
@@ -466,15 +603,6 @@ async function _createInTransaction({
           keterangan,
         ],
       );
-      await recordCompanyLoan(conn, {
-        id_produkkeluar: insertRes.insertId,
-        id_produkmasuk: pm.id,
-        id_produk,
-        id_perusahaan_pemberi: pm.id_perusahaan,
-        id_perusahaan_peminjam: consumingCompanyId,
-        jumlah: take,
-        created_by,
-      });
 
       if (isSelected) {
         // Insert pengeluaranproyek
@@ -526,6 +654,14 @@ async function _deleteInTransaction({
     throw new Error("Produkkeluar record not found");
   }
   const output = existing[0];
+  if (
+    output.jenis_transaksi === "pinjaman" ||
+    output.jenis_transaksi === "pengembalian"
+  ) {
+    throw new Error(
+      "Transaksi pinjaman/pengembalian tidak dapat dihapus langsung.",
+    );
+  }
   jumlah = Number(output.jumlah);
   id_produkmasuk = output.id_produkmasuk;
   id_produk = output.id_produk;

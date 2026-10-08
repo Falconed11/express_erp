@@ -149,6 +149,13 @@ const update = async ({
       );
       const oldEntry = oldRows[0];
       if (!oldEntry) throw new Error("Produk masuk tidak ditemukan.");
+      if (
+        oldEntry.id_produkpinjaman ||
+        oldEntry.jenis_transaksi === "pengembalian"
+      )
+        throw new Error(
+          "Stok pinjaman/pengembalian tidak dapat diubah langsung.",
+        );
       if (Number(jumlah) < Number(oldEntry.keluar))
         throw new Error("Jumlah tidak boleh kurang dari stok yang sudah keluar.");
       const companyId =
@@ -253,6 +260,13 @@ const destroy = async ({ id }) => {
         entry?.id_produk,
       ]);
       if (!entry) throw new Error("Produk masuk telah terhapus.");
+      if (
+        entry.id_produkpinjaman ||
+        entry.jenis_transaksi === "pengembalian"
+      )
+        throw new Error(
+          "Stok pinjaman/pengembalian tidak dapat dihapus langsung.",
+        );
       if (Number(entry.keluar) > 0)
         throw new Error("Produk masuk dengan stok keluar tidak dapat dihapus.");
       sql = `delete from ${table} where id = ?`;
