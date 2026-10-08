@@ -178,19 +178,31 @@ app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) {
     const requestId = randomUUID();
     const startedAt = Date.now();
+    const requestUrl = new URL(req.originalUrl, "http://localhost");
+    const queryKeys = [...new Set(requestUrl.searchParams.keys())].sort();
+    const resourceIds = Object.fromEntries(
+      ["id", "id_proyek", "id_perusahaan"].flatMap((key) => {
+        const value = requestUrl.searchParams.get(key);
+        return value && /^\d+$/.test(value) ? [[key, value]] : [];
+      }),
+    );
+    const requestDetails = {
+      method: req.method,
+      path: req.path,
+      queryKeys,
+      ...(Object.keys(resourceIds).length ? { resourceIds } : {}),
+    };
     req.requestId = requestId;
     res.setHeader("X-Request-Id", requestId);
     writeApiLog("request_started", {
       requestId,
-      method: req.method,
-      path: req.path,
+      ...requestDetails,
     });
 
     res.once("finish", () => {
       writeApiLog("request_finished", {
         requestId,
-        method: req.method,
-        path: req.path,
+        ...requestDetails,
         statusCode: res.statusCode,
         durationMs: Date.now() - startedAt,
       });
@@ -199,8 +211,7 @@ app.use((req, res, next) => {
       if (!res.writableFinished) {
         writeApiLog("response_aborted", {
           requestId,
-          method: req.method,
-          path: req.path,
+          ...requestDetails,
           statusCode: res.statusCode,
           durationMs: Date.now() - startedAt,
         });
