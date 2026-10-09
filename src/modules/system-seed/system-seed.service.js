@@ -4,12 +4,14 @@ const SYSTEM_KEYS = {
   OPERASIONAL_KANTOR: "OPERASIONAL_KANTOR",
   HPP: "HPP",
   PENDAPATAN: "PENDAPATAN",
+  PEMBELIAN: "PEMBELIAN",
 };
 
 const seedDefinitions = [
   { key: SYSTEM_KEYS.OPERASIONAL_KANTOR, label: "Operasional Kantor" },
   { key: SYSTEM_KEYS.HPP, label: "HPP" },
   { key: SYSTEM_KEYS.PENDAPATAN, label: "Pendapatan" },
+  { key: SYSTEM_KEYS.PEMBELIAN, label: "Pembelian" },
 ];
 
 /**
@@ -46,6 +48,10 @@ const syncByName = async (trx, table, name, values, matchValues = {}) => {
 const syncExpression = async (trx, values) => {
   let row = await trx("jurnal_expression").where({ nama: values.nama }).first();
 
+  if (!row && values.nama === "Metode Bayar") {
+    row = await trx("jurnal_expression").where({ nama: "Kas" }).first();
+  }
+
   const payload = {
     ...values,
     aktif: true,
@@ -65,6 +71,53 @@ const syncExpression = async (trx, values) => {
 
     if (Object.keys(updates).length > 0) {
       await trx("jurnal_expression").where({ id: row.id }).update(updates);
+      row = { ...row, ...updates };
+    }
+  }
+
+  return row;
+};
+
+const syncLaporanRelation = async (trx, idParent, mapping) => {
+  const mappingFields = [
+    "id_coa_filter",
+    "id_coa_type",
+    "id_coa_subtype",
+    "id_coa",
+  ];
+  const mappingValues = Object.fromEntries(
+    mappingFields.map((field) => [field, mapping[field] ?? null]),
+  );
+  const matchField = Object.keys(mapping).find((field) =>
+    mappingFields.includes(field),
+  );
+  const matchValues = {
+    id_parent: idParent,
+    id_child: null,
+    [matchField]: mapping[matchField],
+  };
+  let row = await trx("laporan_relation").where(matchValues).first();
+  const payload = {
+    ...mappingValues,
+    modifier: 1,
+    aktif: true,
+    keterangan: "System default",
+  };
+
+  if (!row) {
+    const [insertedId] = await trx("laporan_relation").insert({
+      id_parent: idParent,
+      id_child: null,
+      ...payload,
+    });
+    row = await trx("laporan_relation").where({ id: insertedId }).first();
+  } else {
+    const updates = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (row[key] !== value) updates[key] = value;
+    }
+    if (Object.keys(updates).length > 0) {
+      await trx("laporan_relation").where({ id: row.id }).update(updates);
       row = { ...row, ...updates };
     }
   }
@@ -116,6 +169,93 @@ const syncFormExpression = async (
    SEED GENERATORS (WITH AUTO-FIXING)
    ========================================================================== */
 
+const ensureMetodeBayar = async (trx) => {
+  const aktivaLancar = await syncByName(trx, "coa_type", "Aktiva Lancar", {
+    normal_balance: 1,
+    aktif: true,
+    keterangan: "System default",
+  });
+  const kewajibanLancar = await syncByName(
+    trx,
+    "coa_type",
+    "Kewajiban Lancar",
+    {
+      normal_balance: 0,
+      aktif: true,
+      keterangan: "System default",
+    },
+  );
+
+  const persediaanSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Persediaan",
+    {
+      id_coa_type: aktivaLancar.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: aktivaLancar.id },
+  );
+  const hutangSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Hutang",
+    {
+      id_coa_type: kewajibanLancar.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: kewajibanLancar.id },
+  );
+  const persediaanCoa = await syncByName(trx, "coa", "Persediaan", {
+    id_coa_subtype: persediaanSubtype.id,
+    aktif: true,
+    keterangan: "System default",
+  });
+  const hutangCoa = await syncByName(trx, "coa", "Hutang", {
+    id_coa_subtype: hutangSubtype.id,
+    aktif: true,
+    keterangan: "System default",
+  });
+
+  const kasSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Kas",
+    {
+      id_coa_type: aktivaLancar.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: aktivaLancar.id },
+  );
+  const bankSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Bank",
+    {
+      id_coa_type: aktivaLancar.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: aktivaLancar.id },
+  );
+  const laporan = await syncByName(trx, "laporan", "Metode Bayar", {
+    isReport: 0,
+    aktif: true,
+    keterangan: "System default",
+  });
+
+  await syncLaporanRelation(trx, laporan.id, {
+    id_coa_subtype: bankSubtype.id,
+  });
+  await syncLaporanRelation(trx, laporan.id, {
+    id_coa_subtype: kasSubtype.id,
+  });
+  await syncLaporanRelation(trx, laporan.id, { id_coa: hutangCoa.id });
+};
+
 const ensureOperationalOffice = async (trx) => {
   const aktivaLancar = await syncByName(trx, "coa_type", "Aktiva Lancar", {
     normal_balance: 1,
@@ -161,10 +301,13 @@ const ensureOperationalOffice = async (trx) => {
     aktif: true,
   });
 
-  const kasExpression = await syncExpression(trx, {
-    nama: "Kas",
-    filter_type: "type",
-    id_filter: aktivaLancar.id,
+  const metodeBayar = await trx("laporan")
+    .where({ nama: "Metode Bayar", aktif: true })
+    .first();
+  const metodeBayarExpression = await syncExpression(trx, {
+    nama: "Metode Bayar",
+    filter_type: "laporan",
+    id_filter: metodeBayar.id,
   });
 
   const debitExpression = await syncExpression(trx, {
@@ -173,12 +316,12 @@ const ensureOperationalOffice = async (trx) => {
     id_filter: operasionalSubtype.id,
   });
 
-  await syncFormExpression(trx, form.id, kasExpression.id, "kredit", 1);
+  await syncFormExpression(trx, form.id, metodeBayarExpression.id, "kredit", 1);
   await syncFormExpression(trx, form.id, debitExpression.id, "debit", 2);
 };
 
 const ensureHpp = async (trx) => {
-  const aktivaLancar = await syncByName(trx, "coa_type", "Aktiva Lancar", {
+  await syncByName(trx, "coa_type", "Aktiva Lancar", {
     normal_balance: 1,
     aktif: true,
     keterangan: "System default",
@@ -211,10 +354,13 @@ const ensureHpp = async (trx) => {
     aktif: true,
   });
 
-  const kasExpression = await syncExpression(trx, {
-    nama: "Kas",
-    filter_type: "type",
-    id_filter: aktivaLancar.id,
+  const metodeBayar = await trx("laporan")
+    .where({ nama: "Metode Bayar", aktif: true })
+    .first();
+  const metodeBayarExpression = await syncExpression(trx, {
+    nama: "Metode Bayar",
+    filter_type: "laporan",
+    id_filter: metodeBayar.id,
   });
 
   const hppExpression = await syncExpression(trx, {
@@ -223,7 +369,7 @@ const ensureHpp = async (trx) => {
     id_filter: hppCoa.id,
   });
 
-  await syncFormExpression(trx, form.id, kasExpression.id, "kredit", 1);
+  await syncFormExpression(trx, form.id, metodeBayarExpression.id, "kredit", 1);
   await syncFormExpression(trx, form.id, hppExpression.id, "debit", 2);
 };
 
@@ -310,6 +456,171 @@ const fetchFormExpressions = async (trx, formId) => {
     );
 };
 
+const ensurePembelian = async (trx) => {
+  const aktivaLancar = await trx("coa_type")
+    .where({ nama: "Aktiva Lancar", aktif: true })
+    .first();
+  const persediaanSubtype = aktivaLancar
+    ? await trx("coa_subtype")
+        .where({
+          nama: "Persediaan",
+          id_coa_type: aktivaLancar.id,
+          aktif: true,
+        })
+        .first()
+    : null;
+  const persediaanCoa = persediaanSubtype
+    ? await trx("coa")
+        .where({
+          nama: "Persediaan",
+          id_coa_subtype: persediaanSubtype.id,
+          aktif: true,
+        })
+        .first()
+    : null;
+  const metodeBayar = await trx("laporan")
+    .where({ nama: "Metode Bayar", aktif: true })
+    .first();
+
+  if (!persediaanCoa || !metodeBayar) {
+    throw new Error(
+      "Persediaan COA and Metode Bayar report are required before Pembelian seed.",
+    );
+  }
+
+  const form = await syncByName(trx, "jurnal_form", "Pembelian", {
+    system_key: SYSTEM_KEYS.PEMBELIAN,
+    extra_fields: JSON.stringify([]),
+    keterangan: "System default",
+    aktif: true,
+  });
+  const persediaanExpression = await syncExpression(trx, {
+    nama: "Persediaan",
+    filter_type: "coa",
+    id_filter: persediaanCoa.id,
+  });
+  const metodeBayarExpression = await syncExpression(trx, {
+    nama: "Metode Bayar",
+    filter_type: "laporan",
+    id_filter: metodeBayar.id,
+  });
+
+  await syncFormExpression(trx, form.id, persediaanExpression.id, "debit", 1);
+  await syncFormExpression(trx, form.id, metodeBayarExpression.id, "kredit", 2);
+};
+
+const checkMetodeBayarStructure = async (trx) => {
+  const details = [];
+  const verified = [];
+  const [aktivaLancar, kewajibanLancar, laporan] = await Promise.all([
+    trx("coa_type").where({ nama: "Aktiva Lancar", aktif: true }).first(),
+    trx("coa_type").where({ nama: "Kewajiban Lancar", aktif: true }).first(),
+    trx("laporan").where({ nama: "Metode Bayar", aktif: true }).first(),
+  ]);
+
+  const [persediaanSubtype, hutangSubtype, kasSubtype, bankSubtype] =
+    await Promise.all([
+      aktivaLancar
+        ? trx("coa_subtype")
+            .where({
+              nama: "Persediaan",
+              id_coa_type: aktivaLancar.id,
+              aktif: true,
+            })
+            .first()
+        : null,
+      kewajibanLancar
+        ? trx("coa_subtype")
+            .where({
+              nama: "Hutang",
+              id_coa_type: kewajibanLancar.id,
+              aktif: true,
+            })
+            .first()
+        : null,
+      aktivaLancar
+        ? trx("coa_subtype")
+            .where({ nama: "Kas", id_coa_type: aktivaLancar.id, aktif: true })
+            .first()
+        : null,
+      aktivaLancar
+        ? trx("coa_subtype")
+            .where({ nama: "Bank", id_coa_type: aktivaLancar.id, aktif: true })
+            .first()
+        : null,
+    ]);
+  const [persediaanCoa, hutangCoa, relations] = await Promise.all([
+    persediaanSubtype
+      ? trx("coa")
+          .where({
+            nama: "Persediaan",
+            id_coa_subtype: persediaanSubtype.id,
+            aktif: true,
+          })
+          .first()
+      : null,
+    hutangSubtype
+      ? trx("coa")
+          .where({
+            nama: "Hutang",
+            id_coa_subtype: hutangSubtype.id,
+            aktif: true,
+          })
+          .first()
+      : null,
+    laporan
+      ? trx("laporan_relation").where({
+          id_parent: laporan.id,
+          id_child: null,
+          aktif: true,
+        })
+      : [],
+  ]);
+
+  if (!aktivaLancar) details.push("Aktiva Lancar COA type is missing.");
+  if (!persediaanSubtype) details.push("Persediaan COA subtype is missing.");
+  else verified.push("COA subtype: Persediaan");
+  if (!persediaanCoa) details.push("Persediaan COA is missing.");
+  else verified.push("COA: Persediaan");
+
+  if (!kewajibanLancar) details.push("Kewajiban Lancar COA type is missing.");
+  else verified.push("COA type: Kewajiban Lancar");
+  if (kewajibanLancar && kewajibanLancar.normal_balance !== 0) {
+    details.push("Kewajiban Lancar COA type has the wrong normal balance.");
+  }
+  if (!hutangSubtype) details.push("Hutang COA subtype is missing.");
+  else verified.push("COA subtype: Hutang");
+  if (!hutangCoa) details.push("Hutang COA is missing.");
+  else verified.push("COA: Hutang");
+
+  if (!kasSubtype) details.push("Kas COA subtype is missing.");
+  if (!bankSubtype) details.push("Bank COA subtype is missing.");
+  if (!laporan) details.push("Metode Bayar report section is missing.");
+  else if (Number(laporan.isReport) !== 0) {
+    details.push("Metode Bayar must be a report section, not a report root.");
+  } else verified.push("Report section: Metode Bayar");
+
+  const hasSystemMapping = (field, id) =>
+    id != null &&
+    relations.some(
+      (relation) =>
+        relation[field] === id &&
+        String(relation.keterangan || "").trim() === "System default",
+    );
+
+  if (!hasSystemMapping("id_coa_subtype", bankSubtype?.id)) {
+    details.push("Metode Bayar report is missing the Bank subtype mapping.");
+  } else verified.push("Report mapping: Bank");
+  if (!hasSystemMapping("id_coa_subtype", kasSubtype?.id)) {
+    details.push("Metode Bayar report is missing the Kas subtype mapping.");
+  } else verified.push("Report mapping: Kas");
+  if (!hasSystemMapping("id_coa", hutangCoa?.id)) {
+    details.push("Metode Bayar report is missing the Hutang COA mapping.");
+  } else verified.push("Report mapping: Hutang");
+
+  return { details, verified };
+};
+
 const checkSeed = async (trx, definition) => {
   const form = await trx("jurnal_form")
     .where({ system_key: definition.key, aktif: true })
@@ -357,18 +668,24 @@ const checkSeed = async (trx, definition) => {
     if (subtype && biayaType && subtype.id_coa_type !== biayaType.id)
       details.push("Operasional Kantor subtype has the wrong parent type.");
 
+    const metodeBayarChecks = await checkMetodeBayarStructure(trx);
+    details.push(...metodeBayarChecks.details);
+    verified.push(...metodeBayarChecks.verified);
+    const metodeBayar = await trx("laporan")
+      .where({ nama: "Metode Bayar", aktif: true })
+      .first();
     const kredit = expressions.find((e) => e.input_type === "kredit");
     const debit = expressions.find((e) => e.input_type === "debit");
 
     if (
       !kredit ||
       !kredit.aktif ||
-      kredit.nama !== "Kas" ||
-      kredit.filter_type !== "type" ||
-      kredit.id_filter !== type?.id
+      kredit.nama !== "Metode Bayar" ||
+      kredit.filter_type !== "laporan" ||
+      kredit.id_filter !== metodeBayar?.id
     ) {
       details.push("Kredit expression is incorrect.");
-    } else verified.push("Expression (kredit): Kas -> Aktiva Lancar");
+    } else verified.push("Expression (kredit): Metode Bayar");
 
     if (
       !debit ||
@@ -396,6 +713,9 @@ const checkSeed = async (trx, definition) => {
     const aktivaLancar = await trx("coa_type")
       .where({ nama: "Aktiva Lancar", aktif: true })
       .first();
+    const metodeBayar = await trx("laporan")
+      .where({ nama: "Metode Bayar", aktif: true })
+      .first();
 
     if (!type) details.push("HPP COA type is missing.");
     if (type && type.normal_balance !== 0)
@@ -415,12 +735,12 @@ const checkSeed = async (trx, definition) => {
     if (
       !kredit ||
       !kredit.aktif ||
-      kredit.nama !== "Kas" ||
-      kredit.filter_type !== "type" ||
-      kredit.id_filter !== aktivaLancar?.id
+      kredit.nama !== "Metode Bayar" ||
+      kredit.filter_type !== "laporan" ||
+      kredit.id_filter !== metodeBayar?.id
     ) {
       details.push("Kredit expression is incorrect.");
-    } else verified.push("Expression (kredit): Kas -> Aktiva Lancar");
+    } else verified.push("Expression (kredit): Metode Bayar");
 
     if (
       !debit ||
@@ -431,7 +751,63 @@ const checkSeed = async (trx, definition) => {
     ) {
       details.push("Debit expression is incorrect.");
     } else verified.push("Expression (debit): HPP");
-  } else {
+  } else if (definition.key === SYSTEM_KEYS.PEMBELIAN) {
+    const aktivaLancar = await trx("coa_type")
+      .where({ nama: "Aktiva Lancar", aktif: true })
+      .first();
+    const persediaanSubtype = aktivaLancar
+      ? await trx("coa_subtype")
+          .where({
+            nama: "Persediaan",
+            id_coa_type: aktivaLancar.id,
+            aktif: true,
+          })
+          .first()
+      : null;
+    const persediaanCoa = persediaanSubtype
+      ? await trx("coa")
+          .where({
+            nama: "Persediaan",
+            id_coa_subtype: persediaanSubtype.id,
+            aktif: true,
+          })
+          .first()
+      : null;
+    const metodeBayar = await trx("laporan")
+      .where({ nama: "Metode Bayar", aktif: true })
+      .first();
+
+    if (form && form.nama !== "Pembelian") {
+      details.push("Pembelian system form has the wrong name.");
+    }
+    if (!persediaanSubtype) details.push("Persediaan COA subtype is missing.");
+    if (!persediaanCoa) details.push("Persediaan COA is missing.");
+    else verified.push("COA: Persediaan");
+    if (!metodeBayar) details.push("Metode Bayar report is missing.");
+
+    const debit = expressions.find((e) => e.input_type === "debit");
+    const kredit = expressions.find((e) => e.input_type === "kredit");
+
+    if (
+      !debit ||
+      !debit.aktif ||
+      debit.nama !== "Persediaan" ||
+      debit.filter_type !== "coa" ||
+      debit.id_filter !== persediaanCoa?.id
+    ) {
+      details.push("Debit expression is incorrect.");
+    } else verified.push("Expression (debit): Persediaan");
+
+    if (
+      !kredit ||
+      !kredit.aktif ||
+      kredit.nama !== "Metode Bayar" ||
+      kredit.filter_type !== "laporan" ||
+      kredit.id_filter !== metodeBayar?.id
+    ) {
+      details.push("Kredit expression is incorrect.");
+    } else verified.push("Expression (kredit): Metode Bayar");
+  } else if (definition.key === SYSTEM_KEYS.PENDAPATAN) {
     const type = await trx("coa_type")
       .where({ nama: "Aktiva Lancar", aktif: true })
       .first();
@@ -531,9 +907,11 @@ const Service = {
 
   async apply() {
     return db.transaction(async (trx) => {
+      await ensureMetodeBayar(trx);
       await ensureOperationalOffice(trx);
       await ensureHpp(trx);
       await ensurePendapatan(trx);
+      await ensurePembelian(trx);
       return {
         seeds: await Promise.all(
           seedDefinitions.map((def) => checkSeed(trx, def)),

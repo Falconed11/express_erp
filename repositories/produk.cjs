@@ -7,7 +7,10 @@ const {
 const { create: createKategori } = require("./kategoriproduk.cjs");
 const { create: createMerek } = require("./merek.cjs");
 const { create: createVendor } = require("./vendor.cjs");
-const { adjust: adjustCompanyStock } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
+const { createPurchaseJournal } = require("./produkmasuk-jurnal.cjs");
+const {
+  adjust: adjustCompanyStock,
+} = require("../src/modules/produk-stock/produk-stock.repository.cjs");
 
 const getIndonesiaDateTime = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -170,7 +173,7 @@ const insertProduk = async ({
   hargajual = 0,
   hargabatas = null,
   main_vendor = null,
-  terbayar = 0,
+  id_coa_kredit,
   lunas = 0,
   keterangan = "",
   kategoriproduk = "",
@@ -217,19 +220,30 @@ const insertProduk = async ({
     ];
     const [result1] = await conn.execute(sql, values);
     let result2 = null;
+    let journalId = null;
     if (stok > 0) {
       sql = `insert into produkmasuk (id_produk, jumlah, harga, tanggal, jatuhtempo, terbayar, id_vendor, id_perusahaan) values (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const total = Number(stok) * Number(hargamodal);
       values = [
         result1.insertId,
         stok,
         hargamodal,
         tanggalMasuk,
-        jatuhTempo,
-        lunas == "1" ? stok * hargamodal : terbayar,
+        lunas == "0" ? jatuhTempo : null,
+        lunas == "1" ? total : 0,
         id_vendor,
         id_perusahaan,
       ];
       [result2] = await conn.execute(sql, values);
+      journalId = await createPurchaseJournal(conn, {
+        id_produkmasuk: result2.insertId,
+        id_perusahaan,
+        id_coa_kredit,
+        tanggal: tanggalMasuk,
+        amount: total,
+        lunas: lunas == "1",
+        created_by,
+      });
       await adjustCompanyStock({
         conn,
         id_produk: result1.insertId,
@@ -245,6 +259,7 @@ const insertProduk = async ({
       vendorInsertId: id_vendor,
       produkInsertId: result1.insertId,
       produkMasukInsertId: result2?.insertId,
+      jurnalInsertId: journalId,
     };
     return finalResult;
   } catch (err) {

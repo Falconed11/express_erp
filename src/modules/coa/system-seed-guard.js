@@ -3,6 +3,7 @@ const SYSTEM_COA_TYPES = new Set([
   "Biaya Operasional",
   "HPP",
   "Pendapatan",
+  "Kewajiban Lancar",
 ]);
 
 const SYSTEM_COA_SUBTYPES = new Set([
@@ -11,9 +12,16 @@ const SYSTEM_COA_SUBTYPES = new Set([
   "HPP|HPP",
   "Bank|Aktiva Lancar",
   "Pendapatan|Pendapatan",
+  "Persediaan|Aktiva Lancar",
+  "Hutang|Kewajiban Lancar",
 ]);
 
-const SYSTEM_COAS = new Set(["HPP|HPP|HPP", "Pendapatan|Pendapatan|Pendapatan"]);
+const SYSTEM_COAS = new Set([
+  "HPP|HPP|HPP",
+  "Pendapatan|Pendapatan|Pendapatan",
+  "Persediaan|Persediaan|Aktiva Lancar",
+  "Hutang|Hutang|Kewajiban Lancar",
+]);
 
 export const isSystemSeededCoa = (entity, row) => {
   if (!row?.nama) return false;
@@ -27,9 +35,7 @@ export const isSystemSeededCoa = (entity, row) => {
   }
 
   if (entity === "coa") {
-    return SYSTEM_COAS.has(
-      `${row.nama}|${row.coa_subtype}|${row.coa_type}`,
-    );
+    return SYSTEM_COAS.has(`${row.nama}|${row.coa_subtype}|${row.coa_type}`);
   }
 
   return false;

@@ -2,11 +2,12 @@
 
 This guide explains how to add a new system journal seed following the existing pattern in the seed service.
 
-The current seed service uses three main system seeds:
+The current seed service uses four main system seeds:
 
 - `OPERASIONAL_KANTOR`
 - `HPP`
 - `PENDAPATAN`
+- `PEMBELIAN`
 
 Each seed is responsible for creating or synchronizing:
 
@@ -65,6 +66,7 @@ const SYSTEM_KEYS = {
   OPERASIONAL_KANTOR: "OPERASIONAL_KANTOR",
   HPP: "HPP",
   PENDAPATAN: "PENDAPATAN",
+  PEMBELIAN: "PEMBELIAN",
 };
 ```
 
@@ -109,6 +111,7 @@ const seedDefinitions = [
   { key: SYSTEM_KEYS.OPERASIONAL_KANTOR, label: "Operasional Kantor" },
   { key: SYSTEM_KEYS.HPP, label: "HPP" },
   { key: SYSTEM_KEYS.PENDAPATAN, label: "Pendapatan" },
+  { key: SYSTEM_KEYS.PEMBELIAN, label: "Pembelian" },
 ];
 ```
 
@@ -957,19 +960,29 @@ unintentionally.
 
 Current protected records are:
 
-| Entity | Name | Parent |
-| --- | --- | --- |
-| COA type | Aktiva Lancar | - |
-| COA type | Biaya Operasional | - |
-| COA type | HPP | - |
-| COA type | Pendapatan | - |
-| COA subtype | Kas | Aktiva Lancar |
-| COA subtype | Operasional Kantor | Biaya Operasional |
-| COA subtype | HPP | HPP |
-| COA subtype | Bank | Aktiva Lancar |
-| COA subtype | Pendapatan | Pendapatan |
-| COA | HPP | HPP subtype |
-| COA | Pendapatan | Pendapatan subtype |
+| Entity      | Name               | Parent             |
+| ----------- | ------------------ | ------------------ |
+| COA type    | Aktiva Lancar      | -                  |
+| COA type    | Biaya Operasional  | -                  |
+| COA type    | HPP                | -                  |
+| COA type    | Pendapatan         | -                  |
+| COA type    | Kewajiban Lancar   | -                  |
+| COA subtype | Kas                | Aktiva Lancar      |
+| COA subtype | Operasional Kantor | Biaya Operasional  |
+| COA subtype | HPP                | HPP                |
+| COA subtype | Bank               | Aktiva Lancar      |
+| COA subtype | Pendapatan         | Pendapatan         |
+| COA subtype | Persediaan         | Aktiva Lancar      |
+| COA subtype | Hutang             | Kewajiban Lancar   |
+| COA         | HPP                | HPP subtype        |
+| COA         | Pendapatan         | Pendapatan subtype |
+| COA         | Persediaan         | Persediaan subtype |
+| COA         | Hutang             | Hutang subtype     |
+
+The `Metode Bayar` report section is system-seeded with Bank and Kas subtype
+mappings plus the Hutang COA mapping. The shared `Metode Bayar` journal
+expression filters by that report; keep its `laporan_relation` rows marked
+`System default` so the report structure remains protected.
 
 When adding, removing, or renaming a seeded COA type, subtype, or COA, update
 both `src/modules/coa/system-seed-guard.js` in the Express backend and
