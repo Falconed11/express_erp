@@ -34,6 +34,7 @@ const Model = {
        FROM produkmasuk pm
        LEFT JOIN produk p ON p.id = pm.id_produk
        WHERE pm.id_perusahaan IS NULL
+      AND pm.jumlah > 0
        AND (? = 1 OR p.aktif = 1)`,
       [includeInactive === "true" ? 1 : 0],
     );
@@ -63,6 +64,7 @@ const Model = {
        LEFT JOIN merek brand ON brand.id = p.id_merek
        LEFT JOIN vendor ON vendor.id = pm.id_vendor
        WHERE pm.id_perusahaan IS NULL
+      AND pm.jumlah > 0
        AND (? = 1 OR p.aktif = 1)
        ORDER BY pm.tanggal DESC, pm.id DESC
        LIMIT ? OFFSET ?`,
@@ -83,7 +85,8 @@ const Model = {
   async listLoans(idPerusahaan) {
     if (!Number.isInteger(Number(idPerusahaan)) || Number(idPerusahaan) <= 0)
       throw new Error("Perusahaan pengguna tidak valid.");
-    const [rows] = await db.execute(`
+    const [rows] = await db.execute(
+      `
       SELECT
         loan.id,
         loan.id_produk,
@@ -123,7 +126,9 @@ const Model = {
       ) returns ON returns.id_produkpinjaman = loan.id
       WHERE loan.id_perusahaan_peminjam = ?
       ORDER BY outflow.tanggal DESC, loan.id DESC
-    `, [idPerusahaan]);
+    `,
+      [idPerusahaan],
+    );
     const [returnRows] = await db.execute(
       `SELECT returned.id,
               returned.id_produkpinjaman,

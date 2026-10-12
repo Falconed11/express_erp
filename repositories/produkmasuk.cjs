@@ -43,9 +43,8 @@ const list = async ({ id_produk, laporan, pinjaman, id_perusahaan }) => {
     id_produk ? `and id_produk = ?` : ""
   } ${id_perusahaan ? "and pm.id_perusahaan = ?" : ""}
   ${pinjaman ? "and pm.pinjaman = 1" : ""}
-  ${laporan ? "and (pm.jumlah-pm.keluar) > 0" : ""} order by ${
-    laporan ? `kp.nama, p.nama,` : ""
-  } pm.tanggal desc, p.id`;
+  ${laporan ? "and (pm.jumlah-pm.keluar) > 0" : ""}
+  order by ${laporan ? `kp.nama, p.nama,` : ""} pm.tanggal desc, p.id, pm.id`;
   const values = [];
   if (id_produk) values.push(id_produk);
   if (id_perusahaan) values.push(id_perusahaan);
@@ -53,16 +52,123 @@ const list = async ({ id_produk, laporan, pinjaman, id_perusahaan }) => {
   return rows;
 };
 
-const assertNoLinkedJournal = async (conn, id_produkmasuk) => {
+const getLinkedJournals = async (conn, id_produkmasuk) => {
   const [rows] = await conn.execute(
-    "SELECT id FROM produkmasuk_pembayaran WHERE id_produkmasuk = ? LIMIT 1 FOR UPDATE",
+    `SELECT pmp.id AS id_link, pmp.id_jurnal, j.id_jurnal_form, j.tanggal,
+            j.keterangan,
+            DATE_FORMAT(j.tanggal, '%Y-%m') AS journal_month,
+            DATE_FORMAT(CURRENT_DATE(), '%Y-%m') AS current_month
+     FROM produkmasuk_pembayaran pmp
+     INNER JOIN jurnal j ON j.id = pmp.id_jurnal
+    WHERE pmp.id_produkmasuk = ?
+     ORDER BY pmp.id ASC
+     FOR UPDATE`,
     [id_produkmasuk],
   );
-  if (rows.length > 0) {
-    throw new Error(
-      "Stok masuk yang memiliki jurnal tidak dapat diubah atau dihapus.",
-    );
-  }
+  return rows;
+};
+
+const getJournalLines = async (conn, journalIds) => {
+  if (!journalIds.length) return [];
+  const placeholders = journalIds.map(() => "?").join(", ");
+  const [rows] = await conn.execute(
+    `SELECT id, id_jurnal, id_coa, tipe, amount, keterangan
+     FROM transaksi
+     WHERE id_jurnal IN (${placeholders})
+     ORDER BY id ASC
+     FOR UPDATE`,
+    journalIds,
+  );
+  return rows;
+};
+
+const createCorrectionJournal = async (
+  conn,
+  {
+    id_jurnal_form = null,
+    id_perusahaan,
+    id_produkmasuk,
+    keterangan,
+    lines,
+    updated_by = null,
+  },
+) => {
+  if (!lines.length) return null;
+  const [journalResult] = await conn.execute(
+    `INSERT INTO jurnal
+      (id_jurnal_form, id_perusahaan, tanggal, keterangan, created_by, updated_by)
+     VALUES (?, ?, CURRENT_DATE(), ?, ?, ?)`,
+    [id_jurnal_form, id_perusahaan, keterangan, updated_by, updated_by],
+  );
+  const journalId = journalResult.insertId;
+  const values = [];
+  const placeholders = lines
+    .map((line) => {
+      values.push(
+        journalId,
+        line.id_coa,
+        line.tipe,
+        Number(line.amount),
+        line.keterangan || keterangan,
+        updated_by,
+        updated_by,
+      );
+      return "(?, ?, ?, ?, ?, ?, ?)";
+    })
+    .join(", ");
+  await conn.execute(
+    `INSERT INTO transaksi
+      (id_jurnal, id_coa, tipe, amount, keterangan, created_by, updated_by)
+     VALUES ${placeholders}`,
+    values,
+  );
+  await conn.execute(
+    `INSERT INTO produkmasuk_pembayaran
+      (id_produkmasuk, id_jurnal, created_by, updated_by)
+     VALUES (?, ?, ?, ?)`,
+    [id_produkmasuk, journalId, updated_by, updated_by],
+  );
+  return journalId;
+};
+
+const getPurchaseJournal = (journals, id_produkmasuk) =>
+  journals.find(
+    (journal) =>
+      journal.keterangan === `Pembelian stok masuk #${id_produkmasuk}`,
+  );
+
+const makePurchaseCorrectionLines = (purchaseLines, oldAmount, newAmount) => {
+  const debit = purchaseLines.find((line) => Number(line.tipe) === 1);
+  const credit = purchaseLines.find((line) => Number(line.tipe) === 0);
+  if (!debit || !credit || purchaseLines.length !== 2)
+    throw new Error("Jurnal pembelian tidak valid dan tidak dapat dikoreksi.");
+
+  return [
+    {
+      id_coa: debit.id_coa,
+      tipe: 0,
+      amount: oldAmount,
+      keterangan: "Pembatalan nilai persediaan sebelumnya",
+    },
+    {
+      id_coa: credit.id_coa,
+      tipe: 1,
+      amount: oldAmount,
+      keterangan: "Pembatalan akun lawan pembelian sebelumnya",
+    },
+    {
+      id_coa: debit.id_coa,
+      tipe: 1,
+      amount: newAmount,
+      keterangan: "Nilai persediaan setelah koreksi",
+    },
+    {
+      id_coa: credit.id_coa,
+      tipe: 0,
+      amount: newAmount,
+      keterangan: "Akun lawan pembelian setelah koreksi",
+    },
+  ].filter((line) => Number(line.amount) > 0);
 };
 
 const create = async ({
@@ -169,34 +275,31 @@ const create = async ({
 };
 const update = async ({
   id,
-  id_produk,
-  oldJumlah,
   jumlah,
   harga,
   hargajual,
   isUpdateHarga,
   id_vendor,
   tanggal,
-  lunas,
   tanggalHarga,
+  jatuhtempo,
   jatuhTempo,
-  pinjaman,
-  id_perusahaan,
+  vendor,
+  alamatVendor,
+  id_vendor_jenis,
+  updated_by = null,
 }) => {
-  const isPinjaman = pinjaman === true || pinjaman === 1 || pinjaman === "1";
-  oldJumlah = oldJumlah ?? 0;
-  jumlah = jumlah ?? 0;
-  if (jumlah == 0) throw new Error("Jumlah tidak boleh 0!");
-  harga = harga ?? 0;
+  const idProdukMasuk = Number(id);
+  if (!Number.isInteger(idProdukMasuk) || idProdukMasuk <= 0)
+    throw new Error("ID produk masuk tidak valid.");
   try {
     const result = await withTransaction(pool, async (conn) => {
       const [oldRows] = await conn.execute(
         "select * from produkmasuk where id=? for update",
-        [id],
+        [idProdukMasuk],
       );
       const oldEntry = oldRows[0];
       if (!oldEntry) throw new Error("Produk masuk tidak ditemukan.");
-      await assertNoLinkedJournal(conn, id);
       if (
         oldEntry.id_produkpinjaman ||
         oldEntry.jenis_transaksi === "pengembalian"
@@ -204,93 +307,184 @@ const update = async ({
         throw new Error(
           "Stok pinjaman/pengembalian tidak dapat diubah langsung.",
         );
-      if (Number(jumlah) < Number(oldEntry.keluar))
+      const nextJumlah = Number(jumlah ?? oldEntry.jumlah);
+      const nextHarga = Number(harga ?? oldEntry.harga);
+      if (!Number.isFinite(nextJumlah) || nextJumlah <= 0)
+        throw new Error("Jumlah harus lebih besar dari 0.");
+      if (!Number.isFinite(nextHarga) || nextHarga < 0)
+        throw new Error("Harga tidak valid.");
+      if (nextJumlah < Number(oldEntry.keluar))
         throw new Error(
           "Jumlah tidak boleh kurang dari stok yang sudah keluar.",
         );
-      const companyId =
-        id_perusahaan == null ? oldEntry.id_perusahaan : id_perusahaan;
-      const productId = id_produk ?? oldEntry.id_produk;
+      const nextDate = tanggal ?? oldEntry.tanggal;
       if (
-        Number(oldEntry.keluar) > 0 &&
-        (String(productId) !== String(oldEntry.id_produk) ||
-          String(companyId) !== String(oldEntry.id_perusahaan))
+        typeof nextDate !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(nextDate) ||
+        Number.isNaN(Date.parse(`${nextDate}T00:00:00Z`)) ||
+        new Date(`${nextDate}T00:00:00Z`).toISOString().slice(0, 10) !==
+          nextDate
       )
-        throw new Error(
-          "Perusahaan dan produk tidak dapat diubah setelah stok ini digunakan.",
+        throw new Error("Tanggal produk masuk tidak valid.");
+
+      let nextVendorId = id_vendor || oldEntry.id_vendor;
+      if (vendor && !id_vendor) {
+        const [vendorRows] = await conn.execute(
+          "SELECT id FROM vendor WHERE nama = ? LIMIT 1",
+          [vendor.trim()],
         );
-      await conn.execute("select stok from produk where id=? for update", [
-        oldEntry.id_produk,
-      ]);
-      if (String(productId) !== String(oldEntry.id_produk))
-        await conn.execute("select stok from produk where id=? for update", [
-          productId,
+        nextVendorId = vendorRows[0]?.id;
+        if (!nextVendorId) {
+          nextVendorId = await createVendor({
+            nama: vendor.trim(),
+            alamat: alamatVendor || "",
+            id_vendor_jenis: id_vendor_jenis || null,
+            conn,
+          });
+        }
+      }
+      if (!nextVendorId) throw new Error("Vendor belum dipilih.");
+
+      const productId = oldEntry.id_produk;
+      const companyId = oldEntry.id_perusahaan;
+      const oldTotal = Number(oldEntry.jumlah) * Number(oldEntry.harga);
+      const nextTotal = nextJumlah * nextHarga;
+      const journals = await getLinkedJournals(conn, idProdukMasuk);
+      const purchaseJournal = getPurchaseJournal(journals, idProdukMasuk);
+      const journalLines = purchaseJournal
+        ? await getJournalLines(conn, [purchaseJournal.id_jurnal])
+        : [];
+      const purchaseDebit = journalLines.find(
+        (line) => Number(line.tipe) === 1,
+      );
+      const purchaseCredit = journalLines.find(
+        (line) => Number(line.tipe) === 0,
+      );
+      if (purchaseJournal && (!purchaseDebit || !purchaseCredit))
+        throw new Error("Jurnal pembelian tidak valid.");
+      if (journals.length && !purchaseJournal)
+        throw new Error("Jurnal pembelian awal tidak ditemukan.");
+
+      let nextTerbayar = Number(oldEntry.terbayar || 0);
+      if (purchaseCredit) {
+        const [[creditRows]] = await Promise.all([
+          conn.execute(
+            `SELECT cs.nama AS coa_subtype, ct.nama AS coa_type
+             FROM coa c
+             LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
+             LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
+             WHERE c.id = ?
+             LIMIT 1`,
+            [purchaseCredit.id_coa],
+          ),
         ]);
-      let sql = `update ${table} set id_produk=?, jumlah=?, harga=?, id_vendor=?, tanggal=?, terbayar=?, jatuhtempo=?, pinjaman=?, id_perusahaan=? where id=?`;
-      let values = [
-        productId,
-        jumlah,
-        harga,
-        id_vendor,
-        tanggal,
-        isPinjaman ? 0 : lunas == "1" ? jumlah * harga : 0,
-        !isPinjaman && lunas == "0" ? jatuhTempo : null,
-        isPinjaman ? 1 : 0,
-        companyId,
-        id,
-      ];
-      const [result1] = await conn.execute(sql, values);
-      const stockDelta = Number(jumlah) - Number(oldEntry.jumlah);
-      const sameProduct = String(productId) === String(oldEntry.id_produk);
-      if (sameProduct && String(oldEntry.id_perusahaan) === String(companyId)) {
+        const isDebtAccount =
+          creditRows[0]?.coa_type === "Kewajiban Lancar" ||
+          creditRows[0]?.coa_subtype === "Hutang";
+        if (!isDebtAccount && nextTerbayar >= oldTotal - 0.01)
+          nextTerbayar = nextTotal;
+      }
+      if (nextTotal + 0.001 < nextTerbayar)
+        throw new Error(
+          "Jumlah dan harga baru tidak boleh kurang dari total yang sudah dibayar.",
+        );
+
+      let correctionJournalId = null;
+      if (purchaseJournal && !oldEntry.pinjaman) {
+        const sameMonthEdit =
+          purchaseJournal.journal_month === purchaseJournal.current_month &&
+          nextDate.slice(0, 7) === purchaseJournal.current_month;
+        if (sameMonthEdit) {
+          if (journalLines.length !== 2)
+            throw new Error("Jurnal pembelian tidak valid untuk diedit.");
+          await conn.execute(
+            `UPDATE jurnal
+             SET tanggal = ?, updated_by = COALESCE(?, updated_by)
+             WHERE id = ? AND id_perusahaan = ?`,
+            [nextDate, updated_by, purchaseJournal.id_jurnal, companyId],
+          );
+          await conn.execute(
+            `UPDATE transaksi
+             SET amount = ?, updated_by = COALESCE(?, updated_by)
+             WHERE id = ? AND id_jurnal = ?`,
+            [
+              nextTotal,
+              updated_by,
+              purchaseDebit.id,
+              purchaseJournal.id_jurnal,
+            ],
+          );
+          await conn.execute(
+            `UPDATE transaksi
+             SET amount = ?, updated_by = COALESCE(?, updated_by)
+             WHERE id = ? AND id_jurnal = ?`,
+            [
+              nextTotal,
+              updated_by,
+              purchaseCredit.id,
+              purchaseJournal.id_jurnal,
+            ],
+          );
+        } else {
+          const correctionLines = makePurchaseCorrectionLines(
+            journalLines,
+            oldTotal,
+            nextTotal,
+          );
+          correctionJournalId = await createCorrectionJournal(conn, {
+            id_jurnal_form: purchaseJournal.id_jurnal_form,
+            id_perusahaan: companyId,
+            id_produkmasuk: idProdukMasuk,
+            keterangan: `Koreksi pembelian stok masuk #${idProdukMasuk}`,
+            lines: correctionLines,
+            updated_by,
+          });
+        }
+      }
+
+      const nextDueDate =
+        jatuhTempo !== undefined
+          ? jatuhTempo
+          : jatuhtempo !== undefined
+            ? jatuhtempo
+            : oldEntry.jatuhtempo;
+      await conn.execute(
+        `UPDATE ${table}
+         SET jumlah = ?, harga = ?, id_vendor = ?, tanggal = ?,
+             terbayar = ?, jatuhtempo = ?
+         WHERE id = ?`,
+        [
+          nextJumlah,
+          nextHarga,
+          nextVendorId,
+          nextDate,
+          nextTerbayar,
+          nextDueDate || null,
+          idProdukMasuk,
+        ],
+      );
+      const stockDelta = nextJumlah - Number(oldEntry.jumlah);
+      if (stockDelta !== 0) {
         await adjustCompanyStock({
           conn,
           id_produk: productId,
           id_perusahaan: companyId,
           jumlah: stockDelta,
-          updated_by: oldEntry.updated_by ?? null,
-        });
-      } else {
-        await adjustCompanyStock({
-          conn,
-          id_produk: oldEntry.id_produk,
-          id_perusahaan: oldEntry.id_perusahaan,
-          jumlah: -Number(oldEntry.jumlah),
-          updated_by: oldEntry.updated_by ?? null,
-        });
-        await adjustCompanyStock({
-          conn,
-          id_produk: productId,
-          id_perusahaan: companyId,
-          jumlah,
-          updated_by: oldEntry.updated_by ?? null,
+          updated_by,
         });
       }
-      if (sameProduct) {
-        await updateProduk({
-          conn,
-          id: productId,
-          stokDelta: stockDelta,
-          ...(isUpdateHarga
-            ? { hargamodal: harga, hargajual, tanggal: tanggalHarga }
-            : {}),
-        });
-      } else {
-        await updateProduk({
-          conn,
-          id: oldEntry.id_produk,
-          stokDelta: -Number(oldEntry.jumlah),
-        });
-        await updateProduk({
-          conn,
-          id: productId,
-          stokDelta: Number(jumlah),
-          ...(isUpdateHarga
-            ? { hargamodal: harga, hargajual, tanggal: tanggalHarga }
-            : {}),
-        });
-      }
-      return { message: "Sukses" };
+      await updateProduk({
+        conn,
+        id: productId,
+        stokDelta: stockDelta,
+        ...(isUpdateHarga
+          ? { hargamodal: nextHarga, hargajual, tanggal: tanggalHarga }
+          : {}),
+      });
+      return {
+        message: "Sukses",
+        id_jurnal_koreksi: correctionJournalId,
+      };
     });
     return result;
   } catch (err) {
@@ -298,16 +492,18 @@ const update = async ({
     throw err;
   }
 };
-const destroy = async ({ id }) => {
+const destroy = async ({ id, updated_by = null }) => {
+  const idProdukMasuk = Number(id);
+  if (!Number.isInteger(idProdukMasuk) || idProdukMasuk <= 0)
+    throw new Error("ID produk masuk tidak valid.");
   try {
     const result = await withTransaction(pool, async (conn) => {
-      let sql, values;
-      sql = `select * from produkmasuk where id = ? for update`;
-      values = [id];
-      const [test] = await conn.execute(sql, values);
+      const [test] = await conn.execute(
+        "select * from produkmasuk where id = ? for update",
+        [idProdukMasuk],
+      );
       const entry = test[0];
       if (!entry) throw new Error("Produk masuk telah terhapus.");
-      await assertNoLinkedJournal(conn, id);
       await conn.execute("select stok from produk where id=? for update", [
         entry.id_produk,
       ]);
@@ -317,22 +513,69 @@ const destroy = async ({ id }) => {
         );
       if (Number(entry.keluar) > 0)
         throw new Error("Produk masuk dengan stok keluar tidak dapat dihapus.");
-      sql = `delete from ${table} where id = ?`;
-      values = [id];
-      const [result1] = await conn.execute(sql, values);
+
+      const journals = await getLinkedJournals(conn, idProdukMasuk);
+      const journalIds = journals.map((journal) => journal.id_jurnal);
+      const journalLines = await getJournalLines(conn, journalIds);
+      let correctionJournalId = null;
+      if (journals.length) {
+        const canDeleteJournals = journals.every(
+          (journal) => journal.journal_month === journal.current_month,
+        );
+        if (canDeleteJournals) {
+          await conn.execute(
+            "DELETE FROM produkmasuk_pembayaran WHERE id_produkmasuk = ?",
+            [idProdukMasuk],
+          );
+          const placeholders = journalIds.map(() => "?").join(", ");
+          await conn.execute(
+            `DELETE FROM transaksi WHERE id_jurnal IN (${placeholders})`,
+            journalIds,
+          );
+          await conn.execute(
+            `DELETE FROM jurnal WHERE id IN (${placeholders})`,
+            journalIds,
+          );
+        } else {
+          if (!journalLines.length)
+            throw new Error(
+              "Jurnal produk masuk tidak memiliki transaksi untuk dikoreksi.",
+            );
+          const purchaseJournal = getPurchaseJournal(journals, idProdukMasuk);
+          const correctionLines = journalLines.map((line) => ({
+            id_coa: line.id_coa,
+            tipe: Number(line.tipe) === 1 ? 0 : 1,
+            amount: Number(line.amount),
+            keterangan: `Pembalikan: ${line.keterangan || "Transaksi produk masuk"}`,
+          }));
+          correctionJournalId = await createCorrectionJournal(conn, {
+            id_jurnal_form: purchaseJournal?.id_jurnal_form ?? null,
+            id_perusahaan: entry.id_perusahaan,
+            id_produkmasuk: idProdukMasuk,
+            keterangan: `Koreksi penghapusan stok masuk #${idProdukMasuk}`,
+            lines: correctionLines,
+            updated_by,
+          });
+          await conn.execute(
+            "DELETE FROM produkmasuk_pembayaran WHERE id_produkmasuk = ?",
+            [idProdukMasuk],
+          );
+        }
+      }
+      await conn.execute(`delete from ${table} where id = ?`, [idProdukMasuk]);
       await adjustCompanyStock({
         conn,
         id_produk: entry.id_produk,
         id_perusahaan: entry.id_perusahaan,
         jumlah: -Number(entry.jumlah),
-        updated_by: entry.lastuser ?? null,
+        updated_by,
       });
       await updateProduk({
         conn,
         id: entry.id_produk,
         stokDelta: -Number(entry.jumlah),
       });
-      return { message: "Sukses" };
+      return { message: "Sukses", id_jurnal_koreksi: correctionJournalId };
     });
     return result;
   } catch (err) {

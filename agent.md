@@ -50,6 +50,16 @@ Keep API changes compatible with the Next.js frontend, its existing data-fetchin
 - Use transactions for multi-table writes, financial operations, stock changes, and duplication workflows.
 - Use parameterized queries or the Knex query builder. Never interpolate user-controlled values into SQL.
 
+## Produk Masuk and Jurnal Flow
+
+- The legacy `/api/produkmasuk` handlers are registered in `app.js` and delegate to `repositories/produkmasuk.cjs` for list/create/update/delete. The V2 stock-entry creation route is `/api/v2/produk-stock/entries` and is handled by `src/modules/produk-stock`.
+- `repositories/produkmasuk.cjs` owns stock-in quantity, vendor, price, dates, company stock, and product stock changes. Keep those updates in one transaction. Editing quantity must not reduce it below `keluar`; pinjaman/return rows are not directly editable, and a row with outgoing stock cannot be deleted.
+- Non-pinjaman stock creation calls `repositories/produkmasuk-jurnal.cjs:createPurchaseJournal`. It creates a balanced purchase journal and links it to the entry in `produkmasuk_pembayaran`. A Lunas purchase credits cash/bank; a Hutang purchase credits a payable account.
+- `/api/v2/produkmasuk-pembayaran` is the authenticated payment-history resource. Its repository is `src/modules/produkmasuk-pembayaran/produkmasuk-pembayaran.repository.js`: `GET ?id_produkmasuk=...` returns entry/payment overview, `POST` records a repayment, `PATCH/:id` edits a repayment or the initial Lunas cash portion (`kind: "purchase"`), and `DELETE/:id` removes a repayment.
+- A repayment journal debits the purchase's payable COA and credits a cash/bank COA; it updates `produkmasuk.terbayar` in the same transaction. Cash/bank accounts must be active members of `Metode Bayar` and must not be Hutang/current liabilities. Reducing an initial Lunas cash amount reclassifies the remainder to the system-seeded Hutang COA; stock-entry fields remain unchanged.
+- For journals in the current month, allowed edits/deletes update or remove the linked journal lines. For earlier periods, preserve the historical journals and create a linked correcting journal. Deleting an older stock entry reverses all linked purchase/repayment effects before removing its stock row.
+- Preserve the exact journal descriptions used to associate rows (`Pembelian stok masuk #<id>`, `Pembayaran stok masuk #<id>`, and `Koreksi ... #<id>`). Payment overview classification, edit eligibility, and payable lookup depend on these links/descriptions.
+
 ## Routes and authentication
 
 - Preserve the existing `/api` and `/api/v2` prefixes.
