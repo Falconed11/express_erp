@@ -26,3 +26,18 @@ test("HPP system seed uses debit normal balance", () => {
     "Seed validation should expect HPP normal_balance = 1.",
   );
 });
+
+test("product-loan COA seed names fit the unique 24-character COA column", () => {
+  const source = readSeedService();
+  const accountNames = [
+    "Piutang Antarperusahaan",
+    "Hutang Antarperusahaan",
+    "Untung Selisih Pinjaman",
+    "Rugi Selisih Pinjaman",
+  ];
+
+  for (const name of accountNames) {
+    assert.ok(name.length <= 24, `${name} exceeds the COA name limit.`);
+    assert.ok(source.includes(`name: "${name}"`), `${name} is not seeded.`);
+  }
+});

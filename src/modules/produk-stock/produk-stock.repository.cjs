@@ -1,5 +1,9 @@
 const { withTransaction } = require("../../../helpers/transaction.cjs");
 const { pool } = require("../../../repositories/db.2.0.0.cjs");
+const {
+  createReturnJournals,
+  reverseJournal,
+} = require("./produk-stock-journal.cjs");
 
 const adjust = async ({
   conn,
@@ -22,11 +26,7 @@ const adjust = async ({
   );
 };
 
-const claimUnclaimedEntry = async ({
-  id,
-  id_perusahaan,
-  updated_by = null,
-}) =>
+const claimUnclaimedEntry = async ({ id, id_perusahaan, updated_by = null }) =>
   withTransaction(pool, async (conn) => {
     const [rows] = await conn.execute(
       `SELECT id, id_produk, jumlah, keluar, id_perusahaan
@@ -76,8 +76,8 @@ const recordLoan = async (
     id_perusahaan_pemberi,
     id_perusahaan_peminjam,
     jumlah,
+    harga = 0,
     id_vendor = null,
-    harga,
     tanggal,
     created_by = null,
   },
@@ -91,8 +91,8 @@ const recordLoan = async (
 
   const [loanResult] = await conn.execute(
     `INSERT INTO produkpinjaman
-     (id_produkkeluar, id_produkmasuk, id_produk, id_perusahaan_pemberi, id_perusahaan_peminjam, jumlah, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    (id_produkkeluar, id_produkmasuk, id_produk, id_perusahaan_pemberi, id_perusahaan_peminjam, jumlah, harga, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id_produkkeluar,
       id_produkmasuk,
@@ -100,6 +100,7 @@ const recordLoan = async (
       id_perusahaan_pemberi,
       id_perusahaan_peminjam,
       jumlah,
+      harga,
       created_by,
     ],
   );
@@ -144,7 +145,7 @@ const returnLoan = async ({
     const [loanRows] = await conn.execute(
       `SELECT loan.id, loan.id_produk, loan.id_produkmasuk,
               loan.id_perusahaan_pemberi, loan.id_perusahaan_peminjam,
-              loan.jumlah, source.id_vendor, source.harga
+              loan.jumlah, loan.harga, source.id_vendor
        FROM produkpinjaman loan
        INNER JOIN produkmasuk source ON source.id = loan.id_produkmasuk
        WHERE loan.id = ? AND loan.id_perusahaan_peminjam = ?
@@ -189,7 +190,7 @@ const returnLoan = async ({
       seenEntryIds.add(stockEntryId);
 
       const [stockRows] = await conn.execute(
-        `SELECT id, id_produk, id_vendor, jumlah, keluar, id_perusahaan
+        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga, id_perusahaan
          FROM produkmasuk
          WHERE id = ? AND id_perusahaan = ?
          FOR UPDATE`,
@@ -199,6 +200,9 @@ const returnLoan = async ({
       if (!stock || String(stock.id_produk) !== String(loan.id_produk))
         throw new Error("Produk masuk tidak sesuai dengan pinjaman.");
       const available = Number(stock.jumlah) - Number(stock.keluar ?? 0);
+      const returnedUnitCost = Number(stock.harga);
+      if (!Number.isFinite(returnedUnitCost) || returnedUnitCost < 0)
+        throw new Error("Harga stok pengembalian tidak valid.");
       if (quantity > available) {
         throw new Error(
           `Jumlah pengembalian melebihi sisa stok masuk #${stockEntryId} (${available}).`,
@@ -256,21 +260,33 @@ const returnLoan = async ({
         created_by,
         updated_by: created_by,
       });
-      await conn.execute(
+      const [returnResult] = await conn.execute(
         `INSERT INTO produkpinjamanpengembalian
          (id_produkpinjaman, id_produkmasuk_peminjam, id_produkkeluar,
-          id_produkmasuk_pemberi, jumlah, tanggal, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          id_produkmasuk_pemberi, jumlah, harga_peminjam, tanggal, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id_produkpinjaman,
           stockEntryId,
           outflowResult.insertId,
           receivedEntryResult.insertId,
           quantity,
+          returnedUnitCost,
           tanggal,
           created_by,
         ],
       );
+      await createReturnJournals(conn, {
+        id_produkpinjamanpengembalian: returnResult.insertId,
+        id_produkpinjaman,
+        id_perusahaan_pemberi: loan.id_perusahaan_pemberi,
+        id_perusahaan_peminjam: loan.id_perusahaan_peminjam,
+        jumlah: quantity,
+        harga_pinjaman: loan.harga,
+        harga_peminjam: returnedUnitCost,
+        tanggal,
+        created_by,
+      });
 
       createdReturns.push({
         id_produkkeluar: outflowResult.insertId,
@@ -290,7 +306,11 @@ const returnLoan = async ({
       `UPDATE produkpinjaman
        SET aktif = ?, updated_by = ?
        WHERE id = ?`,
-      [totalReturned < Number(loan.jumlah) ? 1 : 0, created_by, id_produkpinjaman],
+      [
+        totalReturned < Number(loan.jumlah) ? 1 : 0,
+        created_by,
+        id_produkpinjaman,
+      ],
     );
 
     return {
@@ -307,6 +327,7 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
       `SELECT returned.id, returned.id_produkpinjaman,
               returned.id_produkmasuk_peminjam, returned.id_produkkeluar,
               returned.id_produkmasuk_pemberi, returned.jumlah,
+              returned.id_jurnal_pemberi, returned.id_jurnal_peminjam,
               loan.id_produk, loan.id_perusahaan_pemberi,
               loan.id_perusahaan_peminjam, loan.jumlah AS jumlah_pinjaman
        FROM produkpinjamanpengembalian returned
@@ -377,6 +398,19 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
     )
       throw new Error("Stok pinjaman tidak dapat dikembalikan ke saldo.");
 
+    if (returned.id_jurnal_peminjam) {
+      await reverseJournal(conn, returned.id_jurnal_peminjam, {
+        updated_by,
+        reference: `pengembalian pinjaman #${id_return} peminjam`,
+      });
+    }
+    if (returned.id_jurnal_pemberi) {
+      await reverseJournal(conn, returned.id_jurnal_pemberi, {
+        updated_by,
+        reference: `pengembalian pinjaman #${id_return} pemberi`,
+      });
+    }
+
     await conn.execute(
       `UPDATE produkmasuk
        SET keluar = keluar - ?
@@ -397,18 +431,16 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
       jumlah: -Number(returned.jumlah),
       updated_by,
     });
-    await conn.execute(
-      "DELETE FROM produkpinjamanpengembalian WHERE id = ?",
-      [id_return],
-    );
+    await conn.execute("DELETE FROM produkpinjamanpengembalian WHERE id = ?", [
+      id_return,
+    ]);
     await conn.execute(
       "DELETE FROM produkkeluar WHERE id = ? AND jenis_transaksi = 'pengembalian'",
       [returned.id_produkkeluar],
     );
-    await conn.execute(
-      "DELETE FROM produkmasuk WHERE id = ?",
-      [returned.id_produkmasuk_pemberi],
-    );
+    await conn.execute("DELETE FROM produkmasuk WHERE id = ?", [
+      returned.id_produkmasuk_pemberi,
+    ]);
 
     const [balanceRows] = await conn.execute(
       `SELECT COALESCE(SUM(jumlah), 0) AS jumlah_dikembalikan
@@ -431,8 +463,7 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
     return {
       id_produkpinjaman: returned.id_produkpinjaman,
       jumlah_dibatalkan: Number(returned.jumlah),
-      sisa_pinjaman:
-        Number(returned.jumlah_pinjaman) - totalReturned,
+      sisa_pinjaman: Number(returned.jumlah_pinjaman) - totalReturned,
     };
   });
 

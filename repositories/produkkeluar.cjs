@@ -8,6 +8,9 @@ const {
   adjust: adjustCompanyStock,
   recordLoan: recordCompanyLoan,
 } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
+const {
+  createLoanJournals,
+} = require("../src/modules/produk-stock/produk-stock-journal.cjs");
 const { createPurchaseJournal } = require("./produkmasuk-jurnal.cjs");
 
 const OUTPUT_TABLE = "produkkeluar";
@@ -190,6 +193,16 @@ const createIntercompanyLoan = async ({
     id_perusahaan_peminjam,
     jumlah,
     id_vendor: sourceEntry.id_vendor,
+    harga: sourceEntry.harga,
+    tanggal,
+    created_by,
+  });
+
+  await createLoanJournals(conn, {
+    id_produkpinjaman: loan.id,
+    id_perusahaan_pemberi: sourceEntry.id_perusahaan,
+    id_perusahaan_peminjam,
+    jumlah,
     harga: sourceEntry.harga,
     tanggal,
     created_by,

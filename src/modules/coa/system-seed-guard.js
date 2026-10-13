@@ -14,6 +14,10 @@ const SYSTEM_COA_SUBTYPES = new Set([
   "Pendapatan|Pendapatan",
   "Persediaan|Aktiva Lancar",
   "Hutang|Kewajiban Lancar",
+  "Piutang Antarperusahaan|Aktiva Lancar",
+  "Hutang Antarperusahaan|Kewajiban Lancar",
+  "Untung Selisih Pinjaman|Pendapatan",
+  "Rugi Selisih Pinjaman|Biaya Operasional",
 ]);
 
 const SYSTEM_COAS = new Set([
@@ -21,6 +25,10 @@ const SYSTEM_COAS = new Set([
   "Pendapatan|Pendapatan|Pendapatan",
   "Persediaan|Persediaan|Aktiva Lancar",
   "Hutang|Hutang|Kewajiban Lancar",
+  "Piutang Antarperusahaan|Piutang Antarperusahaan|Aktiva Lancar",
+  "Hutang Antarperusahaan|Hutang Antarperusahaan|Kewajiban Lancar",
+  "Untung Selisih Pinjaman|Untung Selisih Pinjaman|Pendapatan",
+  "Rugi Selisih Pinjaman|Rugi Selisih Pinjaman|Biaya Operasional",
 ]);
 
 export const isSystemSeededCoa = (entity, row) => {

@@ -254,6 +254,67 @@ const ensureMetodeBayar = async (trx) => {
     id_coa_subtype: kasSubtype.id,
   });
   await syncLaporanRelation(trx, laporan.id, { id_coa: hutangCoa.id });
+  await ensureProductLoanAccounts(trx);
+};
+
+const ensureProductLoanAccounts = async (trx) => {
+  const aktivaLancar = await syncByName(trx, "coa_type", "Aktiva Lancar", {
+    normal_balance: 1,
+    aktif: true,
+    keterangan: "System default",
+  });
+  const kewajibanLancar = await syncByName(
+    trx,
+    "coa_type",
+    "Kewajiban Lancar",
+    {
+      normal_balance: 0,
+      aktif: true,
+      keterangan: "System default",
+    },
+  );
+  const pendapatanType = await syncByName(trx, "coa_type", "Pendapatan", {
+    normal_balance: 0,
+    aktif: true,
+    keterangan: "System default",
+  });
+  const biayaType = await syncByName(trx, "coa_type", "Biaya Operasional", {
+    normal_balance: 0,
+    aktif: true,
+    keterangan: "System default",
+  });
+
+  const accounts = [
+    { name: "Piutang Antarperusahaan", parent: aktivaLancar.id },
+    { name: "Hutang Antarperusahaan", parent: kewajibanLancar.id },
+    {
+      name: "Untung Selisih Pinjaman",
+      parent: pendapatanType.id,
+    },
+    {
+      name: "Rugi Selisih Pinjaman",
+      parent: biayaType.id,
+    },
+  ];
+
+  for (const account of accounts) {
+    const subtype = await syncByName(
+      trx,
+      "coa_subtype",
+      account.name,
+      {
+        id_coa_type: account.parent,
+        aktif: true,
+        keterangan: "System default",
+      },
+      { id_coa_type: account.parent },
+    );
+    await syncByName(trx, "coa", account.name, {
+      id_coa_subtype: subtype.id,
+      aktif: true,
+      keterangan: "System default",
+    });
+  }
 };
 
 const ensureOperationalOffice = async (trx) => {
@@ -617,6 +678,36 @@ const checkMetodeBayarStructure = async (trx) => {
   if (!hasSystemMapping("id_coa", hutangCoa?.id)) {
     details.push("Metode Bayar report is missing the Hutang COA mapping.");
   } else verified.push("Report mapping: Hutang");
+
+  const productLoanAccounts = [
+    { name: "Piutang Antarperusahaan", type: "Aktiva Lancar" },
+    { name: "Hutang Antarperusahaan", type: "Kewajiban Lancar" },
+    {
+      name: "Untung Selisih Pinjaman",
+      type: "Pendapatan",
+    },
+    {
+      name: "Rugi Selisih Pinjaman",
+      type: "Biaya Operasional",
+    },
+  ];
+  for (const account of productLoanAccounts) {
+    const row = await trx("coa as account")
+      .join("coa_subtype as subtype", "subtype.id", "account.id_coa_subtype")
+      .join("coa_type as type", "type.id", "subtype.id_coa_type")
+      .where({
+        "account.nama": account.name,
+        "account.aktif": true,
+        "subtype.nama": account.name,
+        "subtype.aktif": true,
+        "type.nama": account.type,
+        "type.aktif": true,
+      })
+      .first("account.id");
+    if (!row)
+      details.push(`System COA is missing or misconfigured: ${account.name}.`);
+    else verified.push(`COA: ${account.name}`);
+  }
 
   return { details, verified };
 };

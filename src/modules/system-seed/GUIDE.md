@@ -960,24 +960,32 @@ unintentionally.
 
 Current protected records are:
 
-| Entity      | Name               | Parent             |
-| ----------- | ------------------ | ------------------ |
-| COA type    | Aktiva Lancar      | -                  |
-| COA type    | Biaya Operasional  | -                  |
-| COA type    | HPP                | -                  |
-| COA type    | Pendapatan         | -                  |
-| COA type    | Kewajiban Lancar   | -                  |
-| COA subtype | Kas                | Aktiva Lancar      |
-| COA subtype | Operasional Kantor | Biaya Operasional  |
-| COA subtype | HPP                | HPP                |
-| COA subtype | Bank               | Aktiva Lancar      |
-| COA subtype | Pendapatan         | Pendapatan         |
-| COA subtype | Persediaan         | Aktiva Lancar      |
-| COA subtype | Hutang             | Kewajiban Lancar   |
-| COA         | HPP                | HPP subtype        |
-| COA         | Pendapatan         | Pendapatan subtype |
-| COA         | Persediaan         | Persediaan subtype |
-| COA         | Hutang             | Hutang subtype     |
+| Entity      | Name                    | Parent                          |
+| ----------- | ----------------------- | ------------------------------- |
+| COA type    | Aktiva Lancar           | -                               |
+| COA type    | Biaya Operasional       | -                               |
+| COA type    | HPP                     | -                               |
+| COA type    | Pendapatan              | -                               |
+| COA type    | Kewajiban Lancar        | -                               |
+| COA subtype | Kas                     | Aktiva Lancar                   |
+| COA subtype | Operasional Kantor      | Biaya Operasional               |
+| COA subtype | HPP                     | HPP                             |
+| COA subtype | Bank                    | Aktiva Lancar                   |
+| COA subtype | Pendapatan              | Pendapatan                      |
+| COA subtype | Persediaan              | Aktiva Lancar                   |
+| COA subtype | Hutang                  | Kewajiban Lancar                |
+| COA subtype | Piutang Antarperusahaan | Aktiva Lancar                   |
+| COA subtype | Hutang Antarperusahaan  | Kewajiban Lancar                |
+| COA subtype | Untung Selisih Pinjaman | Pendapatan                      |
+| COA subtype | Rugi Selisih Pinjaman   | Biaya Operasional               |
+| COA         | HPP                     | HPP subtype                     |
+| COA         | Pendapatan              | Pendapatan subtype              |
+| COA         | Persediaan              | Persediaan subtype              |
+| COA         | Hutang                  | Hutang subtype                  |
+| COA         | Piutang Antarperusahaan | Piutang Antarperusahaan subtype |
+| COA         | Hutang Antarperusahaan  | Hutang Antarperusahaan subtype  |
+| COA         | Untung Selisih Pinjaman | matching subtype                |
+| COA         | Rugi Selisih Pinjaman   | matching subtype                |
 
 The `Metode Bayar` report section is system-seeded with Bank and Kas subtype
 mappings plus the Hutang COA mapping. The shared `Metode Bayar` journal

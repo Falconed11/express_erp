@@ -98,7 +98,8 @@ const Model = {
         COALESCE(returns.jumlah_dikembalikan, 0) AS jumlah_dikembalikan,
         loan.jumlah - COALESCE(returns.jumlah_dikembalikan, 0) AS sisa_pinjaman,
         loan.id_produkmasuk_peminjam,
-        source.harga AS harga_asal,
+        loan.id_jurnal_peminjam,
+        loan.harga AS harga_asal,
         outflow.tanggal,
         outflow.metodepengeluaran,
         product.nama AS nama,
@@ -133,6 +134,8 @@ const Model = {
       `SELECT returned.id,
               returned.id_produkpinjaman,
               returned.jumlah,
+              returned.harga_peminjam,
+              returned.id_jurnal_peminjam,
               returned.tanggal
        FROM produkpinjamanpengembalian returned
        INNER JOIN produkpinjaman loan
