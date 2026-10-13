@@ -5,7 +5,7 @@ const table = "pengeluaranproyek";
 const PengeluaranProyekModel = {
   async find({ idProyek }) {
     const [rows] = await db.execute(
-      `SELECT pp.*, p.nama produk, p.tipe, p.satuan, m.nama merek, pm.harga hargaprodukmasuk, pm.terbayar-pm.jumlah*pm.harga hutang,
+      `SELECT pp.*, pk.id_jurnal AS id_jurnal, p.nama produk, p.tipe, p.satuan, m.nama merek, pm.harga hargaprodukmasuk, pm.terbayar-pm.jumlah*pm.harga hutang,
         CASE
           WHEN pp.id_produkkeluar IS NOT NULL THEN
             CASE

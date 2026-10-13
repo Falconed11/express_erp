@@ -1,5 +1,6 @@
 import db from "../../config/db.js";
 import { generateStandardCRUDModel } from "../default/default.model.js";
+import { AUDIT_FIELDS } from "../../utils/const.js";
 
 const TABLE_NAME = "transaksi";
 const extraAllowedFields = ["id_jurnal", "id_coa", "tipe", "amount"];
@@ -8,6 +9,13 @@ const Model = generateStandardCRUDModel({
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
   extraAllowedFieldsForUpdate: extraAllowedFields,
+  validFilterColumns: [
+    "id",
+    "nama",
+    "created_by",
+    ...AUDIT_FIELDS,
+    ...extraAllowedFields,
+  ],
   generateAllowedSortFields: (mainTable) => ({
     id: `${mainTable}.id`,
     tanggal: "j.tanggal",
@@ -37,6 +45,15 @@ const Model = generateStandardCRUDModel({
     "pr.nama proyek",
     "i.nama instansi",
     "jf.nama jurnal_form",
+    `(CASE
+      WHEN (jf.system_key IS NOT NULL AND jf.system_key <> '')
+        OR EXISTS (
+          SELECT 1
+          FROM produkmasuk_pembayaran pmp
+          WHERE pmp.id_jurnal = j.id AND pmp.aktif = 1
+        )
+      THEN 1 ELSE 0
+    END) is_system_generated`,
   ],
   generateCustomJoin: (
     mainTable,
@@ -50,7 +67,12 @@ const Model = generateStandardCRUDModel({
     left join jurnal_form jf on jf.id=j.id_jurnal_form`,
   generateOrderBy: (mainTable) =>
     `ORDER BY j.tanggal DESC, ${mainTable}.id DESC`,
-  generateCustomFilter: ({ id_coa_debit, id_coa_kredit, excludeCoaIds }) => {
+  generateCustomFilter: ({
+    id_coa_debit,
+    id_coa_kredit,
+    excludeCoaIds,
+    id_produkmasuk,
+  }) => {
     const sqlParts = [];
     const values = [];
 
@@ -71,6 +93,15 @@ const Model = generateStandardCRUDModel({
           AND kredit_filter.id_coa = ?
       )`);
       values.push(id_coa_kredit);
+    }
+    if (id_produkmasuk) {
+      sqlParts.push(`AND EXISTS (
+        SELECT 1 FROM produkmasuk_pembayaran payment_link
+        WHERE payment_link.id_jurnal = main.id_jurnal
+          AND payment_link.id_produkmasuk = ?
+          AND payment_link.aktif = 1
+      )`);
+      values.push(id_produkmasuk);
     }
 
     return { sql: sqlParts.join(" "), values };

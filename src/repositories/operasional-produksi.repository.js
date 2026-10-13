@@ -35,25 +35,80 @@ const listHppJournals = (idProyek) =>
       "j.tanggal",
       "j.keterangan as deskripsi",
       "debit.amount as nominal",
+      db.raw(`(
+        SELECT GROUP_CONCAT(DISTINCT fund_coa.nama SEPARATOR ', ')
+        FROM transaksi AS fund_transaction
+        LEFT JOIN coa AS fund_coa ON fund_coa.id = fund_transaction.id_coa
+        WHERE fund_transaction.id_jurnal = j.id
+          AND fund_transaction.tipe = 0
+      ) AS sumber_dana`),
       db.raw("1 as aktif"),
     )
     .join("jurnal_form as jf", "jf.id", "j.id_jurnal_form")
-    .join("transaksi as debit", function () {
-      this.on("debit.id_jurnal", "j.id").andOn(
-        "debit.tipe",
-        "=",
-        db.raw("?", [1]),
-      );
-    })
+    .join(
+      db("transaksi as debit")
+        .select("id_jurnal")
+        .sum({ amount: "amount" })
+        .where("tipe", 1)
+        .groupBy("id_jurnal")
+        .as("debit"),
+      "debit.id_jurnal",
+      "j.id",
+    )
     .where("j.id_proyek", idProyek)
-    .andWhere("jf.nama", HPP_FORM_NAME);
+    .andWhere("jf.nama", HPP_FORM_NAME)
+    .whereNotExists(function () {
+      this.select(db.raw("1"))
+        .from("produkkeluar as stock_output")
+        .whereRaw("stock_output.id_jurnal = j.id");
+    });
+
+const listProjectExpenses = (idProyek) =>
+  db("pengeluaranproyek as pp")
+    .select(
+      "pp.id as id_pengeluaranproyek",
+      "pp.id_proyek",
+      "pp.tanggal",
+      "pp.tanggal as tanggalpengeluaran",
+      "pp.id_karyawan",
+      "pp.id_produk as id",
+      "pp.id_vendor",
+      "pp.jumlah",
+      "pp.harga as hargapengeluaran",
+      "pp.status",
+      "pp.keterangan as keteranganpp",
+      "pk.id as id_produkkeluar",
+      "pk.id_jurnal",
+      "pk.id_produkmasuk",
+      "pk.metodepengeluaran",
+      "p.id_kustom",
+      "p.nama",
+      "p.tipe",
+      "p.satuan",
+      "p.hargamodal",
+      "m.nama as merek",
+      "k.nama as namakaryawan",
+      "pm.harga as hargaprodukmasuk",
+      "pm.pinjaman",
+    )
+    .leftJoin("produkkeluar as pk", "pk.id", "pp.id_produkkeluar")
+    .leftJoin("produk as p", "p.id", "pp.id_produk")
+    .leftJoin("merek as m", "m.id", "p.id_merek")
+    .leftJoin("karyawan as k", "k.id", "pp.id_karyawan")
+    .leftJoin("produkmasuk as pm", "pm.id", "pk.id_produkmasuk")
+    .where("pp.id_proyek", idProyek);
 
 const list = async (idProyek) => {
-  const [legacyRows, journalRows] = await Promise.all([
+  const [legacyRows, journalRows, expenseRows] = await Promise.all([
     listLegacy(idProyek),
     listHppJournals(idProyek),
+    listProjectExpenses(idProyek),
   ]);
-  return [...legacyRows, ...journalRows].sort(
+  return [
+    ...legacyRows.map((row) => ({ ...row, record_type: "legacy" })),
+    ...journalRows.map((row) => ({ ...row, record_type: "journal" })),
+    ...expenseRows.map((row) => ({ ...row, record_type: "expense" })),
+  ].sort(
     (first, second) =>
       new Date(second.tanggal) - new Date(first.tanggal) ||
       (second.id_jurnal || second.id || 0) - (first.id_jurnal || first.id || 0),

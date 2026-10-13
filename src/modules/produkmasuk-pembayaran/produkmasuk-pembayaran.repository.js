@@ -95,8 +95,7 @@ export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
       line.coa_type === "Kewajiban Lancar" || line.coa_subtype === "Hutang";
     if (line.keterangan === `Pembelian stok masuk #${entryId}`) {
       initialPaymentLinkId = line.id_link;
-      if (Number(line.tipe) === 0 && !isDebtAccount)
-        initialPaymentIsEditable = true;
+      initialPaymentIsEditable = true;
     }
     if (!isDebtAccount) continue;
     const balance = accountBalances.get(line.id_coa) || {
@@ -402,6 +401,9 @@ const getAccountType = async (conn, coaId) => {
 const isDebtAccount = (account) =>
   account?.coa_type === "Kewajiban Lancar" || account?.coa_subtype === "Hutang";
 
+export const excludeZeroAmountLines = (lines) =>
+  lines.filter((line) => Number(line.amount) > 0);
+
 const updateInitialPurchasePayment = async (paymentId, data, user) => {
   const entryId = getEntryId(data?.id_produkmasuk);
   const companyId = getCompanyId(user);
@@ -461,8 +463,8 @@ const updateInitialPurchasePayment = async (paymentId, data, user) => {
     const originalCashLine = originalLines.find(
       (line) => Number(line.tipe) === 0 && !isDebtAccount(line),
     );
-    if (!inventoryLine || !originalCashLine)
-      throw invalid("Pembelian ini tidak memiliki pembayaran awal Lunas.");
+    if (!inventoryLine)
+      throw invalid("Jurnal pembelian tidak memiliki transaksi Persediaan.");
 
     const cashBalances = new Map();
     for (const line of purchaseLines) {
@@ -533,13 +535,15 @@ const updateInitialPurchasePayment = async (paymentId, data, user) => {
     if (paymentCoaId && debtCoaId && paymentCoaId === Number(debtCoaId))
       throw invalid("Akun kas/bank dan Hutang tidak boleh sama.");
 
-    const correctionLines = purchaseLines.map((line) => ({
-      id_coa: line.id_coa,
-      tipe: Number(line.tipe) === 1 ? 0 : 1,
-      amount: Number(line.amount),
-      keterangan: `Pembalikan: ${line.keterangan || "Jurnal pembelian"}`,
-    }));
-    const newPurchaseLines = [
+    const correctionLines = excludeZeroAmountLines(
+      purchaseLines.map((line) => ({
+        id_coa: line.id_coa,
+        tipe: Number(line.tipe) === 1 ? 0 : 1,
+        amount: Number(line.amount),
+        keterangan: `Pembalikan: ${line.keterangan || "Jurnal pembelian"}`,
+      })),
+    );
+    const newPurchaseLines = excludeZeroAmountLines([
       {
         id_coa: inventoryLine.id_coa,
         tipe: 1,
@@ -547,7 +551,7 @@ const updateInitialPurchasePayment = async (paymentId, data, user) => {
         keterangan: "Persediaan",
       },
       {
-        id_coa: paymentCoaId || originalCashLine.id_coa,
+        id_coa: paymentCoaId || originalCashLine?.id_coa,
         tipe: 0,
         amount: roundedAmount,
         keterangan: "Pembayaran awal pembelian",
@@ -562,7 +566,7 @@ const updateInitialPurchasePayment = async (paymentId, data, user) => {
             },
           ]
         : []),
-    ];
+    ]);
     const sameMonth =
       sourceLink.journal_month === sourceLink.current_month &&
       linkRows.every((link) => link.journal_month === link.current_month);

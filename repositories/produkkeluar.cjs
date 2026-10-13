@@ -8,6 +8,7 @@ const {
   adjust: adjustCompanyStock,
   recordLoan: recordCompanyLoan,
 } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
+const { createPurchaseJournal } = require("./produkmasuk-jurnal.cjs");
 
 const OUTPUT_TABLE = "produkkeluar";
 
@@ -37,6 +38,90 @@ const getCompanyForOutput = async (
     if (rows[0]?.id_perusahaan != null) return rows[0].id_perusahaan;
   }
   return id_perusahaan ?? null;
+};
+
+const createProjectStockUsageJournal = async (
+  conn,
+  {
+    id_proyek,
+    id_perusahaan,
+    tanggal,
+    keterangan,
+    amount,
+    created_by,
+    updated_by,
+  },
+) => {
+  const [[formRows], [hppRows], [inventoryRows]] = await Promise.all([
+    conn.execute(
+      "SELECT id FROM jurnal_form WHERE system_key = 'HPP' AND aktif = 1 LIMIT 1",
+    ),
+    conn.execute(
+      `SELECT c.id
+       FROM coa_type ct
+       INNER JOIN coa_subtype cs ON cs.id_coa_type = ct.id
+       INNER JOIN coa c ON c.id_coa_subtype = cs.id
+       WHERE ct.nama = 'HPP' AND ct.aktif = 1
+         AND cs.nama = 'HPP' AND cs.aktif = 1
+         AND c.nama = 'HPP' AND c.aktif = 1
+       LIMIT 1`,
+    ),
+    conn.execute(
+      `SELECT c.id
+       FROM coa_type ct
+       INNER JOIN coa_subtype cs ON cs.id_coa_type = ct.id
+       INNER JOIN coa c ON c.id_coa_subtype = cs.id
+       WHERE ct.nama = 'Aktiva Lancar' AND ct.aktif = 1
+         AND cs.nama = 'Persediaan' AND cs.aktif = 1
+         AND c.nama = 'Persediaan' AND c.aktif = 1
+       LIMIT 1`,
+    ),
+  ]);
+
+  const journalForm = formRows[0];
+  const hppCoa = hppRows[0];
+  const inventoryCoa = inventoryRows[0];
+
+  if (!journalForm) throw new Error("Jurnal form HPP belum tersedia.");
+  if (!hppCoa) throw new Error("COA HPP belum tersedia.");
+  if (!inventoryCoa) throw new Error("COA Persediaan belum tersedia.");
+
+  const [journalResult] = await conn.execute(
+    `INSERT INTO jurnal
+      (id_jurnal_form, id_perusahaan, id_proyek, tanggal, keterangan, created_by, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      journalForm.id,
+      id_perusahaan ?? null,
+      id_proyek ?? null,
+      tanggal,
+      keterangan || "Pemakaian stok proyek",
+      created_by ?? null,
+      updated_by ?? created_by ?? null,
+    ],
+  );
+
+  const journalId = journalResult.insertId;
+  await conn.execute(
+    `INSERT INTO transaksi
+      (id_jurnal, id_coa, tipe, amount, keterangan, created_by, updated_by)
+     VALUES (?, ?, 1, ?, 'HPP', ?, ?),
+            (?, ?, 0, ?, 'Persediaan', ?, ?)`,
+    [
+      journalId,
+      hppCoa.id,
+      Number(amount),
+      created_by ?? null,
+      updated_by ?? created_by ?? null,
+      journalId,
+      inventoryCoa.id,
+      Number(amount),
+      created_by ?? null,
+      updated_by ?? created_by ?? null,
+    ],
+  );
+
+  return journalId;
 };
 
 const createIntercompanyLoan = async ({
@@ -113,6 +198,104 @@ const createIntercompanyLoan = async ({
   return loan.id_produkmasuk_peminjam;
 };
 
+const createMarkedLoanPurchaseEntry = async ({
+  conn,
+  sourceEntry,
+  id_produk,
+  id_perusahaan_peminjam,
+  jumlah,
+  tanggal,
+  created_by,
+  updated_by,
+}) => {
+  const amount = Number(sourceEntry.harga || 0) * Number(jumlah);
+  if (!Number.isFinite(amount) || amount <= 0)
+    throw new Error("Harga stok pinjaman harus lebih besar dari 0.");
+  if (!id_perusahaan_peminjam)
+    throw new Error("Perusahaan pemakai stok pinjaman belum tersedia.");
+
+  const [debtRows] = await conn.execute(
+    `SELECT c.id
+     FROM coa c
+     INNER JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
+     INNER JOIN coa_type ct ON ct.id = cs.id_coa_type
+     WHERE c.nama = 'Hutang' AND c.aktif = 1
+       AND cs.nama = 'Hutang' AND cs.aktif = 1
+       AND ct.nama = 'Kewajiban Lancar' AND ct.aktif = 1
+       AND EXISTS (
+         SELECT 1
+         FROM laporan l
+         INNER JOIN laporan_relation lr
+           ON lr.id_parent = l.id AND lr.id_child IS NULL AND lr.aktif = 1
+         LEFT JOIN coa_type mapped_type ON mapped_type.id = lr.id_coa_type
+         WHERE l.nama = 'Metode Bayar' AND l.aktif = 1
+           AND (
+             lr.id_coa = c.id
+             OR lr.id_coa_subtype = c.id_coa_subtype
+             OR mapped_type.id = cs.id_coa_type
+           )
+       )
+     LIMIT 1`,
+  );
+  const debtCoaId = debtRows[0]?.id;
+  if (!debtCoaId)
+    throw new Error("COA Hutang default belum tersedia di Metode Bayar.");
+
+  await conn.execute(
+    "UPDATE produkmasuk SET keluar = keluar + ? WHERE id = ?",
+    [jumlah, sourceEntry.id],
+  );
+  if (
+    sourceEntry.id_perusahaan != null &&
+    String(sourceEntry.id_perusahaan) !== String(id_perusahaan_peminjam)
+  ) {
+    await adjustCompanyStock({
+      conn,
+      id_produk,
+      id_perusahaan: sourceEntry.id_perusahaan,
+      jumlah: -jumlah,
+      updated_by,
+    });
+    await adjustCompanyStock({
+      conn,
+      id_produk,
+      id_perusahaan: id_perusahaan_peminjam,
+      jumlah,
+      created_by,
+      updated_by,
+    });
+  }
+
+  const [entryResult] = await conn.execute(
+    `INSERT INTO produkmasuk
+      (id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo,
+       pinjaman, id_perusahaan, created_by, updated_by, jenis_transaksi)
+     VALUES (?, ?, ?, ?, 0, ?, NULL, 0, ?, ?, ?, 'pembelian')`,
+    [
+      id_produk,
+      sourceEntry.id_vendor,
+      jumlah,
+      sourceEntry.harga,
+      tanggal,
+      id_perusahaan_peminjam,
+      created_by,
+      updated_by ?? created_by,
+    ],
+  );
+
+  await createPurchaseJournal(conn, {
+    id_produkmasuk: entryResult.insertId,
+    id_perusahaan: id_perusahaan_peminjam,
+    id_coa_kredit: debtCoaId,
+    tanggal,
+    amount,
+    lunas: false,
+    created_by,
+  });
+
+  return entryResult.insertId;
+};
+
 async function list({
   id_produk,
   id_jurnal,
@@ -168,8 +351,7 @@ async function list({
     if (hasIdProduk) params.push(id_produk);
     if (id_jurnal) params.push(id_jurnal);
     if (id_perusahaan) params.push(id_perusahaan);
-    if (id_perusahaan_produkmasuk)
-      params.push(id_perusahaan_produkmasuk);
+    if (id_perusahaan_produkmasuk) params.push(id_perusahaan_produkmasuk);
     if (hasFilterText) {
       for (const word of words) {
         params.push(`%${word.toLowerCase()}%`);
@@ -253,6 +435,10 @@ async function update(params) {
 }
 async function destroy(params) {
   return await withTransaction(pool, async (conn) => {
+    if (params.id != null) {
+      return _deleteInTransaction({ ...params, conn });
+    }
+
     if (params.id_jurnal) {
       const [rows] = await conn.execute(
         `SELECT id, jumlah, id_produkmasuk, id_produk, metodepengeluaran
@@ -353,6 +539,9 @@ async function _createInTransaction({
     throw new Error(
       `Stok tidak mencukupi. Maks. ${produk.stok} ${produk.satuan}.`,
     );
+  const generatedOutputIds = [];
+  let generatedJournalAmount = 0;
+
   if (produkmasuk.length > 0) {
     const totalJumlah = produkmasuk.reduce(
       (total, item) => total + (+item.jumlah || 0),
@@ -367,7 +556,8 @@ async function _createInTransaction({
       const requested = +allocation.jumlah || 0;
       if (requested <= 0) throw new Error("Jumlah produk tidak boleh 0!");
       const [pmRows] = await conn.execute(
-        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga, id_perusahaan
+        `SELECT id, id_produk, id_vendor, jumlah, keluar, harga, id_perusahaan,
+          pinjaman, id_produkpinjaman
          FROM produkmasuk WHERE id = ? FOR UPDATE`,
         [allocation.id_produkmasuk],
       );
@@ -381,18 +571,31 @@ async function _createInTransaction({
           `Stok produk masuk tidak mencukupi. Maks. ${available}.`,
         );
 
-      const loanStockEntryId = await createIntercompanyLoan({
-        conn,
-        id_produk,
-        sourceEntry: pm,
-        id_perusahaan_peminjam: consumingCompanyId,
-        id_proyek,
-        jumlah: requested,
-        tanggal,
-        keterangan,
-        created_by,
-        updated_by,
-      });
+      const isStandaloneLoanStock =
+        Number(pm.pinjaman) === 1 && pm.id_produkpinjaman == null;
+      const loanStockEntryId = isStandaloneLoanStock
+        ? await createMarkedLoanPurchaseEntry({
+            conn,
+            sourceEntry: pm,
+            id_produk,
+            id_perusahaan_peminjam: consumingCompanyId,
+            jumlah: requested,
+            tanggal,
+            created_by,
+            updated_by,
+          })
+        : await createIntercompanyLoan({
+            conn,
+            id_produk,
+            sourceEntry: pm,
+            id_perusahaan_peminjam: consumingCompanyId,
+            id_proyek,
+            jumlah: requested,
+            tanggal,
+            keterangan,
+            created_by,
+            updated_by,
+          });
       const outputStockEntryId = loanStockEntryId ?? pm.id;
       if (loanStockEntryId) {
         await conn.execute(
@@ -439,6 +642,8 @@ async function _createInTransaction({
           keterangan,
         ],
       );
+      generatedOutputIds.push(insertResult.insertId);
+      generatedJournalAmount += Number(pm.harga || 0) * requested;
       if (isSelected) {
         await conn.execute(
           `INSERT INTO pengeluaranproyek
@@ -455,6 +660,27 @@ async function _createInTransaction({
             pm.harga,
             keterangan,
           ],
+        );
+      }
+    }
+    if (
+      metodepengeluaran === "proyek" &&
+      !id_jurnal &&
+      generatedOutputIds.length > 0
+    ) {
+      const journalId = await createProjectStockUsageJournal(conn, {
+        id_proyek: id_proyek ?? idproyek ?? null,
+        id_perusahaan: consumingCompanyId,
+        tanggal,
+        keterangan,
+        amount: generatedJournalAmount,
+        created_by,
+        updated_by,
+      });
+      for (const outputId of generatedOutputIds) {
+        await conn.execute(
+          `UPDATE ${OUTPUT_TABLE} SET id_jurnal = ? WHERE id = ?`,
+          [journalId, outputId],
         );
       }
     }
@@ -529,6 +755,29 @@ async function _createInTransaction({
           keterangan,
         ],
       );
+      generatedOutputIds.push(insertResult.insertId);
+      generatedJournalAmount += Number(harga || 0);
+    }
+    if (
+      metodepengeluaran === "proyek" &&
+      !id_jurnal &&
+      generatedOutputIds.length > 0
+    ) {
+      const journalId = await createProjectStockUsageJournal(conn, {
+        id_proyek: id_proyek ?? idproyek ?? null,
+        id_perusahaan: consumingCompanyId,
+        tanggal,
+        keterangan,
+        amount: generatedJournalAmount,
+        created_by,
+        updated_by,
+      });
+      for (const outputId of generatedOutputIds) {
+        await conn.execute(
+          `UPDATE ${OUTPUT_TABLE} SET id_jurnal = ? WHERE id = ?`,
+          [journalId, outputId],
+        );
+      }
     }
   } else {
     let sisa = jumlah;
@@ -598,11 +847,15 @@ async function _createInTransaction({
           created_by,
           updated_by,
           take,
-          isSelected || id_jurnal ? pm.harga : harga,
+          metodepengeluaran === "proyek" || isSelected || id_jurnal
+            ? pm.harga
+            : harga,
           tanggal,
           keterangan,
         ],
       );
+      generatedOutputIds.push(insertRes.insertId);
+      generatedJournalAmount += Number(pm.harga || 0) * take;
 
       if (isSelected) {
         // Insert pengeluaranproyek
@@ -630,6 +883,27 @@ async function _createInTransaction({
         );
       }
     } // end while
+    if (
+      metodepengeluaran === "proyek" &&
+      !id_jurnal &&
+      generatedOutputIds.length > 0
+    ) {
+      const journalId = await createProjectStockUsageJournal(conn, {
+        id_proyek: id_proyek ?? idproyek ?? null,
+        id_perusahaan: consumingCompanyId,
+        tanggal,
+        keterangan,
+        amount: generatedJournalAmount,
+        created_by,
+        updated_by,
+      });
+      for (const outputId of generatedOutputIds) {
+        await conn.execute(
+          `UPDATE ${OUTPUT_TABLE} SET id_jurnal = ? WHERE id = ?`,
+          [journalId, outputId],
+        );
+      }
+    }
   }
 
   return { success: true };
@@ -677,6 +951,53 @@ async function _deleteInTransaction({
       `DELETE FROM pengeluaranproyek WHERE id_produkkeluar = ?`,
       [id],
     );
+  }
+
+  if (output.id_jurnal) {
+    const [[journal]] = await conn.execute(
+      `SELECT jf.system_key
+       FROM jurnal j
+       INNER JOIN jurnal_form jf ON jf.id = j.id_jurnal_form
+       WHERE j.id = ?
+       FOR UPDATE`,
+      [output.id_jurnal],
+    );
+
+    if (journal?.system_key === "HPP") {
+      const [remainingOutputs] = await conn.execute(
+        `SELECT jumlah, harga
+         FROM ${OUTPUT_TABLE}
+         WHERE id_jurnal = ? AND id <> ?
+         FOR UPDATE`,
+        [output.id_jurnal, id],
+      );
+
+      if (remainingOutputs.length > 0) {
+        const remainingAmount = remainingOutputs.reduce(
+          (total, row) =>
+            total + Number(row.jumlah || 0) * Number(row.harga || 0),
+          0,
+        );
+        await conn.execute(
+          `UPDATE transaksi
+           SET amount = ?
+           WHERE id_jurnal = ? AND keterangan IN ('HPP', 'Persediaan')`,
+          [remainingAmount, output.id_jurnal],
+        );
+      } else {
+        await conn.execute("DELETE FROM transaksi WHERE id_jurnal = ?", [
+          output.id_jurnal,
+        ]);
+        await conn.execute("DELETE FROM jurnal WHERE id = ?", [
+          output.id_jurnal,
+        ]);
+      }
+    } else {
+      await conn.execute("DELETE FROM transaksi WHERE id_jurnal = ?", [
+        output.id_jurnal,
+      ]);
+      await conn.execute("DELETE FROM jurnal WHERE id = ?", [output.id_jurnal]);
+    }
   }
 
   // lock produkmasuk row

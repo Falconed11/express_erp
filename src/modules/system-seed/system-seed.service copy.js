@@ -176,7 +176,7 @@ const ensureHpp = async (trx) => {
     throw new Error("Aktiva Lancar COA type is required before HPP seed.");
 
   const hppType = await findOrCreateByName(trx, "coa_type", "HPP", {
-    normal_balance: 0,
+    normal_balance: 1,
     aktif: true,
     keterangan: "System default",
   });
@@ -384,7 +384,7 @@ const checkSeed = async (trx, definition) => {
         })
       : [];
     if (!type) details.push("HPP COA type is missing.");
-    if (type && type.normal_balance !== 0)
+    if (type && type.normal_balance !== 1)
       details.push("HPP COA type has the wrong normal balance.");
     if (!subtype) details.push("HPP COA subtype is missing.");
     if (subtype && type && subtype.id_coa_type !== type.id)
