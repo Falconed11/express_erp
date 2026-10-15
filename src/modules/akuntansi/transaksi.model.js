@@ -45,6 +45,36 @@ const Model = generateStandardCRUDModel({
     "pr.nama proyek",
     "i.nama instansi",
     "jf.nama jurnal_form",
+    "jf.system_key jurnal_form_system_key",
+    `(SELECT pmp.id_produkmasuk
+      FROM produkmasuk_pembayaran pmp
+      WHERE pmp.id_jurnal = j.id AND pmp.aktif = 1
+      ORDER BY pmp.id
+      LIMIT 1) id_produkmasuk`,
+    `(SELECT pm.id_produk
+      FROM produkmasuk_pembayaran pmp
+      INNER JOIN produkmasuk pm ON pm.id = pmp.id_produkmasuk
+      WHERE pmp.id_jurnal = j.id AND pmp.aktif = 1
+      ORDER BY pmp.id
+      LIMIT 1) id_produkmasuk_produk`,
+    `(SELECT pk.id
+      FROM produkkeluar pk
+      WHERE pk.id_jurnal = j.id
+      ORDER BY pk.id
+      LIMIT 1) id_produkkeluar`,
+    `(SELECT pk.id_proyek
+      FROM produkkeluar pk
+      WHERE pk.id_jurnal = j.id
+      ORDER BY pk.id
+      LIMIT 1) id_produkkeluar_proyek`,
+    `(CASE
+      WHEN EXISTS (
+        SELECT 1
+        FROM produkkeluar pk
+        WHERE pk.id_jurnal = j.id
+      ) OR (jf.nama = 'HPP' AND j.id_proyek IS NOT NULL)
+      THEN 1 ELSE 0
+    END) is_operasional_produksi`,
     `(CASE
       WHEN (jf.system_key IS NOT NULL AND jf.system_key <> '')
         OR EXISTS (
