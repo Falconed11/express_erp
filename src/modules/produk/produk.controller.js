@@ -9,18 +9,32 @@ const canViewHargaBatas = (req) =>
   (req.user?.rank != null &&
     Number.isFinite(Number(req.user.rank)) &&
     Number(req.user.rank) <= 20);
+const canCreateProduk = (req) =>
+  req.user?.peran !== "sales" &&
+  req.user?.rank != null &&
+  Number.isFinite(Number(req.user.rank)) &&
+  Number(req.user.rank) <= 20;
 
-const hideHargaBatas = (data, req) => {
-  if (canViewHargaBatas(req) || data == null) return data;
-  if (Array.isArray(data)) return data.map((item) => hideHargaBatas(item, req));
+const hideRestrictedHarga = (data, req) => {
+  if (data == null) return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => hideRestrictedHarga(item, req));
+  }
   if (Array.isArray(data.items)) {
     return {
       ...data,
-      items: data.items.map((item) => hideHargaBatas(item, req)),
+      items: data.items.map((item) => hideRestrictedHarga(item, req)),
     };
   }
-  const { hargabatas, ...visibleData } = data;
-  return visibleData;
+  const { hargabatas, hargamodal, harga_modal, total_modal, ...visibleData } =
+    data;
+  return {
+    ...visibleData,
+    ...(canViewHargaBatas(req) ? { hargabatas } : {}),
+    ...(req.user?.peran === "sales"
+      ? {}
+      : { hargamodal, harga_modal, total_modal }),
+  };
 };
 
 const Controller = generateDefaultCRUDController({
@@ -28,6 +42,12 @@ const Controller = generateDefaultCRUDController({
   disableNama: true,
   customController: {
     async create(req, res, next) {
+      if (!canCreateProduk(req)) {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak memiliki izin untuk menambah produk.",
+        });
+      }
       defaultAsyncController(
         async () => {
           const data = { ...req.body };
@@ -40,14 +60,14 @@ const Controller = generateDefaultCRUDController({
     },
     async getAll(req, res, next) {
       defaultAsyncController(
-        async () => hideHargaBatas(await Service.getAll(req.query), req),
+        async () => hideRestrictedHarga(await Service.getAll(req.query), req),
         { req, res, next },
       );
     },
     async getById(req, res, next) {
       defaultAsyncController(
         async () =>
-          hideHargaBatas(await Service.getById(req.params.id), req),
+          hideRestrictedHarga(await Service.getById(req.params.id), req),
         { req, res, next },
       );
     },
@@ -59,16 +79,16 @@ const Controller = generateDefaultCRUDController({
       });
     },
     async getStockEntriesForExport(req, res, next) {
-      defaultAsyncController(async () => Service.getStockEntriesForExport(), {
-        req,
-        res,
-        next,
-      });
+      defaultAsyncController(
+        async () =>
+          hideRestrictedHarga(await Service.getStockEntriesForExport(), req),
+        { req, res, next },
+      );
     },
     async getPage(req, res, next) {
       defaultAsyncController(
         async () =>
-          hideHargaBatas(
+          hideRestrictedHarga(
             await Service.getPage({
               ...req.query,
               id_perusahaan: req.user?.id_perusahaan ?? null,
@@ -104,7 +124,7 @@ const Controller = generateDefaultCRUDController({
     async getCandidates(req, res, next) {
       defaultAsyncController(
         async () =>
-          hideHargaBatas(await Service.getCandidates(req.query), req),
+          hideRestrictedHarga(await Service.getCandidates(req.query), req),
         { req, res, next },
       );
     },

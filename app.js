@@ -433,17 +433,30 @@ app.delete("/api/bank", async (req, res) => {
 });
 
 // customer
+const canManageCustomer = (req) => req.user?.peran !== "sales";
 app.get("/api/customer", async (req, res) => {
   const list = customer.list(req.query);
   res.json(await list);
 });
 app.post("/api/customer", async (req, res) => {
+  if (!canManageCustomer(req)) {
+    return res.status(403).json({
+      success: false,
+      message: "Sales tidak memiliki izin untuk menambah customer.",
+    });
+  }
   const result = await customer
     .create(req.body)
     .then((result) => res.json({ message: "customer berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/customer", async (req, res) => {
+  if (!canManageCustomer(req)) {
+    return res.status(403).json({
+      success: false,
+      message: "Sales tidak memiliki izin untuk mengedit customer.",
+    });
+  }
   const result = await customer
     .update(req.body)
     .then((result) => res.json({ message: "customer berhasil diubah" }))
@@ -990,13 +1003,20 @@ const canViewHargaBatas = (req) =>
   (req.user?.rank != null &&
     Number.isFinite(Number(req.user.rank)) &&
     Number(req.user.rank) <= 20);
+const canCreateProduk = (req) =>
+  req.user?.peran !== "sales" &&
+  req.user?.rank != null &&
+  Number.isFinite(Number(req.user.rank)) &&
+  Number(req.user.rank) <= 20;
 app.get("/api/produk", async (req, res) => {
   const list = produk.list(req.query);
   const products = await list;
   res.json(
-    canViewHargaBatas(req)
-      ? products
-      : products.map(({ hargabatas, ...product }) => product),
+    products.map(({ hargabatas, hargamodal, ...product }) => ({
+      ...product,
+      ...(canViewHargaBatas(req) ? { hargabatas } : {}),
+      ...(req.user?.peran !== "sales" ? { hargamodal } : {}),
+    })),
   );
 });
 // app.get("/api/kategoriproduk", async (req, res) => {
@@ -1004,6 +1024,12 @@ app.get("/api/produk", async (req, res) => {
 //   res.json(await list);
 // });
 app.post("/api/produk", async (req, res) => {
+  if (!canCreateProduk(req)) {
+    return res.status(403).json({
+      success: false,
+      message: "Anda tidak memiliki izin untuk menambah produk.",
+    });
+  }
   const data = { ...req.body };
   if (!canViewHargaBatas(req)) delete data.hargabatas;
   if (data.hargabatas === "") data.hargabatas = null;

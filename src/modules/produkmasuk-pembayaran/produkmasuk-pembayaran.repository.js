@@ -1,5 +1,11 @@
+import { createRequire } from "node:module";
 import db from "../../config/db.js";
 import { withTransaction } from "../../helpers/transaction.js";
+
+const require = createRequire(import.meta.url);
+const {
+  createPurchaseJournal,
+} = require("../../../repositories/produkmasuk-jurnal.cjs");
 
 const invalid = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -24,7 +30,8 @@ const getEntryId = (id) => {
 const getEntry = async (conn, entryId, companyId, lock = false) => {
   const [rows] = await conn.execute(
     `SELECT pm.id, pm.id_produk, pm.id_vendor, pm.jumlah, pm.harga, pm.terbayar,
-            pm.tanggal, pm.jatuhtempo, pm.pinjaman, pm.id_perusahaan,
+            pm.tanggal, pm.jatuhtempo, pm.pinjaman, pm.jenis_transaksi,
+            pm.id_perusahaan,
             p.nama, p.id_kustom, p.tipe, p.satuan, m.nama AS merek,
             v.nama AS vendor
      FROM produkmasuk pm
@@ -37,6 +44,56 @@ const getEntry = async (conn, entryId, companyId, lock = false) => {
   );
   if (!rows[0]) throw invalid("Produk masuk tidak ditemukan.", 404);
   return rows[0];
+};
+
+const assertCanRepairPurchaseJournal = (user) => {
+  if (!["super", "owner", "admin"].includes(user?.peran))
+    throw invalid("Tidak memiliki izin mengelola jurnal pembelian.", 403);
+};
+
+const getCompatiblePurchaseJournals = async (
+  conn,
+  { entryId, companyId, total, journalId },
+) => {
+  const journalCondition = journalId ? "AND j.id = ?" : "";
+  const values = [
+    companyId,
+    `Pembelian stok masuk #${entryId}`,
+    entryId,
+    ...(journalId ? [journalId] : []),
+    total,
+    total,
+  ];
+  const [rows] = await conn.execute(
+    `SELECT j.id AS id_jurnal, j.tanggal, j.keterangan,
+            SUM(CASE WHEN t.tipe = 1 THEN t.amount ELSE 0 END) AS debit_total,
+            SUM(CASE WHEN t.tipe = 0 THEN t.amount ELSE 0 END) AS credit_total,
+            SUM(CASE WHEN t.tipe = 1 AND c.nama = 'Persediaan' THEN 1 ELSE 0 END) AS inventory_debits,
+            MAX(CASE WHEN t.tipe = 0 THEN c.nama END) AS credit_coa
+     FROM jurnal j
+     INNER JOIN transaksi t ON t.id_jurnal = j.id
+     INNER JOIN coa c ON c.id = t.id_coa
+     WHERE j.id_perusahaan = ?
+       AND j.keterangan = ?
+       AND NOT EXISTS (
+         SELECT 1
+         FROM produkmasuk_pembayaran linked
+         WHERE linked.id_jurnal = j.id
+           AND linked.id_produkmasuk <> ?
+       )
+       ${journalCondition}
+     GROUP BY j.id, j.tanggal, j.keterangan
+     HAVING COUNT(t.id) = 2
+       AND SUM(CASE WHEN t.tipe = 1 THEN 1 ELSE 0 END) = 1
+       AND SUM(CASE WHEN t.tipe = 0 THEN 1 ELSE 0 END) = 1
+       AND ROUND(SUM(CASE WHEN t.tipe = 1 THEN t.amount ELSE 0 END), 2) = ROUND(?, 2)
+       AND ROUND(SUM(CASE WHEN t.tipe = 0 THEN t.amount ELSE 0 END), 2) = ROUND(?, 2)
+       AND SUM(CASE WHEN t.tipe = 1 AND c.nama = 'Persediaan' THEN 1 ELSE 0 END) = 1
+     ORDER BY j.tanggal DESC, j.id DESC
+     LIMIT 100`,
+    values,
+  );
+  return rows;
 };
 
 export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
@@ -162,6 +219,212 @@ export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
       Number(entry.jumlah) * Number(entry.harga) - Number(entry.terbayar || 0),
     ),
   };
+};
+
+export const generateMissingPurchaseJournal = async ({
+  id_produkmasuk,
+  user,
+}) => {
+  const entryId = getEntryId(id_produkmasuk);
+  const companyId = getCompanyId(user);
+  assertCanRepairPurchaseJournal(user);
+
+  const employeeId = user?.id_karyawan ?? null;
+  return withTransaction(async (conn) => {
+    const entry = await getEntry(conn, entryId, companyId, true);
+    if (Number(entry.pinjaman) || entry.jenis_transaksi !== "pembelian")
+      throw invalid(
+        "Jurnal hanya dapat dibuat untuk pembelian non-pinjaman.",
+        409,
+      );
+
+    const total = Number(entry.jumlah) * Number(entry.harga);
+    if (!Number.isFinite(total) || total <= 0)
+      throw invalid("Total pembelian harus lebih besar dari 0.");
+
+    const purchaseDescription = `Pembelian stok masuk #${entryId}`;
+    const [existingJournals] = await conn.execute(
+      `SELECT id FROM jurnal
+       WHERE id_perusahaan = ? AND keterangan = ?
+       FOR UPDATE`,
+      [companyId, purchaseDescription],
+    );
+    if (existingJournals.length)
+      throw invalid(
+        "Jurnal pembelian sudah ada. Pilih jurnal tersebut atau periksa transaksinya.",
+        409,
+      );
+
+    const [activeLinks] = await conn.execute(
+      `SELECT id FROM produkmasuk_pembayaran
+       WHERE id_produkmasuk = ? AND aktif = 1
+       FOR UPDATE`,
+      [entryId],
+    );
+    if (activeLinks.length)
+      throw invalid(
+        "Data ini sudah memiliki jurnal aktif dan perlu diperiksa.",
+        409,
+      );
+    if (Number(entry.terbayar || 0) > 0.001)
+      throw invalid(
+        "Pembayaran awal sudah tercatat; akun pembayaran harus diverifikasi manual.",
+        409,
+      );
+
+    const [debtRows] = await conn.execute(
+      `SELECT c.id
+       FROM coa c
+       INNER JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
+       INNER JOIN coa_type ct ON ct.id = cs.id_coa_type
+       WHERE c.nama = 'Hutang' AND c.aktif = 1
+         AND cs.nama = 'Hutang' AND cs.aktif = 1
+         AND ct.nama = 'Kewajiban Lancar' AND ct.aktif = 1
+         AND EXISTS (
+           SELECT 1
+           FROM laporan l
+           INNER JOIN laporan_relation lr
+             ON lr.id_parent = l.id AND lr.id_child IS NULL AND lr.aktif = 1
+           LEFT JOIN coa_type mapped_type ON mapped_type.id = lr.id_coa_type
+           WHERE l.nama = 'Metode Bayar' AND l.aktif = 1
+             AND (
+               lr.id_coa = c.id
+               OR lr.id_coa_subtype = c.id_coa_subtype
+               OR mapped_type.id = cs.id_coa_type
+             )
+         )
+       LIMIT 1`,
+    );
+    const debtCoaId = debtRows[0]?.id;
+    if (!debtCoaId)
+      throw invalid("COA Hutang default belum tersedia di Metode Bayar.", 409);
+
+    const journalId = await createPurchaseJournal(conn, {
+      id_produkmasuk: entryId,
+      id_perusahaan: companyId,
+      id_coa_kredit: debtCoaId,
+      tanggal: entry.tanggal,
+      amount: total,
+      lunas: false,
+      created_by: employeeId,
+    });
+    return {
+      message: "Jurnal pembelian berhasil dibuat sebagai Hutang.",
+      id_jurnal: journalId,
+    };
+  });
+};
+
+export const getAvailablePurchaseJournals = async ({
+  id_produkmasuk,
+  user,
+}) => {
+  const entryId = getEntryId(id_produkmasuk);
+  const companyId = getCompanyId(user);
+  assertCanRepairPurchaseJournal(user);
+  const entry = await getEntry(db, entryId, companyId);
+  if (Number(entry.pinjaman) || entry.jenis_transaksi !== "pembelian")
+    throw invalid(
+      "Jurnal hanya dapat dipilih untuk pembelian non-pinjaman.",
+      409,
+    );
+
+  const total = Number(entry.jumlah) * Number(entry.harga);
+  if (!Number.isFinite(total) || total <= 0)
+    throw invalid("Total pembelian harus lebih besar dari 0.");
+
+  return getCompatiblePurchaseJournals(db, {
+    entryId,
+    companyId,
+    total,
+  });
+};
+
+export const linkExistingPurchaseJournal = async (data, user) => {
+  const entryId = getEntryId(data?.id_produkmasuk);
+  const journalId = getEntryId(data?.id_jurnal);
+  const companyId = getCompanyId(user);
+  assertCanRepairPurchaseJournal(user);
+  const employeeId = user?.id_karyawan ?? null;
+
+  return withTransaction(async (conn) => {
+    const entry = await getEntry(conn, entryId, companyId, true);
+    if (Number(entry.pinjaman) || entry.jenis_transaksi !== "pembelian")
+      throw invalid(
+        "Jurnal hanya dapat dipilih untuk pembelian non-pinjaman.",
+        409,
+      );
+
+    const total = Number(entry.jumlah) * Number(entry.harga);
+    if (!Number.isFinite(total) || total <= 0)
+      throw invalid("Total pembelian harus lebih besar dari 0.");
+
+    const candidate = await getCompatiblePurchaseJournals(conn, {
+      entryId,
+      companyId,
+      total,
+      journalId,
+    });
+    if (!candidate.length)
+      throw invalid(
+        "Jurnal tidak tersedia atau tidak cocok dengan pembelian ini.",
+        409,
+      );
+
+    const purchaseDescription = `Pembelian stok masuk #${entryId}`;
+    const [currentPurchaseLinks] = await conn.execute(
+      `SELECT pmp.id, pmp.id_jurnal
+       FROM produkmasuk_pembayaran pmp
+       INNER JOIN jurnal j ON j.id = pmp.id_jurnal
+       WHERE pmp.id_produkmasuk = ? AND pmp.aktif = 1
+         AND j.keterangan = ?
+       FOR UPDATE`,
+      [entryId, purchaseDescription],
+    );
+    const currentLink = currentPurchaseLinks[0];
+    if (currentLink) {
+      if (Number(currentLink.id_jurnal) === journalId)
+        return {
+          message: "Jurnal pembelian sudah tertaut.",
+          id_jurnal: journalId,
+        };
+      throw invalid("Pembelian ini sudah memiliki jurnal aktif.", 409);
+    }
+
+    const [journalLinks] = await conn.execute(
+      `SELECT id, id_produkmasuk, aktif
+       FROM produkmasuk_pembayaran
+       WHERE id_jurnal = ?
+       FOR UPDATE`,
+      [journalId],
+    );
+    if (journalLinks.some((link) => Number(link.id_produkmasuk) !== entryId))
+      throw invalid("Jurnal sudah ditautkan ke produk masuk lain.", 409);
+
+    const existingLink = journalLinks.find(
+      (link) => Number(link.id_produkmasuk) === entryId,
+    );
+    if (existingLink) {
+      await conn.execute(
+        `UPDATE produkmasuk_pembayaran
+         SET aktif = 1, updated_by = ?
+         WHERE id = ?`,
+        [employeeId, existingLink.id],
+      );
+    } else {
+      await conn.execute(
+        `INSERT INTO produkmasuk_pembayaran
+          (id_produkmasuk, id_jurnal, created_by, updated_by)
+         VALUES (?, ?, ?, ?)`,
+        [entryId, journalId, employeeId, employeeId],
+      );
+    }
+
+    return {
+      message: "Jurnal pembelian berhasil ditautkan.",
+      id_jurnal: journalId,
+    };
+  });
 };
 
 export const recordPayment = async (data, user) => {

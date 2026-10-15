@@ -8,6 +8,39 @@ const Controller = {
       { req, res, next },
     );
   },
+  getAvailablePurchaseJournals(req, res, next) {
+    defaultAsyncController(
+      () =>
+        Service.getAvailablePurchaseJournals({
+          id_produkmasuk: req.params.id,
+          user: req.user,
+        }),
+      { req, res, next },
+    );
+  },
+  generatePurchaseJournal(req, res, next) {
+    defaultAsyncController(
+      () =>
+        Service.generatePurchaseJournal({
+          id_produkmasuk: req.params.id,
+          user: req.user,
+        }),
+      { req, res, next },
+    );
+  },
+  linkPurchaseJournal(req, res, next) {
+    defaultAsyncController(
+      () =>
+        Service.linkPurchaseJournal(
+          {
+            id_produkmasuk: req.params.id,
+            id_jurnal: req.body?.id_jurnal,
+          },
+          req.user,
+        ),
+      { req, res, next },
+    );
+  },
   create(req, res, next) {
     defaultAsyncController(() => Service.create(req.body, req.user), {
       req,

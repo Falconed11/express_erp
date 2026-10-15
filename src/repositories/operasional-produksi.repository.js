@@ -81,6 +81,13 @@ const listProjectExpenses = (idProyek) =>
       "pk.id_jurnal",
       "pk.id_produkmasuk",
       "pk.metodepengeluaran",
+      db.raw(`(
+        SELECT GROUP_CONCAT(DISTINCT fund_coa.nama SEPARATOR ', ')
+        FROM transaksi AS fund_transaction
+        LEFT JOIN coa AS fund_coa ON fund_coa.id = fund_transaction.id_coa
+        WHERE fund_transaction.id_jurnal = pk.id_jurnal
+          AND fund_transaction.tipe = 0
+      ) AS sumber_dana`),
       "p.id_kustom",
       "p.nama",
       "p.tipe",
