@@ -1,5 +1,9 @@
 import db from "../../config/knex.js";
 import { createImportError, normalizeText } from "../imports/import-engine.js";
+import priceDefaults from "../../../repositories/produk-price-default.repository.cjs";
+import priceDefaultUtil from "../../../repositories/produk-price-default.util.cjs";
+
+const { resolveProductPrices } = priceDefaultUtil;
 
 const INPUT_CODE_PREFIX = "IMPORT-PRODUK";
 const BATCH_SIZE = 200;
@@ -190,12 +194,22 @@ const commitProduk = async (job, actor) => {
 
     const types = [...new Set(rows.map((row) => row.tipe))];
     const existing = await trx("produk")
-      .select("id", "tipe")
+      .select(
+        "id",
+        "tipe",
+        "id_kategori",
+        "main_vendor",
+        "hargamodal",
+        "hargajual",
+        "hargajual_custom",
+        "hargabatas",
+        "hargabatas_custom",
+      )
       .whereIn("tipe", types);
 
     // Map existing products using lowercase key
     const existingByType = new Map(
-      existing.map((row) => [row.tipe.toLowerCase(), row.id]),
+      existing.map((row) => [row.tipe.toLowerCase(), row]),
     );
 
     const newRows = rows.filter(
@@ -207,37 +221,84 @@ const commitProduk = async (job, actor) => {
 
     if (newRows.length) {
       for (const group of chunk(newRows)) {
+        const defaults = await priceDefaults.getDefaults(trx);
         await trx("produk").insert(
-          group.map((row) => ({
-            id_kustom: row.tipe,
-            nama: row.produk, // Retains original input casing
-            id_kategori: categoryIds.get(row.kategori.toLowerCase()),
-            id_merek: brandIds.get(row.merek.toLowerCase()),
-            tipe: row.tipe, // Retains original input casing
-            hargamodal: row.hargamodal,
-            hargajual: 0,
-            main_vendor: job.context.main_vendor ?? job.context.id_vendor,
-            tanggal: job.context.tanggal,
-            satuan: row.satuan,
-            keterangan: "",
-            manualinput: 1,
-            inputcode,
-          })),
+          group.map((row) => {
+            const main_vendor =
+              job.context.main_vendor ?? job.context.id_vendor;
+            const prices = resolveProductPrices(
+              {
+                id_kategori: categoryIds.get(row.kategori.toLowerCase()),
+                main_vendor,
+                hargamodal: row.hargamodal,
+                ...(row.hargajual_provided ? { hargajual: row.hargajual } : {}),
+                ...(row.hargabatas_provided
+                  ? { hargabatas: row.hargabatas }
+                  : {}),
+                hargajual_custom: row.hargajual_provided ? 1 : 0,
+                hargabatas_custom: row.hargabatas_provided ? 1 : 0,
+              },
+              defaults,
+            );
+            return {
+              id_kustom: row.tipe,
+              nama: row.produk, // Retains original input casing
+              id_kategori: categoryIds.get(row.kategori.toLowerCase()),
+              id_merek: brandIds.get(row.merek.toLowerCase()),
+              tipe: row.tipe, // Retains original input casing
+              hargamodal: row.hargamodal,
+              ...prices,
+              main_vendor,
+              tanggal: job.context.tanggal,
+              satuan: row.satuan,
+              keterangan: "",
+              manualinput: 1,
+              inputcode,
+              created_by: actor?.id_karyawan ?? null,
+              updated_by: actor?.id_karyawan ?? null,
+            };
+          }),
         );
       }
     }
 
     for (const group of chunk(updateRows)) {
+      const defaults = await priceDefaults.getDefaults(trx);
       await Promise.all(
-        group.map((row) =>
-          trx("produk")
-            .where("id", existingByType.get(row.tipe.toLowerCase()))
+        group.map((row) => {
+          const existingProduct = existingByType.get(row.tipe.toLowerCase());
+          const nextProduct = {
+            ...existingProduct,
+            id_kategori: categoryIds.get(row.kategori.toLowerCase()),
+            ...(job.context.update_main_vendor
+              ? {
+                  main_vendor: job.context.main_vendor ?? job.context.id_vendor,
+                }
+              : {}),
+            hargamodal: row.hargamodal,
+          };
+          const prices = resolveProductPrices(
+            {
+              ...nextProduct,
+              ...(row.hargajual_provided ? { hargajual: row.hargajual } : {}),
+              ...(row.hargabatas_provided
+                ? { hargabatas: row.hargabatas }
+                : {}),
+              ...(row.hargajual_provided ? { hargajual_custom: 1 } : {}),
+              ...(row.hargabatas_provided ? { hargabatas_custom: 1 } : {}),
+            },
+            defaults,
+            existingProduct,
+          );
+          return trx("produk")
+            .where("id", existingProduct.id)
             .update({
               nama: row.produk, // Updates with original input casing
               id_kategori: categoryIds.get(row.kategori.toLowerCase()),
               id_merek: brandIds.get(row.merek.toLowerCase()),
               tipe: row.tipe, // Updates with original input casing
               hargamodal: row.hargamodal,
+              ...prices,
               ...(job.context.update_main_vendor
                 ? {
                     main_vendor:
@@ -247,8 +308,9 @@ const commitProduk = async (job, actor) => {
               tanggal: job.context.tanggal,
               satuan: row.satuan,
               inputcode,
-            }),
-        ),
+              updated_by: actor?.id_karyawan ?? null,
+            });
+        }),
       );
     }
 
@@ -283,6 +345,7 @@ const commitProduk = async (job, actor) => {
 export const produkImportDefinition = {
   type: "products",
   columns: ["produk", "kategori", "merek", "tipe", "satuan", "hargamodal"],
+  optionalColumns: ["hargajual", "hargabatas"],
   normalize(values) {
     return {
       produk: normalizeText(values.produk),
@@ -291,6 +354,10 @@ export const produkImportDefinition = {
       tipe: normalizeText(values.tipe),
       satuan: normalizeText(values.satuan),
       hargamodal: parseNumber(values.hargamodal),
+      hargajual: parseNumber(values.hargajual),
+      hargabatas: parseNumber(values.hargabatas),
+      hargajual_provided: normalizeText(values.hargajual) !== "",
+      hargabatas_provided: normalizeText(values.hargabatas) !== "",
     };
   },
   validate(rows, context) {
@@ -337,6 +404,20 @@ export const produkImportDefinition = {
           "INVALID_NUMBER",
           "hargamodal harus berupa angka nol atau lebih.",
         );
+      }
+      for (const [field, providedField] of [
+        ["hargajual", "hargajual_provided"],
+        ["hargabatas", "hargabatas_provided"],
+      ]) {
+        if (row[providedField] && (row[field] === null || row[field] < 0)) {
+          addError(
+            errors,
+            row,
+            field,
+            "INVALID_NUMBER",
+            `${field} harus berupa angka nol atau lebih.`,
+          );
+        }
       }
       if (row.tipe) {
         const lowerTipe = row.tipe.toLowerCase();

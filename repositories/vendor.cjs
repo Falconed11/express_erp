@@ -1,6 +1,7 @@
 const { withTransaction } = require("../helpers/transaction.cjs");
 const { pool } = require("./db.2.0.0.cjs");
 const table = "vendor";
+const isMainVendor = (value) => [true, 1, "1"].includes(value);
 
 const list = async ({
   id,
@@ -63,24 +64,55 @@ const create = async ({
   nama,
   alamat = "",
   id_vendor_jenis = null,
+  is_main = false,
   conn = pool,
 }) => {
   if (!nama) throw new Error("Nama wajib diisi!");
-  const sql = `insert into ${table} (nama, alamat, id_vendor_jenis) values (?,?,?)`;
-  const values = [nama, alamat, id_vendor_jenis];
+  const sql = `insert into ${table} (nama, alamat, id_vendor_jenis, is_main) values (?,?,?,?)`;
+  const values = [nama, alamat, id_vendor_jenis, isMainVendor(is_main) ? 1 : 0];
   const [result] = await conn.execute(sql, values);
   return result.insertId;
 };
 
-const update = async ({ id, nama, alamat = "", id_vendor_jenis = null }) => {
+const update = async ({
+  id,
+  nama,
+  alamat = "",
+  id_vendor_jenis = null,
+  is_main,
+}) => {
   if (!nama) throw new Error("Nama wajib diisi!");
-  const sql = `update ${table} set nama=?, alamat=?, id_vendor_jenis=? where id=?`;
-  const values = [nama, alamat, id_vendor_jenis, id];
+  if (is_main !== undefined && !isMainVendor(is_main)) {
+    const [defaults] = await pool.execute(
+      "SELECT COUNT(*) AS total FROM produk_harga_default WHERE id_vendor = ? AND aktif = 1",
+      [id],
+    );
+    if (Number(defaults[0]?.total) > 0)
+      throw new Error(
+        "Hapus default harga vendor sebelum menonaktifkan vendor utama.",
+      );
+  }
+  const fields = ["nama=?", "alamat=?", "id_vendor_jenis=?"];
+  const values = [nama, alamat, id_vendor_jenis];
+  if (is_main !== undefined) {
+    fields.push("is_main=?");
+    values.push(isMainVendor(is_main) ? 1 : 0);
+  }
+  values.push(id);
+  const sql = `update ${table} set ${fields.join(", ")} where id=?`;
   const [result] = await pool.execute(sql, values);
   return result;
 };
 
 const destroy = async ({ id }) => {
+  const [defaults] = await pool.execute(
+    "SELECT COUNT(*) AS total FROM produk_harga_default WHERE id_vendor = ? AND aktif = 1",
+    [id],
+  );
+  if (Number(defaults[0]?.total) > 0)
+    throw new Error(
+      "Hapus default harga vendor sebelum menghapus vendor utama.",
+    );
   const sql = `delete from ${table} where id = ?`;
   const values = [id];
   const [result] = await pool.execute(sql, values);

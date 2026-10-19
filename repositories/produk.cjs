@@ -14,6 +14,9 @@ const {
 const {
   invalidateProductApprovals,
 } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
+const {
+  resolveProductPricesForConnection,
+} = require("./produk-price-default.repository.cjs");
 
 const getIndonesiaDateTime = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -173,8 +176,10 @@ const insertProduk = async ({
   stok = 0,
   satuan = "",
   hargamodal = 0,
-  hargajual = 0,
-  hargabatas = null,
+  hargajual,
+  hargabatas,
+  hargajual_custom,
+  hargabatas_custom,
   main_vendor = null,
   id_coa_kredit,
   lunas = 0,
@@ -205,7 +210,16 @@ const insertProduk = async ({
     if (vendor && !id_vendor) {
       id_vendor = await createVendor({ nama: vendor, alamat, conn });
     }
-    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, hargabatas, main_vendor, tanggal, keterangan, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
+    const prices = await resolveProductPricesForConnection(conn, {
+      id_kategori,
+      main_vendor,
+      hargamodal,
+      hargajual,
+      hargabatas,
+      hargajual_custom,
+      hargabatas_custom,
+    });
+    sql = `insert into ${table} (id_kategori, id_kustom, nama, id_merek, tipe, stok, satuan, hargamodal, hargajual, hargajual_custom, hargabatas, hargabatas_custom, main_vendor, tanggal, keterangan, created_by, updated_by, manualinput) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`;
     values = [
       id_kategori,
       id_kustom,
@@ -215,11 +229,15 @@ const insertProduk = async ({
       stok,
       satuan,
       hargamodal,
-      hargajual,
-      hargabatas,
+      prices.hargajual,
+      prices.hargajual_custom,
+      prices.hargabatas,
+      prices.hargabatas_custom,
       main_vendor,
       tanggal,
       keterangan ?? "",
+      created_by,
+      updated_by,
     ];
     const [result1] = await conn.execute(sql, values);
     let result2 = null;
@@ -375,7 +393,9 @@ const buildAuditEntries = ({
     "satuan",
     "hargamodal",
     "hargajual",
+    "hargajual_custom",
     "hargabatas",
+    "hargabatas_custom",
     "main_vendor",
     "tanggal",
     "keterangan",
@@ -430,10 +450,13 @@ const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
     "satuan",
     "hargamodal",
     "hargajual",
+    "hargajual_custom",
     "hargabatas",
+    "hargabatas_custom",
     "main_vendor",
     "tanggal",
     "keterangan",
+    "updated_by",
   ];
   const fields = [];
   const values = [];
@@ -454,6 +477,12 @@ const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
       if (rest.merek && !rest.id_merek) {
         rest.id_merek = await createMerek({ nama: rest.merek, conn });
       }
+      const prices = await resolveProductPricesForConnection(
+        conn,
+        { ...before, ...rest },
+        before,
+      );
+      Object.assign(rest, prices);
       for (const [key, value] of Object.entries(rest)) {
         if (
           allowedFields.includes(key) &&

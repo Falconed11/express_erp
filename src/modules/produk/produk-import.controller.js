@@ -97,6 +97,8 @@ export const downloadProdukImportSample = async (_req, res) => {
     { header: "tipe", key: "tipe", width: 20 },
     { header: "satuan", key: "satuan", width: 14 },
     { header: "hargamodal", key: "hargamodal", width: 16 },
+    { header: "hargajual", key: "hargajual", width: 16 },
+    { header: "hargabatas", key: "hargabatas", width: 16 },
   ];
   worksheet.addRows([
     {
@@ -106,6 +108,8 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "IP15-128",
       satuan: "unit",
       hargamodal: 12000000,
+      hargajual: "",
+      hargabatas: "",
     },
     {
       produk: "Galaxy A55",
@@ -114,6 +118,8 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "SMA55",
       satuan: "unit",
       hargamodal: 5500000,
+      hargajual: "",
+      hargabatas: "",
     },
     {
       produk: "ThinkPad E14",
@@ -122,6 +128,8 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "TPE14",
       satuan: "unit",
       hargamodal: 10500000,
+      hargajual: "",
+      hargabatas: "",
     },
   ]);
   worksheet.getRow(1).font = { bold: true };

@@ -51,7 +51,12 @@ const Controller = generateDefaultCRUDController({
       defaultAsyncController(
         async () => {
           const data = { ...req.body };
-          if (!canViewHargaBatas(req)) delete data.hargabatas;
+          data.created_by = req.user?.id_karyawan ?? data.created_by ?? null;
+          data.updated_by = req.user?.id_karyawan ?? data.updated_by ?? null;
+          if (!canViewHargaBatas(req)) {
+            delete data.hargabatas;
+            delete data.hargabatas_custom;
+          }
           if (data.hargabatas === "") data.hargabatas = null;
           return Service.create(data);
         },
@@ -154,7 +159,10 @@ const Controller = generateDefaultCRUDController({
 
     async patch(req, res, next) {
       if (!req.body) req.body = {};
-      if (!canViewHargaBatas(req)) delete req.body.hargabatas;
+      if (!canViewHargaBatas(req)) {
+        delete req.body.hargabatas;
+        delete req.body.hargabatas_custom;
+      }
       if (req.body.hargabatas === "") req.body.hargabatas = null;
       req.body.updated_by =
         req.user?.id_karyawan ?? req.body.updated_by ?? null;

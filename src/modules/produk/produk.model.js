@@ -1,5 +1,9 @@
 import { generateStandardCRUDModel } from "../default/default.model.js";
 import db from "../../config/db.js";
+import priceDefaults from "../../../repositories/produk-price-default.repository.cjs";
+import priceDefaultUtil from "../../../repositories/produk-price-default.util.cjs";
+
+const { resolveProductPrices } = priceDefaultUtil;
 
 const TABLE_NAME = "produk";
 const extraAllowedFields = [
@@ -12,7 +16,9 @@ const extraAllowedFields = [
   "satuan",
   "hargamodal",
   "hargajual",
+  "hargajual_custom",
   "hargabatas",
+  "hargabatas_custom",
   "main_vendor",
   "tanggal",
   "jatuhtempo",
@@ -22,12 +28,30 @@ const extraAllowedFields = [
   "manualinput",
 ];
 
+const baseModel = generateStandardCRUDModel({
+  tableName: TABLE_NAME,
+  extraAllowedFieldsForCreate: extraAllowedFields,
+  extraAllowedFieldsForUpdate: extraAllowedFields,
+});
+
 const Model = {
-  ...generateStandardCRUDModel({
-    tableName: TABLE_NAME,
-    extraAllowedFieldsForCreate: extraAllowedFields,
-    extraAllowedFieldsForUpdate: extraAllowedFields,
-  }),
+  ...baseModel,
+  async patch(id, data, connection = db) {
+    const applyUpdate = async (trx) => {
+      const existing = await trx("produk").where({ id }).first();
+      if (!existing) throw new Error("Data not found");
+      const defaults = await priceDefaults.getDefaults(trx);
+      const prices = resolveProductPrices(
+        { ...existing, ...data },
+        defaults,
+        existing,
+      );
+      return baseModel.patch(id, { ...data, ...prices }, trx);
+    };
+    return connection === db
+      ? db.transaction(applyUpdate)
+      : applyUpdate(connection);
+  },
   async getStockCount() {
     const [rows] = await db.execute(
       "SELECT COUNT(*) AS count FROM produk WHERE stok > 0",
@@ -65,6 +89,7 @@ const Model = {
     nama,
     id_kustom,
     id_perusahaan,
+    customPrice,
     page = 1,
     pageSize = 25,
   } = {}) {
@@ -90,6 +115,13 @@ const Model = {
     if (isReadyStock === "true" || isReadyStock === "1") {
       conditions.push("p.stok > 0");
     }
+
+    if (customPrice === "jual") conditions.push("p.hargajual_custom = 1");
+    if (customPrice === "batas") conditions.push("p.hargabatas_custom = 1");
+    if (customPrice === "either")
+      conditions.push("(p.hargajual_custom = 1 OR p.hargabatas_custom = 1)");
+    if (customPrice === "none")
+      conditions.push("(p.hargajual_custom = 0 AND p.hargabatas_custom = 0)");
 
     const customId = String(id_kustom ?? "").trim();
     if (customId) {

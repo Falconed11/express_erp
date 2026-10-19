@@ -23,7 +23,11 @@ const cleanExpiredJobs = () => {
   }
 };
 
-const readWorkbookRows = async (file, requiredColumns) => {
+const readWorkbookRows = async (
+  file,
+  requiredColumns,
+  optionalColumns = [],
+) => {
   if (!file?.buffer) throw new Error("File Excel wajib diunggah.");
 
   const workbook = new ExcelJS.Workbook();
@@ -46,7 +50,8 @@ const readWorkbookRows = async (file, requiredColumns) => {
     if (rowNumber === 1) return;
     const values = {};
     let hasValue = false;
-    for (const column of requiredColumns) {
+    for (const column of [...requiredColumns, ...optionalColumns]) {
+      if (!headers[column]) continue;
       const cell = worksheetRow.getCell(headers[column]);
       const value = cell.value instanceof Date ? cell.value : cell.text;
       values[column] = value;
@@ -61,7 +66,11 @@ const readWorkbookRows = async (file, requiredColumns) => {
 
 export const stageImport = async ({ definition, file, context }) => {
   cleanExpiredJobs();
-  const sourceRows = await readWorkbookRows(file, definition.columns);
+  const sourceRows = await readWorkbookRows(
+    file,
+    definition.columns,
+    definition.optionalColumns,
+  );
   const rows = sourceRows.map(({ rowNumber, values }) => ({
     rowNumber,
     ...definition.normalize(values),
@@ -100,7 +109,9 @@ export const commitImport = async ({ id, definition, actor }) => {
     throw new Error("Import belum siap untuk dikonfirmasi.");
   }
   if (job.errors.length) {
-    const error = new Error("Import memiliki baris tidak valid dan tidak dapat diproses.");
+    const error = new Error(
+      "Import memiliki baris tidak valid dan tidak dapat diproses.",
+    );
     error.status = 422;
     throw error;
   }

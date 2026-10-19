@@ -116,6 +116,7 @@ import vendor from "./repositories/vendor.cjs";
 
 // v2
 import appConfigRoutes from "./src/modules/app-config/app-config.route.js";
+import produkHargaDefaultRoutes from "./src/modules/produk-harga-default/produk-harga-default.route.js";
 import akuntansiRoutes from "./src/modules/akuntansi/transaksi.route.js";
 import coaFilterMapRoutes from "./src/modules/coa/coa-filter-map.route.js";
 import coaFilterRoutes from "./src/modules/coa/coa-filter.route.js";
@@ -250,6 +251,7 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.use("/api/v2/app-config", appConfigRoutes);
+app.use("/api/v2/produk-harga-default", produkHargaDefaultRoutes);
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
 app.use("/api/v2/coa-filter", coaFilterRoutes);
 app.use("/api/v2/coa", coaRoutes);
@@ -1033,7 +1035,12 @@ app.post("/api/produk", async (req, res) => {
     });
   }
   const data = { ...req.body };
-  if (!canViewHargaBatas(req)) delete data.hargabatas;
+  data.created_by = req.user?.id_karyawan ?? data.created_by ?? null;
+  data.updated_by = req.user?.id_karyawan ?? data.updated_by ?? null;
+  if (!canViewHargaBatas(req)) {
+    delete data.hargabatas;
+    delete data.hargabatas_custom;
+  }
   if (data.hargabatas === "") data.hargabatas = null;
   const result = await produk
     .create(data)
@@ -1042,7 +1049,10 @@ app.post("/api/produk", async (req, res) => {
 });
 app.put("/api/produk", async (req, res) => {
   const data = { ...req.body };
-  if (!canViewHargaBatas(req)) delete data.hargabatas;
+  if (!canViewHargaBatas(req)) {
+    delete data.hargabatas;
+    delete data.hargabatas_custom;
+  }
   if (data.hargabatas === "") data.hargabatas = null;
   const result = await produk
     .update({
@@ -1509,6 +1519,16 @@ app.get("/api/hutangvendor", async (req, res) => {
   res.json(await list);
 });
 app.post("/api/vendor", async (req, res) => {
+  if (
+    [true, 1, "1"].includes(req.body.is_main) &&
+    !["owner", "super"].includes(req.user?.peran)
+  ) {
+    return res
+      .status(403)
+      .json({
+        message: "Hanya owner atau super yang dapat menandai vendor utama.",
+      });
+  }
   const result = await vendor
     .create(req.body)
     .then((result) => res.json({ message: "vendor berhasil ditambahkan" }))
@@ -1522,6 +1542,21 @@ app.put("/api/transfervendor", async (req, res) => {
 });
 app.put("/api/vendor", async (req, res) => {
   try {
+    if (
+      req.body.is_main !== undefined &&
+      !["owner", "super"].includes(req.user?.peran)
+    ) {
+      const current = (await vendor.list({ id: req.body.id }))[0];
+      const requestedMain = [true, 1, "1"].includes(req.body.is_main);
+      const currentMain = [true, 1, "1"].includes(current?.is_main);
+      if (currentMain !== requestedMain)
+        return res
+          .status(403)
+          .json({
+            message:
+              "Hanya owner atau super yang dapat mengubah penanda vendor utama.",
+          });
+    }
     const result = await vendor.update(req.body);
     res.json({ message: "Data berhasil ditambahkan", data: result });
   } catch (e) {
