@@ -11,6 +11,9 @@ const { createPurchaseJournal } = require("./produkmasuk-jurnal.cjs");
 const {
   adjust: adjustCompanyStock,
 } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
+const {
+  invalidateProductApprovals,
+} = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 
 const getIndonesiaDateTime = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -321,6 +324,7 @@ const transfer = async ({ curId, newId }) => {
 
       const amountToTransfer = curProd.stok;
 
+      await invalidateProductApprovals(conn, curId);
       await conn.execute(
         "update produkmasuk set id_produk=? where id_produk=?",
         [newId, curId],

@@ -1,11 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseNumber, produkImportDefinition } from "./produk-import.definition.js";
+import {
+  parseNumber,
+  produkImportDefinition,
+} from "./produk-import.definition.js";
 
 test("Produk import normalizes whitespace", () => {
   assert.equal(produkImportDefinition.columns.includes("satuan"), true);
-  assert.equal(produkImportDefinition.columns.includes("hargajual"), true);
-  assert.equal(produkImportDefinition.columns.includes("hargabatas"), true);
+  assert.equal(produkImportDefinition.columns.includes("hargamodal"), true);
+  assert.equal(produkImportDefinition.columns.includes("hargajual"), false);
+  assert.equal(produkImportDefinition.columns.includes("hargabatas"), false);
   const row = produkImportDefinition.normalize({
     produk: "  Apple   Phone ",
     kategori: "  Smartphone ",
@@ -20,24 +24,60 @@ test("Produk import normalizes whitespace", () => {
   assert.equal(row.merek, "Apple Indonesia");
   assert.equal(row.satuan, "unit pcs");
   assert.equal(row.hargamodal, 10000.5);
-  assert.equal(row.hargajual, 12000);
-  assert.equal(row.hargabatas, 11500);
-  assert.equal(
-    produkImportDefinition.normalize({}).hargajual,
-    null,
-  );
+  assert.equal(row.hargajual, undefined);
+  assert.equal(row.hargabatas, undefined);
 });
 
-test("Produk import reports duplicate tipe and invalid prices", () => {
+test("Produk import reports duplicate tipe and invalid modal prices", () => {
   const rows = [
-    { rowNumber: 2, produk: "A", kategori: "K", merek: "M", tipe: "SKU-1", satuan: "unit", hargamodal: 10, hargajual: null, hargabatas: null },
-    { rowNumber: 3, produk: "B", kategori: "K", merek: "M", tipe: "SKU-1", satuan: "", hargamodal: null, hargajual: -1, hargabatas: null },
+    {
+      rowNumber: 2,
+      produk: "A",
+      kategori: "K",
+      merek: "M",
+      tipe: "SKU-1",
+      satuan: "unit",
+      hargamodal: 10,
+      hargajual: null,
+      hargabatas: null,
+    },
+    {
+      rowNumber: 3,
+      produk: "B",
+      kategori: "K",
+      merek: "M",
+      tipe: "SKU-1",
+      satuan: "",
+      hargamodal: null,
+      hargajual: -1,
+      hargabatas: null,
+    },
   ];
-  const errors = produkImportDefinition.validate(rows, { tanggal: "2026-09-17", id_vendor: 1 });
-  assert.equal(errors.filter((error) => error.code === "DUPLICATE_TIPE").length, 2);
-  assert.equal(errors.some((error) => error.code === "INVALID_NUMBER"), true);
-  assert.equal(errors.some((error) => error.field === "hargajual" && error.code === "INVALID_NUMBER"), true);
-  assert.equal(errors.some((error) => error.field === "satuan" && error.code === "EMPTY_REQUIRED_FIELD"), true);
+  const errors = produkImportDefinition.validate(rows, {
+    tanggal: "2026-09-17",
+    id_vendor: 1,
+  });
+  assert.equal(
+    errors.filter((error) => error.code === "DUPLICATE_TIPE").length,
+    2,
+  );
+  assert.equal(
+    errors.some((error) => error.code === "INVALID_NUMBER"),
+    true,
+  );
+  assert.equal(
+    errors.some(
+      (error) => error.field === "hargajual" && error.code === "INVALID_NUMBER",
+    ),
+    false,
+  );
+  assert.equal(
+    errors.some(
+      (error) =>
+        error.field === "satuan" && error.code === "EMPTY_REQUIRED_FIELD",
+    ),
+    true,
+  );
 });
 
 test("Produk import parses plain numeric values", () => {

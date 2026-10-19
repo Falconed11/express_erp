@@ -1,4 +1,9 @@
 const connection = require("./db.cjs");
+const { pool } = require("./db.2.0.0.cjs");
+const { withTransaction } = require("../helpers/transaction.cjs");
+const {
+  invalidateApproval,
+} = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 const table = "rekapitulasiproyek";
 
 const list = ({ id_proyek, versi }) => {
@@ -31,7 +36,7 @@ const listVersion = ({ id_proyek }) => {
   });
 };
 
-const create = ({
+const create = async ({
   id_proyek,
   versi,
   diskon,
@@ -40,7 +45,7 @@ const create = ({
   pajakinstalasi = 0,
 }) => {
   console.log({ id_proyek, versi });
-  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak, pajakinstalasi) values ( ?, ?, ?, ?, ?, ?)`;
+  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak, pajakinstalasi) values (?, ?, ?, ?, ?, ?)`;
   const values = [
     id_proyek,
     versi,
@@ -49,26 +54,22 @@ const create = ({
     pajak,
     pajakinstalasi,
   ];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      console.log(err);
-      if (err) reject(err);
-      resolve(res);
-    });
+  return withTransaction(pool, async (conn) => {
+    const [result] = await conn.execute(sql, values);
+    await invalidateApproval(conn, id_proyek, versi);
+    return result;
   });
 };
 
-const createkategoriProyek = ({ id_proyek, versi, jenis_proyek }) => {
+const createkategoriProyek = async ({ id_proyek, versi, jenis_proyek }) => {
   const audio = jenis_proyek.includes("audio") ? 1 : 0;
   const cctv = jenis_proyek.includes("cctv") ? 1 : 0;
   const multimedia = jenis_proyek.includes("multimedia") ? 1 : 0;
   const sql = `insert into ${table} (id_proyek, audio, cctv, multimedia, versi) values ( ?, '${audio}', '${cctv}', '${multimedia}', ?)`;
   const values = [id_proyek, versi];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
+  return withTransaction(pool, async (conn) => {
+    const [result] = await conn.execute(sql, values);
+    return result;
   });
 };
 
@@ -84,7 +85,14 @@ const createNewVersion = ({ id_proyek, versi }) => {
   });
 };
 
-const update = ({ id, diskon, diskoninstalasi, pajak, pajakinstalasi }) => {
+const update = async ({
+  id,
+  diskon,
+  diskoninstalasi,
+  pajak,
+  pajakinstalasi,
+  updated_by,
+}) => {
   const fields = [];
   const values = [];
   const isExist = (v) => v != null;
@@ -108,35 +116,57 @@ const update = ({ id, diskon, diskoninstalasi, pajak, pajakinstalasi }) => {
     return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
   values.push(id);
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
+  return withTransaction(pool, async (conn) => {
+    const [rows] = await conn.execute(
+      `SELECT id_proyek, versi FROM ${table} WHERE id = ? FOR UPDATE`,
+      [id],
+    );
+    if (!rows.length) throw new Error("Rekapitulasi proyek tidak ditemukan.");
+    const [result] = await conn.execute(sql, values);
+    await invalidateApproval(
+      conn,
+      rows[0].id_proyek,
+      rows[0].versi,
+      updated_by,
+    );
+    return result;
   });
 };
 
-const updatekategoriProyek = ({ id, jenis_proyek }) => {
+const updatekategoriProyek = async ({ id, jenis_proyek, updated_by }) => {
   const audio = jenis_proyek.includes("audio") ? 1 : 0;
   const cctv = jenis_proyek.includes("cctv") ? 1 : 0;
   const multimedia = jenis_proyek.includes("multimedia") ? 1 : 0;
   const sql = `update ${table} set audio = ${audio}, cctv = ${cctv}, multimedia = ${multimedia} where id=?`;
   const values = [id];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
+  return withTransaction(pool, async (conn) => {
+    const [rows] = await conn.execute(
+      `SELECT id_proyek, versi FROM ${table} WHERE id = ? FOR UPDATE`,
+      [id],
+    );
+    if (!rows.length) throw new Error("Rekapitulasi proyek tidak ditemukan.");
+    const [result] = await conn.execute(sql, values);
+    return result;
   });
 };
 
-const destroy = ({ id }) => {
-  const sql = `delete from ${table} where id = ?`;
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
+const destroy = async ({ id, updated_by }) => {
+  return withTransaction(pool, async (conn) => {
+    const [rows] = await conn.execute(
+      `SELECT id_proyek, versi FROM ${table} WHERE id = ? FOR UPDATE`,
+      [id],
+    );
+    if (!rows.length) return { affectedRows: 0 };
+    const [result] = await conn.execute(`DELETE FROM ${table} WHERE id = ?`, [
+      id,
+    ]);
+    await invalidateApproval(
+      conn,
+      rows[0].id_proyek,
+      rows[0].versi,
+      updated_by,
+    );
+    return result;
   });
 };
 

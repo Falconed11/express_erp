@@ -4,6 +4,10 @@ const {
   assertTransaction,
   withTransaction,
 } = require("../helpers/transaction.cjs");
+const {
+  invalidateApproval,
+  invalidateProjectApprovals,
+} = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 const table = "keranjangproyek";
 
 const list = async ({ id_proyek, instalasi, versi }) => {
@@ -82,6 +86,7 @@ const insertKeranjangProyek = async ({
     versi,
   ];
   const [result] = await conn.execute(sql, values);
+  await invalidateApproval(conn, id_proyek, versi);
   return {
     keranjangProyekInsertId: result.insertId,
     produkInsertId: id_produk,
@@ -108,7 +113,14 @@ const createNewVersion = async ({ id_proyek, versi }) => {
   const [result] = await pool.execute(sql, values);
   return result;
 };
-const update = async ({ id, id_produk, isUpdateHarga, tanggal, ...rest }) => {
+const update = async ({
+  id,
+  id_produk,
+  isUpdateHarga,
+  tanggal,
+  updated_by,
+  ...rest
+}) => {
   const allowedColumns = new Set([
     "id_subproyek",
     "jumlah",
@@ -140,10 +152,12 @@ const update = async ({ id, id_produk, isUpdateHarga, tanggal, ...rest }) => {
 
   return await withTransaction(pool, async (conn) => {
     const [rows] = await conn.execute(
-      "select id, id_produk from keranjangproyek where id = ? for update",
+      "select id, id_produk, id_proyek, versi from keranjangproyek where id = ? for update",
       [id],
     );
-    const idProduk = await rows[0]?.id_produk;
+    const currentRow = rows[0];
+    if (!currentRow) throw new Error("Keranjang proyek tidak ditemukan.");
+    const idProduk = currentRow.id_produk;
     console.log({ id, id_produk, idProduk, isUpdateHarga, tanggal, ...rest });
     await conn.execute("select id from produk where id = ? for update", [
       id_produk || (await idProduk),
@@ -151,6 +165,12 @@ const update = async ({ id, id_produk, isUpdateHarga, tanggal, ...rest }) => {
     values.push(id);
     let sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
     const [result] = await conn.execute(sql, values);
+    await invalidateApproval(
+      conn,
+      currentRow.id_proyek,
+      currentRow.versi,
+      updated_by,
+    );
     if (isUpdateHarga) {
       sql = `UPDATE produk SET hargamodal = ?, hargajual = ?, tanggal = ? WHERE id = ?`;
       await conn.execute(sql, [
@@ -167,17 +187,31 @@ const update = async ({ id, id_produk, isUpdateHarga, tanggal, ...rest }) => {
 const updateHargaJualByPersenProvit = async ({ id_proyek, persenProvit }) => {
   const sql = `UPDATE keranjangproyek SET harga = ceil(hargamodal*(1+?/100)) WHERE id_proyek = ?`;
   const values = [persenProvit, id_proyek];
-  const [result] = await pool.execute(sql, values);
-  return result;
+  return await withTransaction(pool, async (conn) => {
+    const [result] = await conn.execute(sql, values);
+    await invalidateProjectApprovals(conn, id_proyek);
+    return result;
+  });
 };
 
-const destroy = async ({ id }) => {
-  console.log({ id });
-  const sql = `delete from ${table} where id = ?`;
-  const values = [id];
-  const [result] = await pool.execute(sql, values);
-  return result;
-};
+const destroy = async ({ id, updated_by }) =>
+  await withTransaction(pool, async (conn) => {
+    const [rows] = await conn.execute(
+      `SELECT id_proyek, versi FROM ${table} WHERE id = ? FOR UPDATE`,
+      [id],
+    );
+    if (!rows.length) return { affectedRows: 0 };
+    const [result] = await conn.execute(`DELETE FROM ${table} WHERE id = ?`, [
+      id,
+    ]);
+    await invalidateApproval(
+      conn,
+      rows[0].id_proyek,
+      rows[0].versi,
+      updated_by,
+    );
+    return result;
+  });
 
 module.exports = {
   list,

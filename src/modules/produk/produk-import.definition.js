@@ -215,8 +215,7 @@ const commitProduk = async (job, actor) => {
             id_merek: brandIds.get(row.merek.toLowerCase()),
             tipe: row.tipe, // Retains original input casing
             hargamodal: row.hargamodal,
-            hargajual: row.hargajual ?? 0,
-            hargabatas: row.hargabatas,
+            hargajual: 0,
             main_vendor: job.context.main_vendor ?? job.context.id_vendor,
             tanggal: job.context.tanggal,
             satuan: row.satuan,
@@ -239,9 +238,12 @@ const commitProduk = async (job, actor) => {
               id_merek: brandIds.get(row.merek.toLowerCase()),
               tipe: row.tipe, // Updates with original input casing
               hargamodal: row.hargamodal,
-              hargajual: row.hargajual ?? 0,
-              hargabatas: row.hargabatas,
-              main_vendor: job.context.main_vendor ?? job.context.id_vendor,
+              ...(job.context.update_main_vendor
+                ? {
+                    main_vendor:
+                      job.context.main_vendor ?? job.context.id_vendor,
+                  }
+                : {}),
               tanggal: job.context.tanggal,
               satuan: row.satuan,
               inputcode,
@@ -280,16 +282,7 @@ const commitProduk = async (job, actor) => {
 
 export const produkImportDefinition = {
   type: "products",
-  columns: [
-    "produk",
-    "kategori",
-    "merek",
-    "tipe",
-    "satuan",
-    "hargamodal",
-    "hargajual",
-    "hargabatas",
-  ],
+  columns: ["produk", "kategori", "merek", "tipe", "satuan", "hargamodal"],
   normalize(values) {
     return {
       produk: normalizeText(values.produk),
@@ -298,12 +291,6 @@ export const produkImportDefinition = {
       tipe: normalizeText(values.tipe),
       satuan: normalizeText(values.satuan),
       hargamodal: parseNumber(values.hargamodal),
-      hargajual: normalizeText(values.hargajual)
-        ? parseNumber(values.hargajual)
-        : null,
-      hargabatas: normalizeText(values.hargabatas)
-        ? parseNumber(values.hargabatas)
-        : null,
     };
   },
   validate(rows, context) {
@@ -350,20 +337,6 @@ export const produkImportDefinition = {
           "INVALID_NUMBER",
           "hargamodal harus berupa angka nol atau lebih.",
         );
-      }
-      for (const field of ["hargajual", "hargabatas"]) {
-        if (
-          row[field] != null &&
-          (row[field] < 0 || !Number.isFinite(row[field]))
-        ) {
-          addError(
-            errors,
-            row,
-            field,
-            "INVALID_NUMBER",
-            `${field} harus berupa angka nol atau lebih.`,
-          );
-        }
       }
       if (row.tipe) {
         const lowerTipe = row.tipe.toLowerCase();

@@ -2,6 +2,9 @@ const { withTransaction } = require("../helpers/transaction.cjs");
 const { create: createVendor } = require("./vendor.cjs");
 const { update: updateProduk } = require("./produk.cjs");
 const { pool } = require("./db.2.0.0.cjs");
+const {
+  invalidateProductApprovals,
+} = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 const { createPurchaseJournal } = require("./produkmasuk-jurnal.cjs");
 const {
   adjust: adjustCompanyStock,
@@ -261,6 +264,7 @@ const create = async ({
           ? { hargamodal: harga, hargajual, tanggal: tanggalHarga }
           : {}),
       });
+      await invalidateProductApprovals(conn, id_produk, updated_by);
       return {
         message: "Sukses",
         id_produkmasuk: result1.insertId,
@@ -481,6 +485,7 @@ const update = async ({
           ? { hargamodal: nextHarga, hargajual, tanggal: tanggalHarga }
           : {}),
       });
+      await invalidateProductApprovals(conn, productId, updated_by);
       return {
         message: "Sukses",
         id_jurnal_koreksi: correctionJournalId,
@@ -575,6 +580,7 @@ const destroy = async ({ id, updated_by = null }) => {
         id: entry.id_produk,
         stokDelta: -Number(entry.jumlah),
       });
+      await invalidateProductApprovals(conn, entry.id_produk, updated_by);
       return { message: "Sukses", id_jurnal_koreksi: correctionJournalId };
     });
     return result;

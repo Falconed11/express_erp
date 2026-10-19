@@ -7,7 +7,8 @@ import {
 } from "../imports/import-engine.js";
 import { produkImportDefinition } from "./produk-import.definition.js";
 
-const canImport = (req) => ["owner", "super"].includes(req.user?.peran);
+const canImport = (req) =>
+  ["owner", "super", "admin"].includes(req.user?.peran);
 
 const fail = (res, error) =>
   res.status(error.status ?? 400).json({
@@ -34,6 +35,7 @@ export const createProdukImport = async (req, res) => {
         tanggal: req.body.tanggal,
         id_vendor: Number(req.body.id_vendor),
         main_vendor: Number(req.body.id_vendor),
+        update_main_vendor: req.body.update_main_vendor === "true",
         id_perusahaan: idPerusahaan,
       },
     });
@@ -95,8 +97,6 @@ export const downloadProdukImportSample = async (_req, res) => {
     { header: "tipe", key: "tipe", width: 20 },
     { header: "satuan", key: "satuan", width: 14 },
     { header: "hargamodal", key: "hargamodal", width: 16 },
-    { header: "hargajual", key: "hargajual", width: 16 },
-    { header: "hargabatas", key: "hargabatas", width: 16 },
   ];
   worksheet.addRows([
     {
@@ -106,8 +106,6 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "IP15-128",
       satuan: "unit",
       hargamodal: 12000000,
-      hargajual: 14500000,
-      hargabatas: 14000000,
     },
     {
       produk: "Galaxy A55",
@@ -116,8 +114,6 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "SMA55",
       satuan: "unit",
       hargamodal: 5500000,
-      hargajual: 6500000,
-      hargabatas: 6200000,
     },
     {
       produk: "ThinkPad E14",
@@ -126,8 +122,6 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "TPE14",
       satuan: "unit",
       hargamodal: 10500000,
-      hargajual: 12500000,
-      hargabatas: 12000000,
     },
   ]);
   worksheet.getRow(1).font = { bold: true };

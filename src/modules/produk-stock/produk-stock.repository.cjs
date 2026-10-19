@@ -4,6 +4,9 @@ const {
   createReturnJournals,
   reverseJournal,
 } = require("./produk-stock-journal.cjs");
+const {
+  invalidateProductApprovals,
+} = require("../project-approval/project-approval-invalidation.cjs");
 
 const adjust = async ({
   conn,
@@ -63,6 +66,7 @@ const claimUnclaimedEntry = async ({ id, id_perusahaan, updated_by = null }) =>
       jumlah: Number(entry.jumlah) - Number(entry.keluar ?? 0),
       updated_by,
     });
+    await invalidateProductApprovals(conn, entry.id_produk, updated_by);
 
     return { message: "Produk masuk berhasil diklaim." };
   });
@@ -295,6 +299,8 @@ const returnLoan = async ({
       });
     }
 
+    await invalidateProductApprovals(conn, loan.id_produk, created_by);
+
     const [finalRows] = await conn.execute(
       `SELECT COALESCE(SUM(jumlah), 0) AS jumlah_dikembalikan
        FROM produkpinjamanpengembalian
@@ -441,6 +447,7 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
     await conn.execute("DELETE FROM produkmasuk WHERE id = ?", [
       returned.id_produkmasuk_pemberi,
     ]);
+    await invalidateProductApprovals(conn, returned.id_produk, updated_by);
 
     const [balanceRows] = await conn.execute(
       `SELECT COALESCE(SUM(jumlah), 0) AS jumlah_dikembalikan

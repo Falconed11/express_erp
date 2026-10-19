@@ -107,6 +107,7 @@ const Model = {
       const searchColumns = [
         "p.nama",
         "m.nama",
+        "mv.nama",
         "p.tipe",
         "p.keterangan",
         "p.id_kustom",
@@ -130,6 +131,7 @@ const Model = {
       `SELECT COUNT(*) AS total
        FROM ${TABLE_NAME} p
        LEFT JOIN merek m ON m.id = p.id_merek
+       LEFT JOIN vendor mv ON mv.id = p.main_vendor
        ${where}`,
       values,
     );
