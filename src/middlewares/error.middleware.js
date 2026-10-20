@@ -1,6 +1,6 @@
 import { writeApiLog } from "../utils/api-logger.js";
 
-export default (err, req, res, next) => {
+export default (err, req, res, _next) => {
   const duplicateName = err.message?.match(
     /Duplicate entry '([^']+)' for key 'unique_nama'/i,
   );

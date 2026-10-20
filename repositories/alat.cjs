@@ -1,5 +1,5 @@
 const connection = require("./db.cjs");
-const table = "proyek";
+const _table = "proyek";
 
 const inputcode = "data2023";
 
@@ -42,7 +42,7 @@ const importPengeluaranProyek = ({
     // });
     sql = `INSERT INTO instansi (nama, swasta, inputcode) SELECT ?, ?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);`;
     values = [nama, swasta, nama];
-    connection.query(sql, values, (err, res) => {
+    connection.query(sql, values, (err, _res) => {
       if (err) {
         console.log(`instansi ${err}`);
         reject(err);
@@ -59,7 +59,7 @@ const importPengeluaranProyek = ({
       keterangan,
       id_second,
     ];
-    connection.query(sql, values, (err, res) => {
+    connection.query(sql, values, (err, _res) => {
       if (err) {
         console.log(`proyek${err}`);
         reject(err);
@@ -68,7 +68,7 @@ const importPengeluaranProyek = ({
     if (isExpense) {
       sql = `INSERT INTO karyawan (nama, inputcode) SELECT ?, '${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM karyawan WHERE nama = ?);`;
       values = [nama_karyawan, nama_karyawan];
-      connection.query(sql, values, (err, res) => {
+      connection.query(sql, values, (err, _res) => {
         if (err) {
           console.log(`karyawan ${err}`);
           reject(err);
@@ -76,7 +76,7 @@ const importPengeluaranProyek = ({
       });
       sql = `INSERT INTO vendor (nama, inputcode) SELECT ?, '${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM vendor WHERE nama = ?);`;
       values = [vendor, vendor];
-      connection.query(sql, values, (err, res) => {
+      connection.query(sql, values, (err, _res) => {
         if (err) {
           console.log(`vendor ${err}`);
           reject(err);
@@ -84,7 +84,7 @@ const importPengeluaranProyek = ({
       });
       sql = `INSERT INTO merek (nama, inputcode) SELECT ?, '${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM merek WHERE nama = ?);`;
       values = [merek, merek];
-      connection.query(sql, values, (err, res) => {
+      connection.query(sql, values, (err, _res) => {
         if (err) {
           console.log(`merek ${err}`);
           reject(err);
@@ -103,7 +103,7 @@ const importPengeluaranProyek = ({
         vendor,
         harga_satuan,
       ];
-      connection.query(sql, values, (err, res) => {
+      connection.query(sql, values, (err, _res) => {
         if (err) {
           console.log(`produk ${err}`);
           reject(err);
@@ -123,7 +123,7 @@ const importPengeluaranProyek = ({
         harga_satuan,
         lunas,
       ];
-      connection.query(sql, values, (err, res) => {
+      connection.query(sql, values, (err, _res) => {
         if (err) {
           console.log(`pengeluaranproyek ${err}`);
           reject(err);
@@ -148,13 +148,13 @@ const importPembayaranProyek = ({
   let sql = `INSERT INTO metodepembayaran (nama, inputcode) SELECT ?,'${inputcode}'  WHERE NOT EXISTS (SELECT 1 FROM metodepembayaran WHERE nama = ?);`;
   let values = [carabayar, carabayar];
   return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
+    connection.query(sql, values, (err, _res) => {
       if (err) reject(err);
       console.log(err);
     });
     sql = `insert into pembayaranproyek (id_proyek, nominal, id_metodepembayaran, tanggal, keterangan, inputcode) select (select id from proyek where id_second=?),?,(select id from metodepembayaran where nama=?),?,?,'${inputcode}'`;
     values = [id_second, nominal, carabayar, tanggal, keterangan];
-    connection.query(sql, values, (err, res) => {
+    connection.query(sql, values, (err, _res) => {
       if (err) reject(err);
       console.log(err);
     });
@@ -169,13 +169,13 @@ const importOperasionalKantor = ({ tanggal, transaksi, keterangan, biaya }) => {
   let sql = `INSERT INTO kategorioperasionalkantor (nama, inputcode) SELECT ?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM kategorioperasionalkantor WHERE nama = ?);`;
   let values = [transaksi, transaksi];
   return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
+    connection.query(sql, values, (err, _res) => {
       if (err) reject(err);
       console.log(err);
     });
     sql = `insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya, inputcode) select ?,(select id from kategorioperasionalkantor where nama =?),?,?,'${inputcode}'`;
     values = [tanggal, transaksi, keterangan, biaya];
-    connection.query(sql, values, (err, res) => {
+    connection.query(sql, values, (err, _res) => {
       if (err) reject(err);
       console.log(err);
     });

@@ -210,7 +210,7 @@ const ensureMetodeBayar = async (trx) => {
     },
     { id_coa_type: kewajibanLancar.id },
   );
-  const persediaanCoa = await syncByName(trx, "coa", "Persediaan", {
+  const _persediaanCoa = await syncByName(trx, "coa", "Persediaan", {
     id_coa_subtype: persediaanSubtype.id,
     aktif: true,
     keterangan: "System default",
@@ -865,7 +865,7 @@ const checkSeed = async (trx, definition) => {
           .where({ nama: "HPP", id_coa_subtype: subtype.id, aktif: true })
           .first()
       : null;
-    const aktivaLancar = await trx("coa_type")
+    const _aktivaLancar = await trx("coa_type")
       .where({ nama: "Aktiva Lancar", aktif: true })
       .first();
     const metodeBayar = await trx("laporan")

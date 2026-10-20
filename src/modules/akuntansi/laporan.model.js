@@ -69,7 +69,7 @@ const validateTreeRecursion = async ({ id, id_parent }, conn = db) => {
   }
 };
 
-const validateTreeRecursionFromRoot = async (rootId, conn = db) => {
+const _validateTreeRecursionFromRoot = async (rootId, conn = db) => {
   if (rootId == null) return;
 
   // Fetch laporan names for better error messages
@@ -789,10 +789,10 @@ const fetchTreeRows = async (
   }
 
   if (!includeBalance) {
-    return resultRows.map(({ own_nominal, ...rest }) => rest);
+    return resultRows.map(({ own_nominal: _own_nominal, ...rest }) => rest);
   }
 
-  return resultRows.map(({ own_nominal, ...rest }) => rest);
+  return resultRows.map(({ own_nominal: _own_nominal, ...rest }) => rest);
 };
 
 const Model = generateStandardCRUDModel({
@@ -808,7 +808,7 @@ const Model = generateStandardCRUDModel({
     id_coa_type: "ct.id",
   },
   customSelect: "",
-  generateCustomJoin: (mainTable) => ``,
+  generateCustomJoin: (_mainTable) => ``,
   prepareData: prepareLaporanData,
   customModel: {
     async setNodeDefaultOpen(id, nodeKey, defaultOpen, conn = db) {

@@ -159,7 +159,7 @@ const validateNoRecurringNode = async (
     throw new Error("id_parent and id_child must not be the same");
   }
 
-  const [existingChildRows] = await conn.execute(
+  const [_existingChildRows] = await conn.execute(
     `SELECT id FROM ${TABLE_NAME} WHERE id_child = ? AND id != ? LIMIT 1`,
     [childId, id || 0],
   );

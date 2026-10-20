@@ -8,7 +8,7 @@ const totalOperasional = ({ monthyear, startDate, endDate }) => {
   } group by ${
     monthyear ? "DATE_FORMAT(o.tanggal, '%m-%Y')," : ""
   } k.id) s on k.nama = s.kategori order by k.nama`;
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, (err, res) => {
       console.log(err);
       if (!res) res = [];

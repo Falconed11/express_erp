@@ -100,7 +100,7 @@ const Model = generateStandardCRUDModel({
   generateCustomFilter: ({
     id_coa_debit,
     id_coa_kredit,
-    excludeCoaIds,
+    excludeCoaIds: _excludeCoaIds,
     id_produkmasuk,
   }) => {
     const sqlParts = [];

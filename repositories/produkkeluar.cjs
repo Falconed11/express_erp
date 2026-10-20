@@ -391,7 +391,7 @@ async function update(params) {
       sn = null,
       id_produkmasuk,
       id_produk,
-      id_jurnal,
+      id_jurnal: _id_jurnal,
       oldJumlah,
       harga = 0,
       metodepengeluaran,
@@ -526,7 +526,7 @@ async function _createInTransaction({
   karyawan,
   id_karyawan = null,
   idproduk,
-  status,
+  status: _status,
   conn,
 }) {
   assertTransaction(conn, "_createInTransaction");

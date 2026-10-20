@@ -11,8 +11,6 @@ const list = async ({ id }) => {
     if (id) values.push(id);
     const [result] = await connection.execute(sql, values);
     return result;
-  } catch (error) {
-    throw error;
   } finally {
     connection.release();
   }
@@ -25,8 +23,6 @@ const create = async ({ nama }) => {
     let values = [nama];
     const [result] = await connection.execute(sql, values);
     return result;
-  } catch (error) {
-    throw error;
   } finally {
     connection.release();
   }
@@ -39,8 +35,6 @@ const update = async ({ id, nama }) => {
     let values = [nama, id];
     const [result] = await connection.execute(sql, values);
     return result;
-  } catch (error) {
-    throw error;
   } finally {
     connection.release();
   }
@@ -53,8 +47,6 @@ const destroy = async ({ id }) => {
     let values = [id];
     const [result] = await connection.execute(sql, values);
     return result;
-  } catch (error) {
-    throw error;
   } finally {
     connection.release();
   }

@@ -18,7 +18,7 @@ const importPengeluaranProyek = async (json) => {
   const connection = await pool.getConnection();
 
   const finalresult = [];
-  json.map(async (data, i) => {
+  json.map(async (data, _i) => {
     let {
       nama,
       swasta,
@@ -35,8 +35,8 @@ const importPengeluaranProyek = async (json) => {
       lunas,
       nama_barang,
       jumlah,
-      harga_total,
-      diskon,
+      harga_total: _harga_total,
+      diskon: _diskon,
     } = data;
     let id_kustom = id_second?.split(".")[2];
     nama_karyawan = nama_karyawan ?? "";
@@ -63,7 +63,7 @@ const importPengeluaranProyek = async (json) => {
       let [result] = await connection.execute(sql, values);
       console.log(1);
 
-      const insert_idInstansi = result.insertId;
+      const _insert_idInstansi = result.insertId;
 
       sql = `INSERT INTO proyek (id_second, id_kustom, nama, tanggal, id_instansi, id_statusproyek, versi, nilai, keterangan, inputcode) SELECT ?,?,?,?,(select id from instansi where nama = ?),'1','1',?,?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM proyek WHERE id_second = ?);`;
       values = [
@@ -138,7 +138,7 @@ const importPengeluaranProyek = async (json) => {
   });
 };
 
-const importPembayaranProyek = ({
+const importPembayaranProyek = async ({
   id_second,
   nominal,
   carabayar,
@@ -149,43 +149,21 @@ const importPembayaranProyek = ({
   carabayar = carabayar ?? "";
   let sql = `INSERT INTO metodepembayaran (nama, inputcode) SELECT ?,'${inputcode}'  WHERE NOT EXISTS (SELECT 1 FROM metodepembayaran WHERE nama = ?);`;
   let values = [carabayar, carabayar];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-    });
-    sql = `insert into pembayaranproyek (id_proyek, nominal, id_metodepembayaran, tanggal, keterangan, inputcode) select (select id from proyek where id_second=?),?,(select id from metodepembayaran where nama=?),?,?,'${inputcode}'`;
-    values = [id_second, nominal, carabayar, tanggal, keterangan];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-    });
-    setTimeout(() => {
-      resolve({ msg: "Sukses" });
-    }, 100);
-    // resolve({ msg: "Import excel pembayaran proyek berhasil" });
-  });
+  await pool.execute(sql, values);
+  sql = `insert into pembayaranproyek (id_proyek, nominal, id_metodepembayaran, tanggal, keterangan, inputcode) select (select id from proyek where id_second=?),?,(select id from metodepembayaran where nama=?),?,?,'${inputcode}'`;
+  values = [id_second, nominal, carabayar, tanggal, keterangan];
+  await pool.execute(sql, values);
+  return { msg: "Sukses" };
 };
 
-const importOperasionalKantor = ({ tanggal, transaksi, keterangan, biaya }) => {
+const importOperasionalKantor = async ({ tanggal, transaksi, keterangan, biaya }) => {
   let sql = `INSERT INTO kategorioperasionalkantor (nama, inputcode) SELECT ?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM kategorioperasionalkantor WHERE nama = ?);`;
   let values = [transaksi, transaksi];
-  return new Promise((resolve, reject) => {
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-    });
-    sql = `insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya, inputcode) select ?,(select id from kategorioperasionalkantor where nama =?),?,?,'${inputcode}'`;
-    values = [tanggal, transaksi, keterangan, biaya];
-    connection.query(sql, values, (err, res) => {
-      if (err) reject(err);
-      console.log(err);
-    });
-    setTimeout(() => {
-      resolve({ msg: "Sukses" });
-    }, 100);
-    // resolve({ msg: "Import excel pembayaran proyek berhasil" });
-  });
+  await pool.execute(sql, values);
+  sql = `insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya, inputcode) select ?,(select id from kategorioperasionalkantor where nama =?),?,?,'${inputcode}'`;
+  values = [tanggal, transaksi, keterangan, biaya];
+  await pool.execute(sql, values);
+  return { msg: "Sukses" };
 };
 
 module.exports = {

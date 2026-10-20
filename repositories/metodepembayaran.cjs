@@ -163,7 +163,7 @@ const create = ({
   id_bank,
   norekening,
   atasnama,
-  id_perusahaan,
+  id_perusahaan: _id_perusahaan,
   id_coa,
   companyId,
 }) => {

@@ -10,7 +10,7 @@ const list = async ({
   columnName,
   sortOrder = "",
 }) => {
-  validColumns = ["nama"];
+  const validColumns = ["nama"];
   // if (!Number.isInteger(limit) || limit <= 0) {
   //   return Promise.reject(new Error("Invalid limit value"));
   // }

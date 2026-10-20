@@ -1,6 +1,6 @@
 import { AUDIT_FIELDS } from "../../utils/const.js";
 import {
-  generateStandardCRUDModel,
+  generateStandardCRUDModel as _generateStandardCRUDModel,
   generateDefaultCRUDModel,
 } from "../default/default.model.js";
 

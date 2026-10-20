@@ -32,11 +32,9 @@ const list = async ({
     .split(/\s+/)
     .filter(Boolean);
   const validColumns = ["tanggal", "tanggal_penawaran"];
-  if (sort)
-    if (validColumns.includes(sort)) {
-    } else {
-      throw new Error("Kolom tidak valid");
-    }
+  if (sort && !validColumns.includes(sort)) {
+    throw new Error("Kolom tidak valid");
+  }
   const sql = `Select p.*, COUNT(*) OVER () AS totalrows, jp.nama jenisproyek, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('/logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
   ${id_produk ? ", count(cp.id_produk) nproduk" : ""}
   From ${table} p 
@@ -113,7 +111,7 @@ const create = async ({
   karyawan = null,
   id_statusproyek,
   id_jenisproyek = null,
-  tanggal = null,
+  _tanggal = null,
   tanggal_penawaran = null,
   keterangan = "",
   id_po = "",
@@ -269,7 +267,7 @@ const update = async ({
             !data.id_second ||
             getYearMonth(data.tanggal) != getYearMonth(tanggal)
           ) {
-            const { idCustom, seq } = await getNextProyekId(tanggal, conn);
+            const { idCustom, seq: _seq } = await getNextProyekId(tanggal, conn);
             fields.push("id_second=?");
             values.push(idCustom);
           }
@@ -289,7 +287,7 @@ const update = async ({
         return { affectedRows: 0, message: "No fields to update" };
       values.push(id);
       const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-      [updateResult] = await conn.execute(sql, values);
+      const [updateResult] = await conn.execute(sql, values);
       return {
         customerInsertId: id_instansi,
         updateResult,
@@ -330,27 +328,27 @@ const destroy = async ({ id }) => {
     // Start the transaction
     await connection.beginTransaction();
 
-    let sql, values, result;
+    let sql, values, _result;
 
     sql = `delete from keranjangproyek where id_proyek = ?`;
     values = [id];
-    [result] = await connection.execute(sql, values);
+    [_result] = await connection.execute(sql, values);
 
     sql = `delete from subproyek where id_proyek = ?`;
     values = [id];
-    [result] = await connection.execute(sql, values);
+    [_result] = await connection.execute(sql, values);
 
     sql = `delete from proyek_keteranganpenawaran where id_proyek = ?`;
     values = [id];
-    [result] = await connection.execute(sql, values);
+    [_result] = await connection.execute(sql, values);
 
     sql = `delete from rekapitulasiproyek where id_proyek = ?`;
     values = [id];
-    [result] = await connection.execute(sql, values);
+    [_result] = await connection.execute(sql, values);
 
     sql = `delete from ${table} where id = ?`;
     values = [id];
-    [result] = await connection.execute(sql, values);
+    [_result] = await connection.execute(sql, values);
 
     // If no errors, commit the transaction
     await connection.commit();

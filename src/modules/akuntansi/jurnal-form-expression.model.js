@@ -1,4 +1,4 @@
-import db from "../../config/db.js";
+import _db from "../../config/db.js";
 import { AUDIT_FIELDS } from "../../utils/const.js";
 import { generateDefaultCRUDModel } from "../default/default.model.js";
 

@@ -590,4 +590,4 @@ const destroy = async ({ id, updated_by = null }) => {
   }
 };
 
-module.exports = { list, create, update, destroy };
+module.exports = { list, create, update, destroy, createCorrectionJournal };

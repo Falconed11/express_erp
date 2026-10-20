@@ -1,5 +1,5 @@
 import OperasionalKantor from "../models/operasional-kantor.model.js";
-import { buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
+import { buildMonthlyDateRangeFromPeriod as _buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
 const NAME = "golongan instansi";
 const OperasionalKantorService = {
   async create(data) {

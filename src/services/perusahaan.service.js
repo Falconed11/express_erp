@@ -12,7 +12,7 @@ const PerusahaanService = {
     return getAll(table);
   },
   async getMonthlyReport(param) {
-    const { from, to, idPerusahaan } = param;
+    const { from, to: _to, idPerusahaan } = param;
     const aggregate = "sum";
     return withTransaction(async (conn) => {
       const preparedParam = { ...param, conn, aggregate };

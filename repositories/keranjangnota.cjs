@@ -26,7 +26,7 @@ const list = ({ id_nota }) => {
   const sql = `Select n.id id_keranjangnota, n.jumlah, n.harga hargakustom, p.* From ${table} n left join produk p on n.id_produk = p.id where 1=1 ${
     id_nota ? `and id_nota=${id_nota}` : ""
   }`;
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
       resolve(res);

@@ -1,14 +1,12 @@
 // transaction.js
 const pool = require("./db.2.0.0.cjs");
 
-async function test({ id }) {
+async function test({ id: _id }) {
   const connection = await pool.getConnection();
   try {
     const [result] = await connection.execute("select * from produk", []);
     const final = result.slice(0, 9);
     return final;
-  } catch (error) {
-    throw error;
   } finally {
     connection.release();
   }
@@ -67,7 +65,7 @@ async function testTransaction() {
   }
 }
 
-function coba() {}
+function _coba() {}
 
 // module.exports = runTransaction;
 module.exports = { test, testTransaction };

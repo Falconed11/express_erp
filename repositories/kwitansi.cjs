@@ -8,7 +8,7 @@ const list = ({ id, start, end }) => {
   if (id) values.push(id);
   if (start) values.push(start);
   if (end) values.push(end);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, values, (err, res) => {
       if (!res) res = [];
       resolve(res);

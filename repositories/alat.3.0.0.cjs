@@ -74,13 +74,13 @@ const importPengeluaranProyek = async (json) => {
 
     let sql = "";
     let values = [];
-    let result;
+    let _result;
     const finalresult = [];
 
     try {
       sql = `INSERT INTO instansi (nama, swasta, inputcode) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM instansi WHERE nama = ?);`;
       values = [nama, swasta, inputcode, nama];
-      [result] = await conn.query(sql, values);
+      [_result] = await conn.query(sql, values);
       // console.log(1);
 
       sql = `INSERT INTO proyek (id_second, id_kustom, nama, tanggal, id_instansi, id_statusproyek, versi, nilai, keterangan, inputcode) SELECT ?,?,?,?,(select id from instansi where nama = ?),'1','1',?,?,? WHERE NOT EXISTS (SELECT 1 FROM proyek WHERE id_second = ?);`;
@@ -95,22 +95,22 @@ const importPengeluaranProyek = async (json) => {
         inputcode,
         id_second,
       ];
-      [result] = await conn.query(sql, values);
+      [_result] = await conn.query(sql, values);
       // console.log(2);
       if (isExpense) {
         sql = `INSERT INTO karyawan (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM karyawan WHERE nama = ?);`;
         values = [nama_karyawan, inputcode, nama_karyawan];
-        [result] = await conn.query(sql, values);
+        [_result] = await conn.query(sql, values);
         // console.log(3);
 
         sql = `INSERT INTO vendor (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM vendor WHERE nama = ?);`;
         values = [vendor, inputcode, vendor];
-        [result] = await conn.query(sql, values);
+        [_result] = await conn.query(sql, values);
 
         // console.log(4);
         sql = `INSERT INTO merek (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM merek WHERE nama = ?);`;
         values = [merek, inputcode, merek];
-        [result] = await conn.query(sql, values);
+        [_result] = await conn.query(sql, values);
         // console.log(5);
 
         sql = `INSERT INTO produk (nama, id_merek, tipe, hargamodal, tanggal, inputcode) SELECT ?,(select id from merek where nama=?),?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM produk WHERE nama = ? and id_merek=(select id from merek where nama=?) and hargamodal=?);`;
@@ -125,7 +125,7 @@ const importPengeluaranProyek = async (json) => {
           merek,
           harga_satuan,
         ];
-        [result] = await conn.query(sql, values);
+        [_result] = await conn.query(sql, values);
         // console.log(6);
 
         sql = `INSERT INTO pengeluaranproyek (id_proyek, tanggal, id_karyawan, id_produk, id_vendor, jumlah, harga, lunas, inputcode) SELECT (select id from proyek where id_second=? limit 1),?,(select id from karyawan where nama=? limit 1),(select id from produk where nama=? and id_merek=(select id from merek where nama=?) and tipe=? and hargamodal=? limit 1),(select id from vendor where nama=? limit 1),?,?,?,?;`;
@@ -143,7 +143,7 @@ const importPengeluaranProyek = async (json) => {
           lunas,
           inputcode,
         ];
-        [result] = await conn.query(sql, values);
+        [_result] = await conn.query(sql, values);
         // console.log(7);
       }
       finalresult.push(`Sukses`);
@@ -169,18 +169,18 @@ const importPembayaranProyek = async (json) => {
 
     let sql = "";
     let values = [];
-    let result;
+    let _result;
     const finalresult = [];
 
     try {
       sql = `INSERT INTO metodepembayaran (nama, inputcode) SELECT ?,'${inputcode}'  WHERE NOT EXISTS (SELECT 1 FROM metodepembayaran WHERE nama = ?);`;
       values = [carabayar, carabayar];
-      [result] = await conn.query(sql, values);
+      [_result] = await conn.query(sql, values);
       console.log(1);
 
       sql = `insert into pembayaranproyek (id_proyek, nominal, id_metodepembayaran, tanggal, keterangan, inputcode) select (select id from proyek where id_second=?),?,(select id from metodepembayaran where nama=?),?,?,'${inputcode}'`;
       values = [id_second, nominal, carabayar, tanggal, keterangan];
-      [result] = await conn.query(sql, values);
+      [_result] = await conn.query(sql, values);
       console.log(2);
 
       finalresult.push(`Sukses`);
@@ -205,18 +205,18 @@ const importOperasionalKantor = async (json) => {
 
     let sql = "";
     let values = [];
-    let result;
+    let _result;
     const finalresult = [];
 
     try {
       sql = `INSERT INTO kategorioperasionalkantor (nama, inputcode) SELECT ?,'${inputcode}' WHERE NOT EXISTS (SELECT 1 FROM kategorioperasionalkantor WHERE nama = ?);`;
       values = [transaksi, transaksi];
-      [result] = await conn.query(sql, values);
+      [_result] = await conn.query(sql, values);
       console.log(1);
 
       sql = `insert into operasionalkantor (tanggal, id_kategorioperasionalkantor, keterangan, biaya, inputcode) select ?,(select id from kategorioperasionalkantor where nama =?),?,?,'${inputcode}'`;
       values = [tanggal, transaksi, keterangan, biaya];
-      [result] = await conn.query(sql, values);
+      [_result] = await conn.query(sql, values);
       console.log(2);
 
       finalresult.push(`Sukses`);
@@ -244,7 +244,7 @@ const importProduk = async (json) => {
       tanggal = new Date(),
       kategori = null,
       keterangan = "",
-      jumlah = 0,
+      _jumlah = 0,
     } = row;
 
     let sql = "";
@@ -255,15 +255,15 @@ const importProduk = async (json) => {
     try {
       sql = `INSERT INTO merek (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM merek WHERE nama = ?);`;
       values = [merek, inputcode, merek];
-      const [resultMerek] = await conn.query(sql, values);
+      const [_resultMerek] = await conn.query(sql, values);
       // console.log(5);
 
-      let resultKategori;
+      let _resultKategori;
 
       if (kategori) {
         sql = `INSERT INTO kategoriproduk (nama, inputcode) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM kategoriproduk WHERE nama = ?);`;
         values = [kategori, inputcode, kategori];
-        [resultKategori] = await conn.query(sql, values);
+        [_resultKategori] = await conn.query(sql, values);
         // console.log(5);
       }
 
@@ -275,12 +275,12 @@ const importProduk = async (json) => {
 
       const isExist = result.length > 0;
 
-      let col = "id_kategori,";
+      let _col = "id_kategori,";
       let val = "?";
 
       if (kategori) val = "(select id from kategoriproduk where nama=?)";
 
-      if (isExist) col = "id_kategori = ?,";
+      if (isExist) _col = "id_kategori = ?,";
 
       let id_produk;
       if (!isExist) {

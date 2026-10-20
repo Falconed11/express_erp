@@ -4,7 +4,7 @@ const table = "gudang";
 
 const list = () => {
   const sql = `Select * From ${table}`;
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
       resolve(res);

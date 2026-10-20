@@ -3,8 +3,8 @@ const table = "operasionalkantor";
 
 const list = async ({
   id_karyawan,
-  id_kategorioperasionalkantor,
-  tanggal,
+  id_kategorioperasionalkantor: _id_kategorioperasionalkantor,
+  tanggal: _tanggal,
   start,
   end,
   id_kategori,
@@ -95,7 +95,7 @@ const update = async ({ id, ...rest }) => {
     return { affectedRows: 0, message: "No fields to update" };
   values.push(id);
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-  [updateResult] = await pool.execute(sql, values);
+  const [updateResult] = await pool.execute(sql, values);
   return updateResult;
 };
 

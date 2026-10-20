@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-const parseCookieToken = (cookieHeader) => {
+const _parseCookieToken = (cookieHeader) => {
   if (!cookieHeader) return null;
 
   const cookies = cookieHeader.split(";").reduce((acc, cookie) => {

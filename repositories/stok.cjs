@@ -8,7 +8,7 @@ const list = () => {
   left join merek m on p.id_merek = m.id
   left join gudang g on s.id_gudang = g.id
   left join distributor d on s.id_distributor = d.id`;
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
       resolve(res);

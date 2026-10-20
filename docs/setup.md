@@ -39,6 +39,7 @@ Notes:
 Available npm scripts (see `package.json`):
 
 ```bash
+npm run lint      # lint JavaScript and CommonJS files with ESLint
 npm run test      # placeholder test script
 npm run knex      # run knex CLI using the local .env
 npm run latest    # run knex migrate:latest
@@ -47,6 +48,8 @@ npm run knex-run  # helper wrapper for knex-run.js
 ```
 
 Tip: `nodemon` is already a dependency; to run in watch mode you can use `npx nodemon app.js` or add an `npm run dev` script.
+
+`npm run lint` checks the backend's `.js`, `.mjs`, and `.cjs` files. Unused parameters and variables prefixed with `_` are ignored; all other lint errors and warnings fail the command.
 
 ## Running The Server
 

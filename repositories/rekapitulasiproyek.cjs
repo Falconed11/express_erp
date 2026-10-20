@@ -13,7 +13,7 @@ const list = ({ id_proyek, versi }) => {
   const values = [];
   values.push(id_proyek ?? undefined);
   values.push(versi);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, values, (err, res) => {
       console.log(err);
       if (!res) res = [];
@@ -28,7 +28,7 @@ const listVersion = ({ id_proyek }) => {
   }`;
   const values = [];
   values.push(id_proyek ?? undefined);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, values, (err, res) => {
       if (!res) res = [];
       resolve(res);
@@ -133,7 +133,7 @@ const update = async ({
   });
 };
 
-const updatekategoriProyek = async ({ id, jenis_proyek, updated_by }) => {
+const updatekategoriProyek = async ({ id, jenis_proyek, updated_by: _updated_by }) => {
   const audio = jenis_proyek.includes("audio") ? 1 : 0;
   const cctv = jenis_proyek.includes("cctv") ? 1 : 0;
   const multimedia = jenis_proyek.includes("multimedia") ? 1 : 0;

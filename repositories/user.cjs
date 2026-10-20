@@ -10,7 +10,7 @@ const table = "user";
 
 const SUPER_ROLE = "super";
 const HIGH_ROLES = ["super", "owner"];
-const MAX_RANK = 10;
+const _MAX_RANK = 10;
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
@@ -37,11 +37,11 @@ const login = async ({ username, password, id_perusahaan }) => {
 
   const {
     password: hash,
-    lastupdate,
-    lastuser,
-    manualinput,
-    inputcode,
-    keterangan,
+    lastupdate: _lastupdate,
+    lastuser: _lastuser,
+    manualinput: _manualinput,
+    inputcode: _inputcode,
+    keterangan: _keterangan,
     ...user
   } = rows[0];
   const result = await bcrypt.compare(password, hash);
@@ -57,6 +57,7 @@ const login = async ({ username, password, id_perusahaan }) => {
   if (companies.length === 0) throw new Error("Perusahaan tidak ditemukan");
 
   user.id_perusahaan = Number(id_perusahaan);
+  user.can_switch_role = user.peran === SUPER_ROLE;
 
   const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: "8h" });
   console.log("Logged in successfully");
@@ -102,7 +103,7 @@ const update = async ({
   password,
   peran,
   passwordlama,
-  srcusername,
+  srcusername: _srcusername,
   srcperan,
   id_karyawan = null,
 }) => {

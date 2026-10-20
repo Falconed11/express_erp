@@ -32,12 +32,15 @@ export const generateDefaultCRUDController = ({
     // Parse query parameters: if a value is a JSON string, parse it
     function parseQueryValue(val) {
       if (typeof val !== "string") return val;
+      let parsed;
       try {
-        const parsed = JSON.parse(val);
-        if (typeof parsed === "object" && parsed !== null) {
-          return parsed;
-        }
-      } catch (e) {}
+        parsed = JSON.parse(val);
+      } catch {
+        return val;
+      }
+      if (typeof parsed === "object" && parsed !== null) {
+        return parsed;
+      }
       return val;
     }
     const parsedQuery = {};

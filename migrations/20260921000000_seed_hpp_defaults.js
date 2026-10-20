@@ -1,4 +1,4 @@
-export async function up(knex) {
+export async function up(_knex) {
   // System defaults are applied explicitly from the super-admin Config page.
 }
 

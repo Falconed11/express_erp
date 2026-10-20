@@ -4,7 +4,7 @@ const table = "subkategoriproduk";
 
 const list = () => {
   const sql = `Select ${table}.*, kategoriproduk.nama as kategori From ${table} left join kategoriproduk on ${table}.id_kategoriproduk = kategoriproduk.id`;
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, (err, res) => {
       if (!res) res = [];
       resolve(res);

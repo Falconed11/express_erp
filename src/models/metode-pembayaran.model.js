@@ -1,4 +1,4 @@
-import db from "../config/db.js";
+import _db from "../config/db.js";
 import { patch } from "./default.model.js";
 
 const MetodePembayaran = {

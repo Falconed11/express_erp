@@ -1,6 +1,6 @@
-import { generateStandardCRUDModel } from "../default/default.model.js";
+import { generateStandardCRUDModel as _generateStandardCRUDModel } from "../default/default.model.js";
 
-const TABLE_NAME = "produkkeluar";
+const _TABLE_NAME = "produkkeluar";
 // const extraAllowedFields = ["id_jurnal", "id_produkmasuk"];
 // const Model = generateStandardCRUDModel({
 //   tableName: TABLE_NAME,
@@ -8,7 +8,7 @@ const TABLE_NAME = "produkkeluar";
 //   extraAllowedFieldsForUpdate: extraAllowedFields,
 // });
 const Model = {
-  create: (data) => {},
+  create: (_data) => {},
 };
 
 export default Model;

@@ -2,7 +2,7 @@ const { pool } = require("./db.2.0.0.cjs");
 
 const table = "peran";
 
-const list = async ({ id = "", peran = "", rank = "" }) => {
+const list = async ({ id = "", _peran = "", rank = "" }) => {
   let mod = "";
   if (rank) mod = ` and (rank>?)`;
   const sql = `select * from ${table} where 1=1${id ? " and id=?" : ""}${mod}`;

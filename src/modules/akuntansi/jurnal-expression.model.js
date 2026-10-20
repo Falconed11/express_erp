@@ -1,4 +1,4 @@
-import db from "../../config/db.js";
+import _db from "../../config/db.js";
 import { generateStandardCRUDModel } from "../default/default.model.js";
 
 const TABLE_NAME = "jurnal_expression";

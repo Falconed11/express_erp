@@ -5,7 +5,7 @@ const table = "perusahaan";
 const list = ({ id }) => {
   const sql = `select *, concat('/logo/', logo) logo from ${table} where 1=1${id ? ` and id=?` : ""}`;
   const values = [...(id ? [id] : [])];
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, values, (err, res) => {
       console.log(err);
       if (!res) res = [];

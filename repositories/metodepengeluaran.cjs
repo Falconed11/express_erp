@@ -13,8 +13,6 @@ const list = async ({ metodepengeluaran }) => {
     if (metodepengeluaran) values.push(metodepengeluaran);
     const [result] = await connection.execute(sql, values);
     return result;
-  } catch (error) {
-    throw error;
   } finally {
     // Release the connection back to the pool
     connection.release();
@@ -51,11 +49,11 @@ const create = async ({
       tanggal,
       lunas == "0" ? jatuhtempo : null,
     ];
-    const [result1] = await connection.execute(sql, values);
+    const [_result1] = await connection.execute(sql, values);
 
     sql = `update produk set stok = stok + ? where id=?;`;
     values = [jumlah, id_produk];
-    const [result2] = await connection.execute(sql, values);
+    const [_result2] = await connection.execute(sql, values);
 
     // If no errors, commit the transaction
     await connection.commit();
@@ -108,11 +106,11 @@ const update = async ({
       lunas == 0 ? jatuhtempo : null,
       id,
     ];
-    const [result1] = await connection.execute(sql, values);
+    const [_result1] = await connection.execute(sql, values);
 
     sql = `update produk set stok=stok + ? where id = ?`;
     values = [jumlah - oldJumlah, id_produk];
-    const [result2] = await connection.execute(sql, values);
+    const [_result2] = await connection.execute(sql, values);
 
     // If no errors, commit the transaction
     await connection.commit();
@@ -139,11 +137,11 @@ const destroy = async ({ id, id_produk, jumlah }) => {
 
     let sql = `delete from ${table} where id = ?`;
     let values = [id];
-    const [result1] = await connection.execute(sql, values);
+    const [_result1] = await connection.execute(sql, values);
 
     sql = `update produk set stok=stok - ? where id = ?`;
     values = [jumlah, id_produk];
-    const [result2] = await connection.execute(sql, values);
+    const [_result2] = await connection.execute(sql, values);
 
     // If no errors, commit the transaction
     await connection.commit();

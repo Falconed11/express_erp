@@ -3,8 +3,8 @@ import test from "node:test";
 import {
   compareObject,
   rankCandidates,
-  textSimilarity,
-  normalize,
+  textSimilarity as _textSimilarity,
+  normalize as _normalize,
 } from "./similarity.service.js";
 
 const existing = {

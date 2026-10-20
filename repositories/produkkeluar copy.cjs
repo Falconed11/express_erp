@@ -22,8 +22,6 @@ const list = async ({ id_produk }) => {
     if (id_produk) values.push(id_produk);
     const [result] = await connection.execute(sql, values);
     return result;
-  } catch (error) {
-    throw error;
   } finally {
     connection.release();
   }
@@ -57,10 +55,10 @@ const update = async ({
       if (metodepengeluaran != "proyek") {
         let sql = `update ${table} set sn=?, harga=?, metodepengeluaran=?, tanggal=? where id=?`;
         let values = [sn, harga, metodepengeluaran, tanggal, id];
-        const res = await conn.execute(sql, values);
+        const _res = await conn.execute(sql, values);
       } else {
         const isSelected = true;
-        let res = await queryDelete({
+        let _res = await queryDelete({
           ...rest,
           id,
           id_produkmasuk,
@@ -69,7 +67,7 @@ const update = async ({
           jumlah: oldJumlah,
           conn,
         });
-        res = await queryCreate({
+        _res = await queryCreate({
           ...rest,
           id_produk,
           sn,
@@ -125,7 +123,7 @@ const queryCreate = async ({
   karyawan,
   id_karyawan = null,
   idproduk,
-  status,
+  status: _status,
   conn,
 }) => {
   console.log({ keterangan });
@@ -250,21 +248,21 @@ const queryDelete = async ({
 
     sql = `delete from ${table} where id = ?`;
     values = [id];
-    const [result1] = await conn.execute(sql, values);
+    const [_result1] = await conn.execute(sql, values);
 
     if (metodepengeluaran == "proyek") {
       sql = `delete from pengeluaranproyek where id_produkkeluar = ?`;
       values = [id];
-      const [result4] = await conn.execute(sql, values);
+      const [_result4] = await conn.execute(sql, values);
     }
 
     sql = `update produkmasuk set keluar=keluar - ? where id = ?`;
     values = [jumlah, id_produkmasuk];
-    const [result2] = await conn.execute(sql, values);
+    const [_result2] = await conn.execute(sql, values);
 
     sql = `update produk set stok=stok + ? where id = ?`;
     values = [jumlah, id_produk];
-    const [result3] = await conn.execute(sql, values);
+    const [_result3] = await conn.execute(sql, values);
   } catch (err) {
     console.error("Error : ", err);
     throw err;

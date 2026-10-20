@@ -3,6 +3,7 @@ import { buildMonthlyDateRangeFromPeriod } from "../utils/periode.utils.js";
 import { assertAllowedValues } from "../utils/validation.js";
 
 export const calculateService = async ({
+  table,
   periode,
   aggregate,
   from,

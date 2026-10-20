@@ -1,7 +1,7 @@
 import { calculate } from "./default.model";
 
-const ReporstModel = {
-  async getLabaRugiReports(param) {
+const _ReporstModel = {
+  async getLabaRugiReports(_param) {
     return calculate({});
   },
 };

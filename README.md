@@ -20,6 +20,12 @@ Install dependencies:
 npm install
 ```
 
+Check JavaScript files with ESLint:
+
+```bash
+npm run lint
+```
+
 Create a `.env` in the project root. Example values:
 
 ```env

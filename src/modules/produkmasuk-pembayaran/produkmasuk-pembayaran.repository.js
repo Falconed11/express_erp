@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const {
   createPurchaseJournal,
 } = require("../../../repositories/produkmasuk-jurnal.cjs");
+const { createCorrectionJournal } = require("../../../repositories/produkmasuk.cjs");
 
 const invalid = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -998,7 +999,7 @@ export const deletePayment = async (paymentId, data, user) => {
   const employeeId = user?.id_karyawan ?? null;
 
   return withTransaction(async (conn) => {
-    const entry = await getEntry(conn, entryId, companyId, true);
+    const _entry = await getEntry(conn, entryId, companyId, true);
     const payment = await getPaymentForMutation(
       conn,
       normalizedPaymentId,

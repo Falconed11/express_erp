@@ -1,6 +1,6 @@
 import KeranjangProyekModel from "../models/keranjang-proyek.model.js";
 
-const table = "pengeluaranproyek";
+const _table = "pengeluaranproyek";
 
 const KeranjangProyekService = {
   async getOfferingSummary(idProyek) {

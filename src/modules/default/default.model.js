@@ -17,7 +17,7 @@ export const generateDefaultCRUDModel = (
     validFilterColumns = [],
     generateCustomFilter = null,
     customGetAll = null,
-    handleServiceOptions = () => {},
+    _handleServiceOptions = () => {},
   },
 ) => {
   function buildSqlQuery({
@@ -77,7 +77,7 @@ export const generateDefaultCRUDModel = (
     },
     async getAll({ limit, offset, sort, ...filters }, conn = db) {
       if (customGetAll && filters.group_jurnal) {
-        const { group_jurnal, ...customFilters } = filters;
+        const { group_jurnal: _group_jurnal, ...customFilters } = filters;
         return customGetAll({ limit, offset, sort, ...customFilters }, conn);
       }
       // console.log("Filters received:", filters);

@@ -292,7 +292,7 @@ const insertProduk = async ({
 const create = async (rest, fn) => {
   try {
     const result = await withTransaction(pool, async (conn) => {
-      const finalResult = await insertProduk({ ...rest, conn });
+      let finalResult = await insertProduk({ ...rest, conn });
       if (fn) {
         const result = await fn(conn, finalResult);
         if (result && typeof result === "object")

@@ -22,20 +22,6 @@ const list = async ({ id, limit }) => {
   return rows;
 };
 
-const pembayaran = async () => {
-  const sql = `select id_instansi id, sum(nominal) from pembayaranproyek pp left join proyek p on pp.id_proyek=p.id group by id_instansi`;
-  const values = [];
-  const [rows] = await pool.execute(sql, values);
-  return rows;
-};
-
-const produksi = async () => {
-  const sql = `select id_instansi id, sum(jumlah*harga) produksi from pengeluaranproyek pp left join proyek p on pp.id_proyek=p.id group by id`;
-  const values = [];
-  const [rows] = await pool.execute(sql, values);
-  return rows;
-};
-
 const transfer = async ({ id, newId }) => {
   if (!id) throw new Error("Id lama wajib diisi!");
   if (!newId) throw new Error("Id baru wajib diisi!");
@@ -99,7 +85,7 @@ const update = async ({ id, ...rest }) => {
     return { affectedRows: 0, message: "No fields to update" };
   values.push(id);
   const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
-  [updateResult] = await pool.execute(sql, values);
+  const [updateResult] = await pool.execute(sql, values);
   return updateResult;
 };
 

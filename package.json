@@ -9,6 +9,7 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
     "knex": "node --env-file=.env ./node_modules/knex/bin/cli.js",
     "latest": "npm run knex -- migrate:latest",
     "rollback": "npm run knex -- migrate:rollback",
@@ -29,5 +30,10 @@
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.1",
     "nodemon": "^3.1.9"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0"
   }
 }

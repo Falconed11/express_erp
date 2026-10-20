@@ -8,7 +8,7 @@ const Model = generateStandardCRUDModel({
   extraAllowedFieldsForUpdate: extraAllowedFields,
   filterAliases: {},
   customSelect: "",
-  generateCustomJoin: (mainTable) => ``,
+  generateCustomJoin: (_mainTable) => ``,
 });
 
 export default Model;

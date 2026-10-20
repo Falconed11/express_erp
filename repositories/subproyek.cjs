@@ -6,7 +6,7 @@ const list = ({ id_proyek }) => {
     id_proyek ? ` and id_proyek=?` : ""
   };`;
   const val = [id_proyek];
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     connection.query(sql, val, (err, res) => {
       if (!res) res = [];
       resolve(res);

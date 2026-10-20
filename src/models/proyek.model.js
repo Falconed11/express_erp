@@ -85,7 +85,8 @@ const ProyekModel = {
       ...record,
       ...overrides,
       nama:
-        overrides.hasOwnProperty("nama") && overrides.nama !== undefined
+        Object.prototype.hasOwnProperty.call(overrides, "nama") &&
+        overrides.nama !== undefined
           ? overrides.nama
           : `${record.nama} - copy`,
       id_statusproyek: 1,
