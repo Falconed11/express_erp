@@ -37,6 +37,7 @@ export const createProdukImport = async (req, res) => {
         main_vendor: Number(req.body.id_vendor),
         update_main_vendor: req.body.update_main_vendor === "true",
         id_perusahaan: idPerusahaan,
+        peran: req.user.peran,
       },
     });
     return res.status(201).json({ success: true, data: jobResponse(job) });
@@ -87,19 +88,25 @@ export const commitProdukImport = async (req, res) => {
   }
 };
 
-export const downloadProdukImportSample = async (_req, res) => {
+export const downloadProdukImportSample = async (req, res) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Produk");
-  worksheet.columns = [
+  const columns = [
     { header: "produk", key: "produk", width: 28 },
     { header: "kategori", key: "kategori", width: 22 },
     { header: "merek", key: "merek", width: 22 },
     { header: "tipe", key: "tipe", width: 20 },
     { header: "satuan", key: "satuan", width: 14 },
     { header: "hargamodal", key: "hargamodal", width: 16 },
-    { header: "hargajual", key: "hargajual", width: 16 },
-    { header: "hargabatas", key: "hargabatas", width: 16 },
   ];
+  const canImportSalePrices = req.user?.peran !== "admin";
+  if (canImportSalePrices) {
+    columns.push(
+      { header: "hargajual", key: "hargajual", width: 16 },
+      { header: "hargabatas", key: "hargabatas", width: 16 },
+    );
+  }
+  worksheet.columns = columns;
   worksheet.addRows([
     {
       produk: "iPhone 15 128GB",
@@ -108,8 +115,7 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "IP15-128",
       satuan: "unit",
       hargamodal: 12000000,
-      hargajual: "",
-      hargabatas: "",
+      ...(canImportSalePrices ? { hargajual: "", hargabatas: "" } : {}),
     },
     {
       produk: "Galaxy A55",
@@ -118,8 +124,7 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "SMA55",
       satuan: "unit",
       hargamodal: 5500000,
-      hargajual: "",
-      hargabatas: "",
+      ...(canImportSalePrices ? { hargajual: "", hargabatas: "" } : {}),
     },
     {
       produk: "ThinkPad E14",
@@ -128,8 +133,7 @@ export const downloadProdukImportSample = async (_req, res) => {
       tipe: "TPE14",
       satuan: "unit",
       hargamodal: 10500000,
-      hargajual: "",
-      hargabatas: "",
+      ...(canImportSalePrices ? { hargajual: "", hargabatas: "" } : {}),
     },
   ]);
   worksheet.getRow(1).font = { bold: true };
@@ -139,7 +143,7 @@ export const downloadProdukImportSample = async (_req, res) => {
   );
   res.setHeader(
     "Content-Disposition",
-    'attachment; filename="format-import-produk.xlsx"',
+    `attachment; filename="format-import-produk${canImportSalePrices ? "" : "-admin"}.xlsx"`,
   );
   await workbook.xlsx.write(res);
   res.end();

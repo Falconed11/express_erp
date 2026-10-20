@@ -183,6 +183,14 @@ const createPreview = async (rows, errors, context) => {
 };
 
 const commitProduk = async (job, actor) => {
+  const isAdminImport =
+    job.context.peran === "admin" || actor?.peran === "admin";
+  if (
+    isAdminImport &&
+    job.rows.some((row) => row.hargajual_provided || row.hargabatas_provided)
+  ) {
+    throw new Error("Admin hanya dapat mengimpor harga modal.");
+  }
   const inputcode = `${INPUT_CODE_PREFIX}-${job.id}`;
   return db.transaction(async (trx) => {
     const rows = job.rows;
@@ -275,6 +283,27 @@ const commitProduk = async (job, actor) => {
       await Promise.all(
         group.map((row) => {
           const existingProduct = existingByType.get(row.tipe.toLowerCase());
+          if (isAdminImport) {
+            return trx("produk")
+              .where("id", existingProduct.id)
+              .update({
+                nama: row.produk,
+                id_kategori: categoryIds.get(row.kategori.toLowerCase()),
+                id_merek: brandIds.get(row.merek.toLowerCase()),
+                tipe: row.tipe,
+                hargamodal: row.hargamodal,
+                ...(job.context.update_main_vendor
+                  ? {
+                      main_vendor:
+                        job.context.main_vendor ?? job.context.id_vendor,
+                    }
+                  : {}),
+                tanggal: job.context.tanggal,
+                satuan: row.satuan,
+                inputcode,
+                updated_by: actor?.id_karyawan ?? null,
+              });
+          }
           const nextProduct = {
             ...existingProduct,
             id_kategori: categoryIds.get(row.kategori.toLowerCase()),
@@ -403,6 +432,18 @@ export const produkImportDefinition = {
           "hargamodal",
           "INVALID_NUMBER",
           "hargamodal harus berupa angka nol atau lebih.",
+        );
+      }
+      if (
+        context.peran === "admin" &&
+        (row.hargajual_provided || row.hargabatas_provided)
+      ) {
+        addError(
+          errors,
+          row,
+          "harga",
+          "FORBIDDEN_PRICE_FIELD",
+          "Admin hanya dapat mengimpor harga modal.",
         );
       }
       for (const [field, providedField] of [

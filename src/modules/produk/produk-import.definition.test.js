@@ -139,6 +139,31 @@ test("Produk import rejects invalid explicit prices", () => {
   );
 });
 
+test("Admin product import rejects explicit sale prices", () => {
+  const row = produkImportDefinition.normalize({
+    produk: "A",
+    kategori: "K",
+    merek: "M",
+    tipe: "SKU-A",
+    satuan: "unit",
+    hargamodal: 100,
+    hargajual: 120,
+    hargabatas: "",
+  });
+  row.rowNumber = 2;
+
+  const errors = produkImportDefinition.validate([row], {
+    tanggal: "2026-10-20",
+    id_vendor: 1,
+    peran: "admin",
+  });
+
+  assert.equal(
+    errors.some((error) => error.code === "FORBIDDEN_PRICE_FIELD"),
+    true,
+  );
+});
+
 test("blank imported price cells clear custom flags and apply defaults", () => {
   const existing = {
     hargamodal: 100,
