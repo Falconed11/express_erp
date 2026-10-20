@@ -23,11 +23,11 @@ Vendor-scoped defaults are valid only for vendors with `vendor.is_main = 1`. The
 
 The migration marks both prices custom on existing products so deploying defaults does not change historical prices unexpectedly. On a later product update, a custom price remains unchanged unless explicitly replaced or returned to default.
 
-Imports may include optional `hargajual` and `hargabatas` columns. A provided value becomes custom. A blank cell generates a default for new products; for existing products it preserves a custom value or regenerates a non-custom value. Exported import sheets include explicit price values only for custom prices.
+Imports may include optional `hargajual` and `hargabatas` columns. A provided value becomes custom. A blank cell generates a default for new products and clears the corresponding custom flag before recalculating the default for existing products. Exported import sheets include explicit price values only for custom prices.
 
 ## Managing Defaults
 
-Owner and super roles can manage all scopes from Config > Default Harga Produk. The backend enforces these permissions on mutations. Vendor records have an owner/super-controlled `is_main` marker. A vendor cannot be unmarked or deleted while it has active vendor-scoped defaults; remove those defaults first.
+Owner and super roles can manage all scopes from Config > Default Harga Produk. The backend enforces these permissions on mutations. The global scope is created as a system seed at `0%` for both prices if it does not already exist; its percentages can be edited, but its scope cannot be changed and the row cannot be deleted. The super-only system seed check reports whether this row is valid, and applying seeds restores a missing or inactive row without resetting its percentages. Vendor records have an owner/super-controlled `is_main` marker. A vendor cannot be unmarked or deleted while it has active vendor-scoped defaults; remove those defaults first.
 
 Create a single scope row with both percentage fields:
 
@@ -44,7 +44,7 @@ Content-Type: application/json
 }
 ```
 
-Supported scopes are `global`, `kategori`, `vendor`, and `vendor_kategori`. Fields not used by a scope must be omitted or null. `GET` lists active defaults; `PATCH /:id` updates one; `DELETE /:id` removes one.
+Supported scopes are `global`, `kategori`, `vendor`, and `vendor_kategori`. Fields not used by a scope must be omitted or null. `GET` lists active defaults; `PATCH /:id` updates percentages and scope details except that the global seed must remain global; `DELETE /:id` removes non-global defaults only.
 
 Creating, changing, or deleting a default recalculates active products' non-custom prices in the same transaction. Products are re-resolved after the mutation, so adding a more-specific rule or deleting a rule applies the next effective scope. Recalculation uses each product's current `hargamodal` and updates product audit metadata.
 
@@ -57,4 +57,4 @@ The product page's custom-price filter uses `GET /api/v2/produk/page` with `cust
 - `either`: either price is custom
 - `none`: both prices use defaults
 
-The default scope table and product/vendor flags are created by migration `20261019090000_add_produk_harga_defaults.js`.
+The default scope table and product/vendor flags are created by migration `20261019090000_add_produk_harga_defaults.js`. Migration `20261020100000_seed_global_produk_harga_default.js` adds the global seed only when missing and preserves any existing global percentages.

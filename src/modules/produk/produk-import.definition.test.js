@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildProductPriceUpdateInput,
   parseNumber,
   produkImportDefinition,
 } from "./produk-import.definition.js";
+import priceDefaultUtil from "../../../repositories/produk-price-default.util.cjs";
+
+const { resolveProductPrices } = priceDefaultUtil;
 
 test("Produk import normalizes whitespace", () => {
   assert.equal(produkImportDefinition.columns.includes("satuan"), true);
@@ -133,4 +137,38 @@ test("Produk import rejects invalid explicit prices", () => {
     errors.some((error) => error.field === "hargajual"),
     true,
   );
+});
+
+test("blank imported price cells clear custom flags and apply defaults", () => {
+  const existing = {
+    hargamodal: 100,
+    main_vendor: 7,
+    id_kategori: 3,
+    hargajual: 450,
+    hargajual_custom: 1,
+    hargabatas: 400,
+    hargabatas_custom: 1,
+  };
+  const input = buildProductPriceUpdateInput(
+    { hargajual_provided: false, hargabatas_provided: false },
+    { ...existing, hargamodal: 200 },
+  );
+  const prices = resolveProductPrices(
+    input,
+    [
+      {
+        scope: "vendor_kategori",
+        id_vendor: 7,
+        id_kategori: 3,
+        persen_hargajual: 30,
+        persen_hargabatas: 15,
+      },
+    ],
+    existing,
+  );
+
+  assert.equal(prices.hargajual, 260);
+  assert.equal(prices.hargabatas, 230);
+  assert.equal(prices.hargajual_custom, 0);
+  assert.equal(prices.hargabatas_custom, 0);
 });

@@ -5,6 +5,7 @@ const SYSTEM_KEYS = {
   HPP: "HPP",
   PENDAPATAN: "PENDAPATAN",
   PEMBELIAN: "PEMBELIAN",
+  PRODUK_HARGA_DEFAULT: "PRODUK_HARGA_DEFAULT",
 };
 
 const seedDefinitions = [
@@ -12,6 +13,7 @@ const seedDefinitions = [
   { key: SYSTEM_KEYS.HPP, label: "HPP" },
   { key: SYSTEM_KEYS.PENDAPATAN, label: "Pendapatan" },
   { key: SYSTEM_KEYS.PEMBELIAN, label: "Pembelian" },
+  { key: SYSTEM_KEYS.PRODUK_HARGA_DEFAULT, label: "Default Harga Produk" },
 ];
 
 /**
@@ -570,6 +572,35 @@ const ensurePembelian = async (trx) => {
   await syncFormExpression(trx, form.id, metodeBayarExpression.id, "kredit", 2);
 };
 
+const ensureProdukHargaDefault = async (trx) => {
+  const row = await trx("produk_harga_default")
+    .where("scope", "global")
+    .orWhere("scope_key", "global")
+    .first();
+  if (!row) {
+    await trx("produk_harga_default").insert({
+      scope: "global",
+      scope_key: "global",
+      id_vendor: null,
+      id_kategori: null,
+      persen_hargajual: 0,
+      persen_hargabatas: 0,
+      aktif: true,
+    });
+    return;
+  }
+
+  const updates = {};
+  if (row.scope !== "global") updates.scope = "global";
+  if (row.scope_key !== "global") updates.scope_key = "global";
+  if (row.id_vendor != null) updates.id_vendor = null;
+  if (row.id_kategori != null) updates.id_kategori = null;
+  if (!row.aktif) updates.aktif = true;
+  if (Object.keys(updates).length) {
+    await trx("produk_harga_default").where({ id: row.id }).update(updates);
+  }
+};
+
 const checkMetodeBayarStructure = async (trx) => {
   const details = [];
   const verified = [];
@@ -713,6 +744,39 @@ const checkMetodeBayarStructure = async (trx) => {
 };
 
 const checkSeed = async (trx, definition) => {
+  if (definition.key === SYSTEM_KEYS.PRODUK_HARGA_DEFAULT) {
+    const row = await trx("produk_harga_default")
+      .where({ scope_key: "global", scope: "global", aktif: true })
+      .first();
+    const details = [];
+    const verified = [];
+    if (!row) {
+      details.push("Global product price default is missing or inactive.");
+    } else {
+      verified.push("Global product price default");
+      for (const field of ["persen_hargajual", "persen_hargabatas"]) {
+        const percent = Number(row[field]);
+        if (!Number.isFinite(percent) || percent < 0) {
+          details.push(`${field} must be a non-negative number.`);
+        } else {
+          verified.push(`${field}: ${percent}%`);
+        }
+      }
+      if (row.id_vendor != null || row.id_kategori != null) {
+        details.push(
+          "Global product price default must not have vendor or category scope.",
+        );
+      }
+    }
+    return {
+      key: definition.key,
+      label: definition.label,
+      status: details.length === 0 ? "correct" : "wrong",
+      details,
+      verified,
+    };
+  }
+
   const form = await trx("jurnal_form")
     .where({ system_key: definition.key, aktif: true })
     .first();
@@ -1003,6 +1067,7 @@ const Service = {
       await ensureHpp(trx);
       await ensurePendapatan(trx);
       await ensurePembelian(trx);
+      await ensureProdukHargaDefault(trx);
       return {
         seeds: await Promise.all(
           seedDefinitions.map((def) => checkSeed(trx, def)),

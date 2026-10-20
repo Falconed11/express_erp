@@ -1048,6 +1048,12 @@ app.post("/api/produk", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/produk", async (req, res) => {
+  if (req.user?.peran === "head-sales") {
+    return res.status(403).json({
+      success: false,
+      message: "Anda tidak memiliki izin untuk mengubah produk.",
+    });
+  }
   const data = { ...req.body };
   if (!canViewHargaBatas(req)) {
     delete data.hargabatas;
@@ -1523,11 +1529,9 @@ app.post("/api/vendor", async (req, res) => {
     [true, 1, "1"].includes(req.body.is_main) &&
     !["owner", "super"].includes(req.user?.peran)
   ) {
-    return res
-      .status(403)
-      .json({
-        message: "Hanya owner atau super yang dapat menandai vendor utama.",
-      });
+    return res.status(403).json({
+      message: "Hanya owner atau super yang dapat menandai vendor utama.",
+    });
   }
   const result = await vendor
     .create(req.body)
@@ -1550,12 +1554,10 @@ app.put("/api/vendor", async (req, res) => {
       const requestedMain = [true, 1, "1"].includes(req.body.is_main);
       const currentMain = [true, 1, "1"].includes(current?.is_main);
       if (currentMain !== requestedMain)
-        return res
-          .status(403)
-          .json({
-            message:
-              "Hanya owner atau super yang dapat mengubah penanda vendor utama.",
-          });
+        return res.status(403).json({
+          message:
+            "Hanya owner atau super yang dapat mengubah penanda vendor utama.",
+        });
     }
     const result = await vendor.update(req.body);
     res.json({ message: "Data berhasil ditambahkan", data: result });

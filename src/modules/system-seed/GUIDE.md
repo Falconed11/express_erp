@@ -98,6 +98,12 @@ Example:
 PEMBELIAN: "PEMBELIAN",
 ```
 
+## Resource-Only Seeds
+
+Some system seeds manage an application resource rather than a journal form. Keep them in `SYSTEM_KEYS` and `seedDefinitions`, but do not create a placeholder `jurnal_form`. Add a dedicated branch at the start of `checkSeed()` before its journal-form lookup, implement matching verification, and call the resource's idempotent `ensureXxx()` from `Service.apply()`.
+
+When a seeded resource is user-editable, `ensureXxx()` should restore only required system invariants and preserve user-owned values. For example, a global product price default must remain present, active, and globally scoped, while its percentages remain editable.
+
 ---
 
 # 3. Add the Seed Definition

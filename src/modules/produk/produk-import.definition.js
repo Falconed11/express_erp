@@ -8,6 +8,14 @@ const { resolveProductPrices } = priceDefaultUtil;
 const INPUT_CODE_PREFIX = "IMPORT-PRODUK";
 const BATCH_SIZE = 200;
 
+export const buildProductPriceUpdateInput = (row, product) => ({
+  ...product,
+  ...(row.hargajual_provided ? { hargajual: row.hargajual } : {}),
+  ...(row.hargabatas_provided ? { hargabatas: row.hargabatas } : {}),
+  hargajual_custom: row.hargajual_provided ? 1 : 0,
+  hargabatas_custom: row.hargabatas_provided ? 1 : 0,
+});
+
 export const parseNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   const raw = normalizeText(value);
@@ -278,15 +286,7 @@ const commitProduk = async (job, actor) => {
             hargamodal: row.hargamodal,
           };
           const prices = resolveProductPrices(
-            {
-              ...nextProduct,
-              ...(row.hargajual_provided ? { hargajual: row.hargajual } : {}),
-              ...(row.hargabatas_provided
-                ? { hargabatas: row.hargabatas }
-                : {}),
-              ...(row.hargajual_provided ? { hargajual_custom: 1 } : {}),
-              ...(row.hargabatas_provided ? { hargabatas_custom: 1 } : {}),
-            },
+            buildProductPriceUpdateInput(row, nextProduct),
             defaults,
             existingProduct,
           );

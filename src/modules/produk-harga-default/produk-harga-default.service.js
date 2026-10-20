@@ -39,8 +39,10 @@ const normalizeDefault = (input) => {
   const persen_hargajual = Number(input.persen_hargajual);
   const persen_hargabatas = Number(input.persen_hargabatas);
   for (const value of [persen_hargajual, persen_hargabatas]) {
-    if (!Number.isFinite(value) || value < 0 || value > 999999.999)
-      throw new Error("Persentase harus berupa angka nol atau lebih.");
+    if (!Number.isInteger(value) || value < 0 || value > 255)
+      throw new Error(
+        "Persentase harus berupa bilangan bulat antara 0 dan 255.",
+      );
   }
   const scope_key =
     scope === "global"
@@ -161,6 +163,15 @@ const Service = {
   async create(input, actorId) {
     const data = normalizeDefault(input);
     return withDefaultMutation(async (trx) => {
+      if (data.scope === "global") {
+        const existing = await trx("produk_harga_default")
+          .where({ scope_key: "global" })
+          .first("id");
+        if (existing)
+          throw new Error(
+            "Default global sudah tersedia. Edit nilai yang ada.",
+          );
+      }
       await validateMainVendor(trx, data.id_vendor);
       if (data.id_kategori) {
         const category = await trx("kategoriproduk")
@@ -181,6 +192,9 @@ const Service = {
     return withDefaultMutation(async (trx) => {
       const current = await trx("produk_harga_default").where({ id }).first();
       if (!current) throw new Error("Default harga tidak ditemukan.");
+      if ((current.scope === "global") !== (data.scope === "global")) {
+        throw new Error("Scope default global tidak dapat diubah.");
+      }
       await validateMainVendor(trx, data.id_vendor);
       if (data.id_kategori) {
         const category = await trx("kategoriproduk")
@@ -202,6 +216,8 @@ const Service = {
     return withDefaultMutation(async (trx) => {
       const current = await trx("produk_harga_default").where({ id }).first();
       if (!current) throw new Error("Default harga tidak ditemukan.");
+      if (current.scope === "global")
+        throw new Error("Default global tidak dapat dihapus.");
       await trx("produk_harga_default").where({ id }).del();
       return { deleted: true };
     }, actorId);

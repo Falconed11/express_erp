@@ -63,6 +63,29 @@ const Controller = generateDefaultCRUDController({
         { req, res, next },
       );
     },
+    async patch(req, res, next) {
+      if (req.user?.peran === "head-sales") {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak memiliki izin untuk mengubah produk.",
+        });
+      }
+      defaultAsyncController(
+        async () => {
+          const { id } = req.params;
+          if (!id) throw new Error("Id tidak boleh kosong!");
+          const data = { ...req.body };
+          data.updated_by = req.user?.id_karyawan ?? data.updated_by ?? null;
+          if (!canViewHargaBatas(req)) {
+            delete data.hargabatas;
+            delete data.hargabatas_custom;
+          }
+          if (data.hargabatas === "") data.hargabatas = null;
+          return Service.patch(id, data);
+        },
+        { req, res, next },
+      );
+    },
     async getAll(req, res, next) {
       defaultAsyncController(
         async () => hideRestrictedHarga(await Service.getAll(req.query), req),
