@@ -124,6 +124,20 @@ The v2 API currently covers:
 - jenis proyek
 - keranjang proyek
 
+## Authentication And Role Switching
+
+`POST /api/login` is public. Routes registered after `verifyToken` require a valid JWT. Login tokens include the user's active `peran`, its `rank` and `keteranganperan`, company context, and a signed `can_switch_role` claim that is true only for accounts whose saved role is `super`.
+
+The authenticated `POST /api/auth/role-switch` endpoint accepts a JSON body such as:
+
+```json
+{ "peran": "admin" }
+```
+
+Before issuing a replacement token, the backend checks the signed switch capability, confirms the user's saved account role is still `super`, and resolves the requested role from the `peran` table. Any configured role can be selected, including `super`. The new token changes the active role claims while preserving user and company identity, the original token expiration, and the switch capability. This is a session-only change; it does not update the user's saved role. Invalid requests return `400`, unauthorized requests `403`, and unknown roles `404`.
+
+Role-switch service tests can be run with `node --test src/modules/auth/role-switch.service.test.js`. The general `npm test` script remains a placeholder.
+
 ## File Uploads And Static Assets
 
 `app.js` configures disk storage with Multer:
