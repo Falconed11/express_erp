@@ -1,5 +1,6 @@
 import db from "../../config/db.js";
 import produkRepo from "../../../repositories/produk.cjs";
+import priceHistoryRepo from "./produk-price-history.repository.js";
 import Model from "./produk.model.js";
 import {
   rankCandidates,
@@ -9,6 +10,113 @@ import { buildProductAuditEntries } from "./produk-audit.util.js";
 import { getIndonesiaDateTime } from "../../utils/audit.util.js";
 
 const AUDIT_TABLE = "audit_log";
+const PRICE_HISTORY_PAGE_SIZE_MAX = 100;
+
+const invalidPriceHistory = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
+const normalizeHistoryId = (value, fieldName) => {
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id <= 0)
+    throw invalidPriceHistory(`${fieldName} tidak valid.`);
+  return id;
+};
+
+const normalizeOptionalHistoryId = (value, fieldName) =>
+  value === null || value === undefined || value === ""
+    ? null
+    : normalizeHistoryId(value, fieldName);
+
+const normalizeHistoryDate = (value) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime()))
+    return value.toISOString().slice(0, 10);
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+    throw invalidPriceHistory("Tanggal harga tidak valid.");
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== value
+  )
+    throw invalidPriceHistory("Tanggal harga tidak valid.");
+  return value;
+};
+
+const normalizePriceHistory = (input, actorId, existing = {}) => {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw invalidPriceHistory("Data riwayat harga tidak valid.");
+  if (
+    input.harga === "" ||
+    (input.harga === undefined && existing.harga === undefined)
+  )
+    throw invalidPriceHistory("Harga modal wajib diisi.");
+  const harga = Number(input.harga ?? existing.harga);
+  if (!Number.isFinite(harga) || harga < 0)
+    throw invalidPriceHistory("Harga modal harus berupa angka nol atau lebih.");
+  if (
+    input.aktif !== undefined &&
+    ![0, 1, false, true, "0", "1"].includes(input.aktif)
+  )
+    throw invalidPriceHistory("Status riwayat harga tidak valid.");
+
+  return {
+    id_produk: normalizeHistoryId(
+      Object.hasOwn(input, "id_produk") ? input.id_produk : existing.id_produk,
+      "Produk",
+    ),
+    id_vendor: normalizeOptionalHistoryId(
+      Object.hasOwn(input, "id_vendor") ? input.id_vendor : existing.id_vendor,
+      "Vendor",
+    ),
+    id_perusahaan: normalizeOptionalHistoryId(
+      Object.hasOwn(input, "id_perusahaan")
+        ? input.id_perusahaan
+        : existing.id_perusahaan,
+      "Perusahaan",
+    ),
+    tanggal: normalizeHistoryDate(
+      Object.hasOwn(input, "tanggal") ? input.tanggal : existing.tanggal,
+    ),
+    harga,
+    keterangan:
+      String(
+        Object.hasOwn(input, "keterangan")
+          ? (input.keterangan ?? "")
+          : (existing.keterangan ?? ""),
+      ).trim() || null,
+    aktif:
+      input.aktif === undefined
+        ? Number(existing.aktif ?? 1)
+        : Number(input.aktif),
+    created_by: actorId,
+    updated_by: actorId,
+  };
+};
+
+const normalizeHistoryFilters = (filters = {}) => {
+  const parseFilterId = (value, fieldName) =>
+    value ? normalizeHistoryId(value, fieldName) : null;
+  const pageSize = Math.min(
+    PRICE_HISTORY_PAGE_SIZE_MAX,
+    Math.max(1, Number.parseInt(filters.pageSize, 10) || 25),
+  );
+  return {
+    productId: parseFilterId(filters.id_produk, "Produk"),
+    vendorId: parseFilterId(filters.id_vendor, "Vendor"),
+    search: String(filters.search ?? "").trim(),
+    active: ["0", "1"].includes(String(filters.aktif))
+      ? String(filters.aktif)
+      : "all",
+    dateFrom: filters.date_from
+      ? normalizeHistoryDate(filters.date_from)
+      : null,
+    dateTo: filters.date_to ? normalizeHistoryDate(filters.date_to) : null,
+    page: Math.max(1, Number.parseInt(filters.page, 10) || 1),
+    pageSize,
+  };
+};
 
 const formatAuditDateTime = (value) => {
   if (!value) return null;
@@ -160,6 +268,28 @@ const Service = {
           ? JSON.parse(row.changes)
           : row.changes || {},
     }));
+  },
+
+  async getPriceHistory(filters) {
+    return priceHistoryRepo.list(normalizeHistoryFilters(filters));
+  },
+
+  async createPriceHistory(input, actorId = null) {
+    const data = normalizePriceHistory(input, actorId);
+    return priceHistoryRepo.create(data);
+  },
+
+  async updatePriceHistory(id, input, actorId = null) {
+    const historyId = normalizeHistoryId(id, "Riwayat harga");
+    const existing = await priceHistoryRepo.getById(historyId);
+    if (!existing) {
+      const error = new Error("Riwayat harga tidak ditemukan.");
+      error.statusCode = 404;
+      throw error;
+    }
+    const data = normalizePriceHistory(input, actorId, existing);
+    await priceHistoryRepo.update(historyId, data);
+    return { id: historyId };
   },
 
   async patch(id, data) {

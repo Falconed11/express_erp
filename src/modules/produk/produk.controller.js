@@ -3,6 +3,8 @@ import { generateDefaultCRUDController } from "../default/default.controller.js"
 import Service from "./produk.service.js";
 
 const canViewAuditLog = (req) => ["owner", "super"].includes(req.user?.peran);
+const canManagePriceHistory = (req) =>
+  ["owner", "super", "admin"].includes(req.user?.peran);
 const canCleanStock = (req) => ["owner", "super"].includes(req.user?.peran);
 const canViewHargaBatas = (req) =>
   ["owner", "super"].includes(req.user?.peran) ||
@@ -147,6 +149,48 @@ const Controller = generateDefaultCRUDController({
         res,
         next,
       });
+    },
+
+    async getPriceHistory(req, res, next) {
+      defaultAsyncController(async () => Service.getPriceHistory(req.query), {
+        req,
+        res,
+        next,
+      });
+    },
+
+    async createPriceHistory(req, res, next) {
+      if (!canManagePriceHistory(req)) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Hanya owner, super, dan admin yang dapat mengelola riwayat harga.",
+        });
+      }
+      defaultAsyncController(
+        async () =>
+          Service.createPriceHistory(req.body, req.user?.id_karyawan ?? null),
+        { req, res, next },
+      );
+    },
+
+    async updatePriceHistory(req, res, next) {
+      if (!canManagePriceHistory(req)) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Hanya owner, super, dan admin yang dapat mengelola riwayat harga.",
+        });
+      }
+      defaultAsyncController(
+        async () =>
+          Service.updatePriceHistory(
+            req.params.historyId,
+            req.body,
+            req.user?.id_karyawan ?? null,
+          ),
+        { req, res, next },
+      );
     },
 
     async transfer(req, res, next) {

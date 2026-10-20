@@ -1,9 +1,11 @@
 import { generateStandardCRUDModel } from "../default/default.model.js";
 import db from "../../config/db.js";
+import transactionHelper from "../../../helpers/transaction.cjs";
 import priceDefaults from "../../../repositories/produk-price-default.repository.cjs";
 import priceDefaultUtil from "../../../repositories/produk-price-default.util.cjs";
 
 const { resolveProductPrices } = priceDefaultUtil;
+const { withTransaction } = transactionHelper;
 
 const TABLE_NAME = "produk";
 const extraAllowedFields = [
@@ -38,7 +40,11 @@ const Model = {
   ...baseModel,
   async patch(id, data, connection = db) {
     const applyUpdate = async (trx) => {
-      const existing = await trx("produk").where({ id }).first();
+      const [existingRows] = await trx.execute(
+        "SELECT * FROM produk WHERE id = ? LIMIT 1",
+        [id],
+      );
+      const existing = existingRows[0];
       if (!existing) throw new Error("Data not found");
       const defaults = await priceDefaults.getDefaults(trx);
       const prices = resolveProductPrices(
@@ -49,7 +55,7 @@ const Model = {
       return baseModel.patch(id, { ...data, ...prices }, trx);
     };
     return connection === db
-      ? db.transaction(applyUpdate)
+      ? withTransaction(db, applyUpdate)
       : applyUpdate(connection);
   },
   async getStockCount() {

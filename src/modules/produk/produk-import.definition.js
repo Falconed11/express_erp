@@ -350,22 +350,23 @@ const commitProduk = async (job, actor) => {
       finalProducts.map((row) => [row.tipe.toLowerCase(), row.id]),
     );
 
-    const stockRows = rows.map((row) => ({
+    const priceHistoryRows = rows.map((row) => ({
       id_produk: productIds.get(row.tipe.toLowerCase()),
       id_vendor: job.context.id_vendor,
-      id_perusahaan: job.context.id_perusahaan,
       tanggal: job.context.tanggal,
-      jumlah: 0,
       harga: row.hargamodal,
+      source: "import",
+      created_by: actor?.id_karyawan ?? null,
+      updated_by: actor?.id_karyawan ?? null,
     }));
 
-    for (const group of chunk(stockRows))
-      await trx("produkmasuk").insert(group);
+    for (const group of chunk(priceHistoryRows))
+      await trx("produk_harga_history").insert(group);
 
     return {
       created: newRows.length,
       updated: updateRows.length,
-      produkMasukCreated: stockRows.length,
+      priceHistoryCreated: priceHistoryRows.length,
       actorId: actor?.id_karyawan ?? null,
     };
   });
