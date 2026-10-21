@@ -4,7 +4,37 @@ const { withTransaction } = require("../helpers/transaction.cjs");
 const {
   invalidateApproval,
 } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
+const { recalculateRecapTax } = require("./rekapitulasiproyek-pajak.cjs");
 const table = "rekapitulasiproyek";
+const toIntegerAmount = (value) => {
+  const amount = Math.round(Number(value ?? 0));
+  if (!Number.isSafeInteger(amount)) {
+    throw new Error("Pajak harus berupa bilangan bulat yang valid.");
+  }
+  return amount;
+};
+const toRate = (value) => {
+  const rate = Number(value ?? 0);
+  if (!Number.isInteger(rate) || rate < 0 || rate > 100) {
+    throw new Error("Persentase pajak harus bilangan bulat antara 0 dan 100.");
+  }
+  return rate;
+};
+
+const getProjectTaxDefaults = async (conn, id_proyek) => {
+  const [projectRows] = await conn.execute(
+    "SELECT id_perusahaan FROM proyek WHERE id = ? FOR UPDATE",
+    [id_proyek],
+  );
+  if (!projectRows.length) throw new Error("Proyek tidak ditemukan.");
+  const [defaultRows] = await conn.execute(
+    `SELECT persen FROM perusahaan_pajak_default
+     WHERE id_perusahaan = ? AND aktif = 1
+     ORDER BY id DESC LIMIT 1`,
+    [projectRows[0].id_perusahaan],
+  );
+  return toRate(defaultRows[0]?.persen ?? 0);
+};
 
 const list = ({ id_proyek, versi }) => {
   const sql = `Select r.* From ${table} r left join proyek p on r.id_proyek = p.id where 1=1 ${
@@ -41,21 +71,31 @@ const create = async ({
   versi,
   diskon,
   diskoninstalasi,
-  pajak,
+  pajak = 0,
   pajakinstalasi = 0,
+  pajakinstalasipers = 0,
+  pakaipajakinstalasi = false,
 }) => {
   console.log({ id_proyek, versi });
-  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak, pajakinstalasi) values (?, ?, ?, ?, ?, ?)`;
-  const values = [
-    id_proyek,
-    versi,
-    diskon,
-    diskoninstalasi,
-    pajak,
-    pajakinstalasi,
-  ];
+  const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak, pajakinstalasi, pajakpersen, pajakinstalasipers, pakaipajakinstalasi) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   return withTransaction(pool, async (conn) => {
+    const defaultTaxPercent = await getProjectTaxDefaults(conn, id_proyek);
+    const useInstallationTax = Boolean(pakaipajakinstalasi);
+    const values = [
+      id_proyek,
+      versi,
+      diskon,
+      diskoninstalasi,
+      toIntegerAmount(pajak),
+      useInstallationTax ? toIntegerAmount(pajakinstalasi) : 0,
+      defaultTaxPercent,
+      useInstallationTax ? toRate(pajakinstalasipers) : 0,
+      useInstallationTax,
+    ];
     const [result] = await conn.execute(sql, values);
+    await recalculateRecapTax(conn, id_proyek, versi, {
+      recalculateInstallation: false,
+    });
     await invalidateApproval(conn, id_proyek, versi);
     return result;
   });
@@ -74,7 +114,7 @@ const createkategoriProyek = async ({ id_proyek, versi, jenis_proyek }) => {
 };
 
 const createNewVersion = ({ id_proyek, versi }) => {
-  const sql = `INSERT INTO ${table} (id_proyek, diskon, diskoninstalasi, pajak, pajakinstalasi, audio, cctv, multimedia, versi) SELECT id_proyek, diskon, diskoninstalasi, pajak, pajakinstalasi, audio, cctv, multimedia, (SELECT max(versi) + 1 from ${table} where id_proyek=?) FROM ${table}
+  const sql = `INSERT INTO ${table} (id_proyek, diskon, diskoninstalasi, pajak, pajakinstalasi, pajakpersen, pajakinstalasipers, pakaipajakinstalasi, audio, cctv, multimedia, versi) SELECT id_proyek, diskon, diskoninstalasi, pajak, pajakinstalasi, pajakpersen, pajakinstalasipers, pakaipajakinstalasi, audio, cctv, multimedia, (SELECT max(versi) + 1 from ${table} where id_proyek=?) FROM ${table}
   WHERE id_proyek=? and versi=?`;
   const values = [id_proyek, id_proyek, versi];
   return new Promise((resolve, reject) => {
@@ -91,6 +131,8 @@ const update = async ({
   diskoninstalasi,
   pajak,
   pajakinstalasi,
+  pajakinstalasipers,
+  pakaipajakinstalasi,
   updated_by,
 }) => {
   const fields = [];
@@ -106,34 +148,70 @@ const update = async ({
   }
   if (isExist(pajak)) {
     fields.push("pajak=?");
-    values.push(pajak);
+    values.push(toIntegerAmount(pajak));
   }
-  if (isExist(pajakinstalasi)) {
-    fields.push("pajakinstalasi=?");
-    values.push(pajakinstalasi);
-  }
+  fields.push("pajakpersen=?");
+  values.push(0);
   if (fields.length === 0)
     return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
-  values.push(id);
-  const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
   return withTransaction(pool, async (conn) => {
     const [rows] = await conn.execute(
-      `SELECT id_proyek, versi FROM ${table} WHERE id = ? FOR UPDATE`,
+      `SELECT r.id_proyek, r.versi, r.pakaipajakinstalasi,
+              r.pajakinstalasi,
+              r.pajakinstalasipers
+       FROM ${table} r WHERE r.id = ? FOR UPDATE`,
       [id],
     );
     if (!rows.length) throw new Error("Rekapitulasi proyek tidak ditemukan.");
+    const current = rows[0];
+    const defaultTaxPercent = await getProjectTaxDefaults(
+      conn,
+      current.id_proyek,
+    );
+    values[fields.indexOf("pajakpersen=?")] = defaultTaxPercent;
+    const useInstallationTax = isExist(pakaipajakinstalasi)
+      ? Boolean(pakaipajakinstalasi)
+      : Boolean(current.pakaipajakinstalasi);
+    const installationRate = useInstallationTax
+      ? toRate(
+          isExist(pajakinstalasipers)
+            ? pajakinstalasipers
+            : current.pajakinstalasipers,
+        )
+      : 0;
+    fields.push("pajakinstalasi=?");
+    values.push(
+      useInstallationTax
+        ? toIntegerAmount(
+            isExist(pajakinstalasi) ? pajakinstalasi : current.pajakinstalasi,
+          )
+        : 0,
+    );
+    fields.push("pakaipajakinstalasi=?");
+    values.push(useInstallationTax);
+    fields.push("pajakinstalasipers=?");
+    values.push(installationRate);
+    values.push(id);
+    const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
     const [result] = await conn.execute(sql, values);
+    await recalculateRecapTax(conn, current.id_proyek, current.versi, {
+      recalculateInstallation: false,
+    });
     await invalidateApproval(
       conn,
-      rows[0].id_proyek,
-      rows[0].versi,
+      current.id_proyek,
+      current.versi,
       updated_by,
     );
     return result;
   });
 };
 
-const updatekategoriProyek = async ({ id, jenis_proyek, updated_by: _updated_by }) => {
+const updatekategoriProyek = async ({
+  id,
+  jenis_proyek,
+  updated_by: _updated_by,
+}) => {
   const audio = jenis_proyek.includes("audio") ? 1 : 0;
   const cctv = jenis_proyek.includes("cctv") ? 1 : 0;
   const multimedia = jenis_proyek.includes("multimedia") ? 1 : 0;

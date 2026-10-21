@@ -8,6 +8,10 @@ const {
   invalidateApproval,
   invalidateProjectApprovals,
 } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
+const {
+  copyForVersion: copyKeteranganKhususForVersion,
+} = require("./keterangan-khusus-penawaran.cjs");
+const { recalculateRecapTax } = require("./rekapitulasiproyek-pajak.cjs");
 const table = "keranjangproyek";
 
 const list = async ({ id_proyek, instalasi, versi }) => {
@@ -55,6 +59,7 @@ const insertKeranjangProyek = async ({
   instalasi = 0,
   namakustom = "",
   versi = 1,
+  userRole,
   conn,
   ...rest
 }) => {
@@ -72,6 +77,14 @@ const insertKeranjangProyek = async ({
         conn,
       })
     )?.produkInsertId;
+  if (["sales", "head-sales"].includes(userRole) && id_produk) {
+    const [productRows] = await conn.execute(
+      "SELECT hargamodal FROM produk WHERE id = ?",
+      [id_produk],
+    );
+    if (!productRows.length) throw new Error("Produk tidak ditemukan.");
+    hargamodal = productRows[0].hargamodal ?? 0;
+  }
   const sql = `insert into ${table} (id_produk, id_proyek, id_subproyek, jumlah, hargamodal, harga, hargakustom, instalasi, keterangan, versi) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     id_produk,
@@ -86,6 +99,7 @@ const insertKeranjangProyek = async ({
     versi,
   ];
   const [result] = await conn.execute(sql, values);
+  await recalculateRecapTax(conn, id_proyek, versi);
   await invalidateApproval(conn, id_proyek, versi);
   return {
     keranjangProyekInsertId: result.insertId,
@@ -107,12 +121,29 @@ const create = async (rest) => {
   }
 };
 
-const createNewVersion = async ({ id_proyek, versi }) => {
-  const sql = `INSERT INTO ${table} (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi) SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, (SELECT max(versi) + 1 from keranjangproyek where id_proyek=?) FROM keranjangproyek WHERE id_proyek=? and versi=?`;
-  const values = [id_proyek, id_proyek, versi];
-  const [result] = await pool.execute(sql, values);
-  return result;
-};
+const createNewVersion = async ({ id_proyek, versi }) =>
+  withTransaction(pool, async (conn) => {
+    await conn.execute("SELECT id FROM proyek WHERE id = ? FOR UPDATE", [
+      id_proyek,
+    ]);
+    const [versionRows] = await conn.execute(
+      `SELECT COALESCE(MAX(versi), 0) + 1 AS next_version
+       FROM ${table}
+       WHERE id_proyek = ?`,
+      [id_proyek],
+    );
+    const targetVersion = Number(versionRows[0]?.next_version);
+    const [result] = await conn.execute(
+      `INSERT INTO ${table}
+         (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi)
+       SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, ?
+       FROM ${table}
+       WHERE id_proyek = ? AND versi = ?`,
+      [targetVersion, id_proyek, versi],
+    );
+    await copyKeteranganKhususForVersion(conn, id_proyek, versi, targetVersion);
+    return result;
+  });
 const update = async ({
   id,
   id_produk,
@@ -180,6 +211,7 @@ const update = async ({
         id_produk,
       ]);
     }
+    await recalculateRecapTax(conn, currentRow.id_proyek, currentRow.versi);
     return result;
   });
 };
@@ -189,6 +221,13 @@ const updateHargaJualByPersenProvit = async ({ id_proyek, persenProvit }) => {
   const values = [persenProvit, id_proyek];
   return await withTransaction(pool, async (conn) => {
     const [result] = await conn.execute(sql, values);
+    const [versions] = await conn.execute(
+      "SELECT versi FROM rekapitulasiproyek WHERE id_proyek = ?",
+      [id_proyek],
+    );
+    for (const { versi } of versions) {
+      await recalculateRecapTax(conn, id_proyek, versi);
+    }
     await invalidateProjectApprovals(conn, id_proyek);
     return result;
   });
@@ -204,6 +243,7 @@ const destroy = async ({ id, updated_by }) =>
     const [result] = await conn.execute(`DELETE FROM ${table} WHERE id = ?`, [
       id,
     ]);
+    await recalculateRecapTax(conn, rows[0].id_proyek, rows[0].versi);
     await invalidateApproval(
       conn,
       rows[0].id_proyek,

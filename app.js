@@ -118,6 +118,7 @@ import vendor from "./repositories/vendor.cjs";
 import appConfigRoutes from "./src/modules/app-config/app-config.route.js";
 import roleSwitchRoutes from "./src/modules/auth/role-switch.route.js";
 import produkHargaDefaultRoutes from "./src/modules/produk-harga-default/produk-harga-default.route.js";
+import perusahaanPajakDefaultRoutes from "./src/modules/perusahaan-pajak-default/perusahaan-pajak-default.route.js";
 import akuntansiRoutes from "./src/modules/akuntansi/transaksi.route.js";
 import coaFilterMapRoutes from "./src/modules/coa/coa-filter-map.route.js";
 import coaFilterRoutes from "./src/modules/coa/coa-filter.route.js";
@@ -148,6 +149,7 @@ import produkKeluarRoutes from "./src/modules/produk-keluar/produk-keluar.routes
 import produkMasukPembayaranRoutes from "./src/modules/produkmasuk-pembayaran/produkmasuk-pembayaran.route.js";
 import produkStockRoutes from "./src/modules/produk-stock/produk-stock.routes.js";
 import projectApprovalRoutes from "./src/modules/project-approval/project-approval.route.js";
+import keteranganKhususPenawaranRoutes from "./src/modules/keterangan-khusus-penawaran/keterangan-khusus-penawaran.route.js";
 import systemSeedRoutes from "./src/modules/system-seed/system-seed.route.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
@@ -255,6 +257,7 @@ app.get("/api/auth/me", (req, res) => {
 
 app.use("/api/v2/app-config", appConfigRoutes);
 app.use("/api/v2/produk-harga-default", produkHargaDefaultRoutes);
+app.use("/api/v2/perusahaan-pajak-default", perusahaanPajakDefaultRoutes);
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
 app.use("/api/v2/coa-filter", coaFilterRoutes);
 app.use("/api/v2/coa", coaRoutes);
@@ -284,6 +287,7 @@ app.use("/api/v2/produk-keluar", produkKeluarRoutes);
 app.use("/api/v2/produkmasuk-pembayaran", produkMasukPembayaranRoutes);
 app.use("/api/v2/produk-stock", produkStockRoutes);
 app.use("/api/v2/project-approval", projectApprovalRoutes);
+app.use("/api/v2/keterangan-khusus-penawaran", keteranganKhususPenawaranRoutes);
 app.use("/api/v2/system-seed", systemSeedRoutes);
 app.use("/api/v2/transaksi", akuntansiRoutes);
 app.use("/api/v2/transfer-bank", transferBank);
@@ -658,7 +662,10 @@ app.get("/api/versikeranjangproyek", async (req, res) => {
 });
 app.post("/api/keranjangproyek", async (req, res) => {
   try {
-    const result = await keranjangproyek.create(req.body);
+    const result = await keranjangproyek.create({
+      ...req.body,
+      userRole: req.user?.peran,
+    });
     res.json({ message: "Data berhasil ditambahkan", data: result });
   } catch (e) {
     res.status(400).json({ message: e.message || "Unknown Error" });
