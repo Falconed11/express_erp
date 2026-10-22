@@ -652,7 +652,7 @@ app.delete("/api/keranjangnota", async (req, res) => {
 // keranjangproyek
 app.get("/api/keranjangproyek", async (req, res) => {
   const _list = keranjangproyek
-    .list(req.query)
+    .list({ ...req.query, id_perusahaan: req.user?.id_perusahaan })
     .then((result) => res.json(result))
     .catch((e) => res.status(400).json({ message: e.message }));
 });

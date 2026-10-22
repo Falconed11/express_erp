@@ -14,16 +14,17 @@ const {
 const { recalculateRecapTax } = require("./rekapitulasiproyek-pajak.cjs");
 const table = "keranjangproyek";
 
-const list = async ({ id_proyek, instalasi, versi }) => {
-  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.id id_produk, p.nama, p.stok, p.tipe, p.hargamodal, p.hargajual, p.hargabatas, p.satuan, p.tanggal From ${table} kp
+const list = async ({ id_proyek, instalasi, versi, id_perusahaan }) => {
+  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.id id_produk, p.nama, p.stok, coalesce(psp.stok, 0) stok_perusahaan, p.tipe, p.hargamodal, p.hargajual, p.hargabatas, p.satuan, p.tanggal From ${table} kp
   left join subproyek sp on kp.id_subproyek = sp.id 
   left join produk p on kp.id_produk = p.id 
+  left join produkstokperusahaan psp on psp.id_produk = p.id and psp.id_perusahaan = ?
   left join kategoriproduk kpr on p.id_kategori=kpr.id 
   left join merek m on p.id_merek=m.id 
   left join vendor v on p.id_vendor=v.id where 1=1 ${
     id_proyek ? `and kp.id_proyek=?` : ""
   } ${instalasi ? `and instalasi = ?` : ""} and versi=?`;
-  const values = [];
+  const values = [id_perusahaan ?? null];
   if (id_proyek) values.push(id_proyek);
   if (instalasi) values.push(instalasi);
   values.push(versi);
