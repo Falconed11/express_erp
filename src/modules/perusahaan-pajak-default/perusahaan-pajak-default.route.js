@@ -55,11 +55,7 @@ router.post("/", async (req, res) => {
 router.patch("/:id/activate", async (req, res) => {
   if (!canManage(req)) return forbid(res);
   try {
-    const data = await Service.setActive(
-      companyId(req),
-      req.params.id,
-      req.user?.id_karyawan ?? null,
-    );
+    const data = await Service.setActive(companyId(req), req.params.id);
     return res.json({ success: true, data });
   } catch (error) {
     return fail(res, error);
@@ -69,11 +65,7 @@ router.patch("/:id/activate", async (req, res) => {
 router.patch("/:id/deactivate", async (req, res) => {
   if (!canManage(req)) return forbid(res);
   try {
-    const data = await Service.deactivate(
-      companyId(req),
-      req.params.id,
-      req.user?.id_karyawan ?? null,
-    );
+    const data = await Service.deactivate(companyId(req), req.params.id);
     return res.json({ success: true, data });
   } catch (error) {
     return fail(res, error);

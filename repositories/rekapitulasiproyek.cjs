@@ -28,9 +28,10 @@ const getProjectTaxDefaults = async (conn, id_proyek) => {
   );
   if (!projectRows.length) throw new Error("Proyek tidak ditemukan.");
   const [defaultRows] = await conn.execute(
-    `SELECT persen FROM perusahaan_pajak_default
-     WHERE id_perusahaan = ? AND aktif = 1
-     ORDER BY id DESC LIMIT 1`,
+    `SELECT ppd.persen FROM perusahaan_pajak_default ppd
+     INNER JOIN perusahaan p
+       ON p.id = ppd.id_perusahaan AND p.id_pajak = ppd.id
+     WHERE p.id = ? LIMIT 1`,
     [projectRows[0].id_perusahaan],
   );
   return toRate(defaultRows[0]?.persen ?? 0);
@@ -130,11 +131,14 @@ const update = async ({
   diskon,
   diskoninstalasi,
   pajak,
+  pajakpersen,
+  gunakanDefaultPajakPeralatan = false,
   pajakinstalasi,
   pajakinstalasipers,
   pakaipajakinstalasi,
   updated_by,
 }) => {
+  const useCompanyDefault = gunakanDefaultPajakPeralatan === true;
   const fields = [];
   const values = [];
   const isExist = (v) => v != null;
@@ -150,13 +154,19 @@ const update = async ({
     fields.push("pajak=?");
     values.push(toIntegerAmount(pajak));
   }
-  fields.push("pajakpersen=?");
-  values.push(0);
-  if (fields.length === 0)
+  if (
+    fields.length === 0 &&
+    !useCompanyDefault &&
+    !isExist(pajakpersen) &&
+    !isExist(pajakinstalasi) &&
+    !isExist(pajakinstalasipers) &&
+    !isExist(pakaipajakinstalasi)
+  )
     return Promise.resolve({ affectedRows: 0, message: "No fields to update" });
   return withTransaction(pool, async (conn) => {
     const [rows] = await conn.execute(
       `SELECT r.id_proyek, r.versi, r.pakaipajakinstalasi,
+              r.pajakpersen,
               r.pajakinstalasi,
               r.pajakinstalasipers
        FROM ${table} r WHERE r.id = ? FOR UPDATE`,
@@ -164,11 +174,13 @@ const update = async ({
     );
     if (!rows.length) throw new Error("Rekapitulasi proyek tidak ditemukan.");
     const current = rows[0];
-    const defaultTaxPercent = await getProjectTaxDefaults(
-      conn,
-      current.id_proyek,
-    );
-    values[fields.indexOf("pajakpersen=?")] = defaultTaxPercent;
+    const equipmentTaxPercent = useCompanyDefault
+      ? await getProjectTaxDefaults(conn, current.id_proyek)
+      : isExist(pajakpersen)
+        ? toRate(pajakpersen)
+        : toRate(current.pajakpersen);
+    fields.push("pajakpersen=?");
+    values.push(equipmentTaxPercent);
     const useInstallationTax = isExist(pakaipajakinstalasi)
       ? Boolean(pakaipajakinstalasi)
       : Boolean(current.pakaipajakinstalasi);
@@ -195,6 +207,7 @@ const update = async ({
     const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
     const [result] = await conn.execute(sql, values);
     await recalculateRecapTax(conn, current.id_proyek, current.versi, {
+      recalculateEquipment: !isExist(pajak),
       recalculateInstallation: false,
     });
     await invalidateApproval(

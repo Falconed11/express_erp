@@ -13,7 +13,6 @@ export async function up(knex) {
     table.tinyint("persen").unsigned().notNullable();
     table.date("tanggal_aktif").notNullable();
     table.date("tanggal_kadaluarsa").notNullable();
-    table.boolean("aktif").notNullable().defaultTo(false);
     table.integer("created_by").nullable();
     table.datetime("created_at").notNullable().defaultTo(knex.fn.now());
     table.integer("updated_by").nullable();
@@ -22,7 +21,10 @@ export async function up(knex) {
       .notNullable()
       .defaultTo(knex.raw("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"));
 
-    table.index(["id_perusahaan", "aktif"], "idx_perusahaan_pajak_aktif");
+    table.unique(
+      ["id_perusahaan", "id"],
+      "uq_perusahaan_pajak_default_company_id",
+    );
     table
       .foreign("id_perusahaan", "fk_perusahaan_pajak_default_perusahaan")
       .references("id")
@@ -38,6 +40,17 @@ export async function up(knex) {
       .references("id")
       .inTable("karyawan")
       .onUpdate("CASCADE");
+  });
+
+  await knex.schema.alterTable("perusahaan", (table) => {
+    table.integer("id_pajak").unsigned().nullable();
+    table.index(["id", "id_pajak"], "idx_perusahaan_id_pajak");
+    table
+      .foreign(["id", "id_pajak"], "fk_perusahaan_pajak_default_selected")
+      .references(["id_perusahaan", "id"])
+      .inTable("perusahaan_pajak_default")
+      .onUpdate("CASCADE")
+      .onDelete("RESTRICT");
   });
 
   await knex.schema.alterTable("rekapitulasiproyek", (table) => {
@@ -70,6 +83,14 @@ export async function down(knex) {
     table.dropColumn("pakaipajakinstalasi");
     table.dropColumn("pajakinstalasipers");
     table.dropColumn("pajakpersen");
+  });
+  await knex.schema.alterTable("perusahaan", (table) => {
+    table.dropForeign(
+      ["id", "id_pajak"],
+      "fk_perusahaan_pajak_default_selected",
+    );
+    table.dropIndex(["id", "id_pajak"], "idx_perusahaan_id_pajak");
+    table.dropColumn("id_pajak");
   });
   await knex.schema.dropTableIfExists("perusahaan_pajak_default");
 }

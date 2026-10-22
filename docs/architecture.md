@@ -136,6 +136,8 @@ The authenticated `POST /api/auth/role-switch` endpoint accepts a JSON body such
 
 Before issuing a replacement token, the backend checks the signed switch capability, confirms the user's saved account role is still `super`, and resolves the requested role from the `peran` table. Any configured role can be selected, including `super`. The new token changes the active role claims while preserving user and company identity, the original token expiration, and the switch capability. This is a session-only change; it does not update the user's saved role. Invalid requests return `400`, unauthorized requests `403`, and unknown roles `404`.
 
+The same authenticated router provides `GET /api/auth/role-switch/companies` and `POST /api/auth/role-switch/company`. Both require the signed `can_switch_role` capability and recheck that the account's saved role is still `super`. The GET endpoint returns company IDs and names for the selector. The POST body is `{ "id_perusahaan": 3 }`; the backend validates that the company exists and issues a replacement token with only the active company context changed. It preserves the active role, user identity, switch capability, and original token expiration. This is session-only and does not update the user's saved company assignment. Invalid company IDs return `400`, unknown companies `404`, and unauthorized requests `403`.
+
 Role-switch service tests can be run with `node --test src/modules/auth/role-switch.service.test.js`. The general `npm test` script remains a placeholder.
 
 ## File Uploads And Static Assets

@@ -15,3 +15,18 @@ export const getRoleByName = async (roleName) => {
   );
   return rows[0] ?? null;
 };
+
+export const getCompanyOptions = async () => {
+  const [rows] = await pool.execute(
+    "SELECT id, nama FROM perusahaan ORDER BY nama, id",
+  );
+  return rows;
+};
+
+export const getCompanyById = async (companyId) => {
+  const [rows] = await pool.execute(
+    "SELECT id FROM perusahaan WHERE id = ? LIMIT 1",
+    [companyId],
+  );
+  return rows[0] ?? null;
+};
