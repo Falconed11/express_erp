@@ -1,4 +1,7 @@
-const { withTransaction } = require("../../../helpers/transaction.cjs");
+const {
+  assertTransaction,
+  withTransaction,
+} = require("../../../helpers/transaction.cjs");
 const { pool } = require("../../../repositories/db.2.0.0.cjs");
 const {
   createReturnJournals,
@@ -28,6 +31,220 @@ const adjust = async ({
     [id_produk, id_perusahaan, jumlah, created_by, updated_by],
   );
 };
+
+const cancelOrphanLoan = async ({
+  conn,
+  id,
+  id_perusahaan,
+  updated_by = null,
+}) => {
+  assertTransaction(conn, cancelOrphanLoan.name);
+  const [rows] = await conn.execute(
+    `SELECT loan.id, loan.id_produkkeluar,
+            loan.id_produkmasuk, loan.id_produkmasuk_peminjam,
+            loan.id_produk, loan.id_perusahaan_pemberi,
+            loan.id_perusahaan_peminjam, loan.jumlah,
+            loan.id_jurnal_pemberi, loan.id_jurnal_peminjam,
+            output.id_proyek,
+            project.id AS project_id,
+            source.keluar AS source_keluar,
+            borrower.keluar AS borrower_keluar,
+            COUNT(returned.id) AS return_count,
+            COUNT(expense.id) AS expense_count
+     FROM produkpinjaman loan
+     INNER JOIN produkkeluar output ON output.id = loan.id_produkkeluar
+     LEFT JOIN proyek project ON project.id = output.id_proyek
+     LEFT JOIN produkmasuk source ON source.id = loan.id_produkmasuk
+     LEFT JOIN produkmasuk borrower ON borrower.id = loan.id_produkmasuk_peminjam
+     LEFT JOIN produkpinjamanpengembalian returned
+       ON returned.id_produkpinjaman = loan.id
+     LEFT JOIN pengeluaranproyek expense
+       ON expense.id_produkkeluar = loan.id_produkkeluar
+     WHERE loan.id = ? AND loan.id_perusahaan_peminjam = ?
+     GROUP BY loan.id
+     FOR UPDATE`,
+    [id, id_perusahaan],
+  );
+  const loan = rows[0];
+  if (!loan) throw new Error("Pinjaman tidak ditemukan.");
+  if (Number(loan.return_count) > 0) {
+    throw new Error(
+      "Pinjaman yang sudah memiliki pengembalian tidak dapat dibatalkan.",
+    );
+  }
+  if (Number(loan.expense_count) > 0) {
+    throw new Error("Pinjaman masih digunakan sebagai pengeluaran proyek.");
+  }
+  if (
+    Number(loan.source_keluar) !== Number(loan.jumlah) ||
+    Number(loan.borrower_keluar) !== 0
+  ) {
+    throw new Error(
+      "Stok pinjaman sudah digunakan dan tidak dapat dibatalkan.",
+    );
+  }
+
+  await conn.execute(
+    `UPDATE produkpinjaman
+     SET id_jurnal_pemberi = NULL, id_jurnal_peminjam = NULL
+     WHERE id = ?`,
+    [loan.id],
+  );
+  if (loan.id_jurnal_peminjam) {
+    await reverseJournal(conn, loan.id_jurnal_peminjam, {
+      updated_by,
+      reference: `pembatalan pinjaman orphan #${loan.id} peminjam`,
+    });
+  }
+  if (loan.id_jurnal_pemberi) {
+    await reverseJournal(conn, loan.id_jurnal_pemberi, {
+      updated_by,
+      reference: `pembatalan pinjaman orphan #${loan.id} pemberi`,
+    });
+  }
+  await conn.execute("DELETE FROM produkpinjaman WHERE id = ?", [loan.id]);
+  await conn.execute(
+    "DELETE FROM produkkeluar WHERE id = ? AND jenis_transaksi = 'pinjaman'",
+    [loan.id_produkkeluar],
+  );
+  await conn.execute(
+    "UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?",
+    [loan.jumlah, loan.id_produkmasuk],
+  );
+  await conn.execute(
+    "DELETE FROM produkmasuk WHERE id = ? AND jenis_transaksi = 'pinjaman'",
+    [loan.id_produkmasuk_peminjam],
+  );
+  await adjust({
+    conn,
+    id_produk: loan.id_produk,
+    id_perusahaan: loan.id_perusahaan_peminjam,
+    jumlah: loan.jumlah,
+    updated_by,
+  });
+  await adjust({
+    conn,
+    id_produk: loan.id_produk,
+    id_perusahaan: loan.id_perusahaan_pemberi,
+    jumlah: -loan.jumlah,
+    updated_by,
+  });
+};
+
+const deleteClosedLoansForProject = async ({ conn, id_proyek, updated_by }) => {
+  assertTransaction(conn, deleteClosedLoansForProject.name);
+  const [loans] = await conn.execute(
+    `SELECT loan.id, loan.aktif,
+            loan.id_produkkeluar, loan.id_produkmasuk,
+            loan.id_produkmasuk_peminjam, loan.id_produk,
+            loan.id_perusahaan_pemberi, loan.id_perusahaan_peminjam,
+            loan.jumlah, loan.id_jurnal_pemberi, loan.id_jurnal_peminjam,
+            COALESCE(SUM(returned.jumlah), 0) AS returned_jumlah
+     FROM produkpinjaman loan
+     INNER JOIN produkkeluar output ON output.id = loan.id_produkkeluar
+     LEFT JOIN produkpinjamanpengembalian returned
+       ON returned.id_produkpinjaman = loan.id
+     WHERE output.id_proyek = ?
+     GROUP BY loan.id
+     FOR UPDATE`,
+    [id_proyek],
+  );
+
+  for (const loan of loans) {
+    const returnedJumlah = Number(loan.returned_jumlah ?? 0);
+    if (
+      Number(loan.aktif) !== 0 ||
+      (returnedJumlah > 0 && returnedJumlah < Number(loan.jumlah))
+    ) {
+      throw new Error(
+        "Proyek memiliki pinjaman stok aktif dan tidak dapat dihapus.",
+      );
+    }
+
+    const [returns] = await conn.execute(
+      `SELECT id, id_produkkeluar, id_produkmasuk_peminjam,
+              id_produkmasuk_pemberi, jumlah,
+              id_jurnal_pemberi, id_jurnal_peminjam
+       FROM produkpinjamanpengembalian
+       WHERE id_produkpinjaman = ?
+       FOR UPDATE`,
+      [loan.id],
+    );
+
+    for (const returned of returns) {
+      await conn.execute(
+        `UPDATE produkpinjamanpengembalian
+         SET id_jurnal_pemberi = NULL, id_jurnal_peminjam = NULL
+         WHERE id = ?`,
+        [returned.id],
+      );
+      if (returned.id_jurnal_peminjam) {
+        await reverseJournal(conn, returned.id_jurnal_peminjam, {
+          updated_by,
+          reference: `pengembalian pinjaman #${loan.id} peminjam`,
+        });
+      }
+      if (returned.id_jurnal_pemberi) {
+        await reverseJournal(conn, returned.id_jurnal_pemberi, {
+          updated_by,
+          reference: `pengembalian pinjaman #${loan.id} pemberi`,
+        });
+      }
+      await conn.execute(
+        "DELETE FROM produkpinjamanpengembalian WHERE id = ?",
+        [returned.id],
+      );
+      await conn.execute(
+        "DELETE FROM produkkeluar WHERE id = ? AND jenis_transaksi = 'pengembalian'",
+        [returned.id_produkkeluar],
+      );
+      await conn.execute(
+        "UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?",
+        [returned.jumlah, returned.id_produkmasuk_peminjam],
+      );
+      await conn.execute("DELETE FROM produkmasuk WHERE id = ?", [
+        returned.id_produkmasuk_pemberi,
+      ]);
+    }
+
+    await conn.execute(
+      `UPDATE produkpinjaman
+       SET id_jurnal_pemberi = NULL, id_jurnal_peminjam = NULL
+       WHERE id = ?`,
+      [loan.id],
+    );
+    if (loan.id_jurnal_peminjam) {
+      await reverseJournal(conn, loan.id_jurnal_peminjam, {
+        updated_by,
+        reference: `pinjaman stok #${loan.id} peminjam`,
+      });
+    }
+    if (loan.id_jurnal_pemberi) {
+      await reverseJournal(conn, loan.id_jurnal_pemberi, {
+        updated_by,
+        reference: `pinjaman stok #${loan.id} pemberi`,
+      });
+    }
+    await conn.execute("DELETE FROM produkpinjaman WHERE id = ?", [loan.id]);
+    await conn.execute(
+      "DELETE FROM produkkeluar WHERE id = ? AND jenis_transaksi = 'pinjaman'",
+      [loan.id_produkkeluar],
+    );
+    await conn.execute(
+      "UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?",
+      [loan.jumlah, loan.id_produkmasuk],
+    );
+    await conn.execute(
+      "DELETE FROM produkmasuk WHERE id = ? AND jenis_transaksi = 'pinjaman'",
+      [loan.id_produkmasuk_peminjam],
+    );
+  }
+};
+
+const cancelOrphanLoanForCompany = ({ id, id_perusahaan, updated_by = null }) =>
+  withTransaction(pool, (conn) =>
+    cancelOrphanLoan({ conn, id, id_perusahaan, updated_by }),
+  );
 
 const claimUnclaimedEntry = async ({ id, id_perusahaan, updated_by = null }) =>
   withTransaction(pool, async (conn) => {
@@ -299,8 +516,6 @@ const returnLoan = async ({
       });
     }
 
-    await invalidateProductApprovals(conn, loan.id_produk, created_by);
-
     const [finalRows] = await conn.execute(
       `SELECT COALESCE(SUM(jumlah), 0) AS jumlah_dikembalikan
        FROM produkpinjamanpengembalian
@@ -447,8 +662,6 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
     await conn.execute("DELETE FROM produkmasuk WHERE id = ?", [
       returned.id_produkmasuk_pemberi,
     ]);
-    await invalidateProductApprovals(conn, returned.id_produk, updated_by);
-
     const [balanceRows] = await conn.execute(
       `SELECT COALESCE(SUM(jumlah), 0) AS jumlah_dikembalikan
        FROM produkpinjamanpengembalian
@@ -476,7 +689,9 @@ const revertReturn = async ({ id_return, id_perusahaan, updated_by = null }) =>
 
 module.exports = {
   adjust,
+  cancelOrphanLoanForCompany,
   claimUnclaimedEntry,
+  deleteClosedLoansForProject,
   recordLoan,
   returnLoan,
   revertReturn,

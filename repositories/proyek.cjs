@@ -1,6 +1,12 @@
 const { pool } = require("./db.2.0.0.cjs");
 const { create: customerCreate } = require("./customer.cjs");
 const { withTransaction } = require("./../helpers/transaction.cjs");
+const {
+  getProjectEquipmentTaxPercent,
+} = require("./rekapitulasiproyek-pajak.cjs");
+const {
+  deleteClosedLoansForProject,
+} = require("../src/modules/produk-stock/produk-stock.repository.cjs");
 const table = "proyek";
 const SEARCHABLE_PROJECT_COLUMNS = ["p.nama", "p.klien", "i.nama", "pr.nama"];
 const sqlIdPenawaran = `(select CASE WHEN EXISTS (SELECT 1 FROM ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y')) THEN (select id_penawaran + 1 from ${table} where DATE_FORMAT(tanggal_penawaran, '%m %Y')=DATE_FORMAT(?, '%m %Y') order by id_penawaran desc limit 1) ELSE 1 END AS result)`;
@@ -153,9 +159,20 @@ const create = async ({
       ];
       // console.log(values);
       const [insertResult] = await conn.execute(sql, values);
+      const proyekInsertId = insertResult.insertId;
+      const equipmentTaxPercent = await getProjectEquipmentTaxPercent(
+        conn,
+        proyekInsertId,
+      );
+      await conn.execute(
+        `INSERT INTO rekapitulasiproyek
+         (id_proyek, versi, pajakpersen)
+         VALUES (?, 1, ?)`,
+        [proyekInsertId, equipmentTaxPercent],
+      );
       return {
         customerInsertId: id_instansi,
-        proyekInsertId: insertResult.insertId,
+        proyekInsertId,
       };
     });
     return result;
@@ -267,7 +284,10 @@ const update = async ({
             !data.id_second ||
             getYearMonth(data.tanggal) != getYearMonth(tanggal)
           ) {
-            const { idCustom, seq: _seq } = await getNextProyekId(tanggal, conn);
+            const { idCustom, seq: _seq } = await getNextProyekId(
+              tanggal,
+              conn,
+            );
             fields.push("id_second=?");
             values.push(idCustom);
           }
@@ -327,8 +347,14 @@ const destroy = async ({ id }) => {
   try {
     // Start the transaction
     await connection.beginTransaction();
+    connection.__inTransaction = true;
 
     let sql, values, _result;
+
+    await deleteClosedLoansForProject({
+      conn: connection,
+      id_proyek: id,
+    });
 
     sql = `delete from keranjangproyek where id_proyek = ?`;
     values = [id];
@@ -361,6 +387,7 @@ const destroy = async ({ id }) => {
     console.error("Transaction rolled back due to error:", error);
     throw error;
   } finally {
+    connection.__inTransaction = false;
     // Release the connection back to the pool
     connection.release();
   }

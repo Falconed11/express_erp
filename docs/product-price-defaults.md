@@ -2,11 +2,13 @@
 
 ## Overview
 
-Product sale price and boundary price can be generated independently from `hargamodal`. Each percentage is a markup:
+Product sale price and boundary price can be generated independently from `hargamodal`. Each percentage is a decimal markup from `0.00` through `255.00`, with at most two decimal places. The markup calculation uses `currency.js`; the generated real price remains a whole rupiah value rounded up:
 
 ```text
 harga = ceil(hargamodal * (1 + persen / 100))
 ```
+
+For example, a modal of `Rp100.01` with a `12.75%` markup produces `113` after ceiling. The percentage is decimal, but the stored/generated `hargajual` and `hargabatas` values are integers.
 
 The resolver uses the first configured match in this order:
 
@@ -44,7 +46,7 @@ Content-Type: application/json
 }
 ```
 
-Supported scopes are `global`, `kategori`, `vendor`, and `vendor_kategori`. Fields not used by a scope must be omitted or null. `GET` lists active defaults; `PATCH /:id` updates percentages and scope details except that the global seed must remain global; `DELETE /:id` removes non-global defaults only.
+Supported scopes are `global`, `kategori`, `vendor`, and `vendor_kategori`. Fields not used by a scope must be omitted or null. Percentage fields accept decimal strings with at most two places, for example `12.5` or `12.75`, and must remain within `0.00` through `255.00`. `GET` lists active defaults; `PATCH /:id` updates percentages and scope details except that the global seed must remain global; `DELETE /:id` removes non-global defaults only.
 
 Creating, changing, or deleting a default recalculates active products' non-custom prices in the same transaction. Products are re-resolved after the mutation, so adding a more-specific rule or deleting a rule applies the next effective scope. Recalculation uses each product's current `hargamodal` and updates product audit metadata.
 
@@ -57,4 +59,4 @@ The product page's custom-price filter uses `GET /api/v2/produk/page` with `cust
 - `either`: either price is custom
 - `none`: both prices use defaults
 
-The default scope table and product/vendor flags are created by migration `20261019090000_add_produk_harga_defaults.js`. Migration `20261020100000_seed_global_produk_harga_default.js` adds the global seed only when missing and preserves any existing global percentages.
+The default scope table and product/vendor flags are created by migration `20261019090000_add_produk_harga_defaults.js`. Migration `20261020100000_seed_global_produk_harga_default.js` adds the global seed only when missing and preserves any existing global percentages. Migration `20261023170000_allow_decimal_produk_harga_default_percentages.js` changes both percentage columns to `DECIMAL(9,2) UNSIGNED`. Its rollback refuses to run while fractional percentages exist so no precision is silently lost.

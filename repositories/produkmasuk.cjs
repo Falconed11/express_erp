@@ -264,7 +264,6 @@ const create = async ({
           ? { hargamodal: harga, hargajual, tanggal: tanggalHarga }
           : {}),
       });
-      await invalidateProductApprovals(conn, id_produk, updated_by);
       return {
         message: "Sukses",
         id_produkmasuk: result1.insertId,
@@ -580,7 +579,6 @@ const destroy = async ({ id, updated_by = null }) => {
         id: entry.id_produk,
         stokDelta: -Number(entry.jumlah),
       });
-      await invalidateProductApprovals(conn, entry.id_produk, updated_by);
       return { message: "Sukses", id_jurnal_koreksi: correctionJournalId };
     });
     return result;

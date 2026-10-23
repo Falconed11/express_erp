@@ -210,6 +210,7 @@ const insertProduk = async ({
     if (vendor && !id_vendor) {
       id_vendor = await createVendor({ nama: vendor, alamat, conn });
     }
+    if (main_vendor == null && id_vendor != null) main_vendor = id_vendor;
     const prices = await resolveProductPricesForConnection(conn, {
       id_kategori,
       main_vendor,

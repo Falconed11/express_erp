@@ -108,6 +108,15 @@ const Model = {
         product.satuan,
         brand.nama AS merek,
         project.nama AS nama_proyek,
+        outflow.id_proyek AS orphan_project_id,
+        project.id AS orphan_project_exists,
+        CASE
+          WHEN COALESCE(returns.jumlah_dikembalikan, 0) = 0
+           AND COALESCE(expense.count, 0) = 0
+           AND source.keluar = loan.jumlah
+           AND borrower.keluar = 0
+          THEN 1 ELSE 0
+        END AS is_cancelable,
         journal.keterangan AS keterangan_jurnal,
         outflow.keterangan
       FROM produkpinjaman loan
@@ -119,6 +128,13 @@ const Model = {
       LEFT JOIN merek brand ON brand.id = product.id_merek
       INNER JOIN produkkeluar outflow ON outflow.id = loan.id_produkkeluar
       LEFT JOIN proyek project ON project.id = outflow.id_proyek
+      LEFT JOIN produkmasuk borrower
+        ON borrower.id = loan.id_produkmasuk_peminjam
+      LEFT JOIN (
+        SELECT id_produkkeluar, COUNT(*) AS count
+        FROM pengeluaranproyek
+        GROUP BY id_produkkeluar
+      ) expense ON expense.id_produkkeluar = loan.id_produkkeluar
       LEFT JOIN jurnal journal ON journal.id = outflow.id_jurnal
       LEFT JOIN (
         SELECT id_produkpinjaman, SUM(jumlah) AS jumlah_dikembalikan

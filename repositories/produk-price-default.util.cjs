@@ -26,12 +26,16 @@ const findProductDefault = (defaults, { main_vendor, id_kategori }) => {
 };
 
 const calculatePrice = (modalPrice, percent) => {
-  const modal = Number(modalPrice);
-  const markup = Number(percent);
-  if (!Number.isFinite(modal) || !Number.isFinite(markup)) return null;
-  const price = modal * (1 + markup / 100);
-  const precisionTolerance = Number.EPSILON * Math.max(1, Math.abs(price)) * 4;
-  return Math.ceil(price - precisionTolerance);
+  const currency = require("currency.js");
+  const modal = currency(modalPrice, { precision: 6 });
+  const markup = currency(percent, { precision: 6 });
+  if (!Number.isFinite(modal.value) || !Number.isFinite(markup.value))
+    return null;
+
+  const price = modal.multiply(
+    currency(1, { precision: 6 }).add(markup.divide(100)),
+  );
+  return Math.ceil(price.value);
 };
 
 const resolveOnePrice = ({

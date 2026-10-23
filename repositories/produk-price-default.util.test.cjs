@@ -63,6 +63,16 @@ test("calculates separate prices with ceiling rounding", () => {
   assert.equal(prices.hargabatas_custom, 0);
   assert.equal(calculatePrice(100, 12.5), 113);
   assert.equal(calculatePrice(100, 10), 110);
+  assert.equal(calculatePrice(100, 12.75), 113);
+  assert.equal(calculatePrice(100.01, 12.75), 113);
+  assert.equal(calculatePrice(100, 12.34), 113);
+});
+
+test("keeps decimal percentages distinct through calculation", () => {
+  assert.equal(calculatePrice(1000, 12.34), 1124);
+  assert.equal(calculatePrice(1000, 12.35), 1124);
+  assert.equal(calculatePrice(1000, 12.36), 1124);
+  assert.equal(calculatePrice(1000, 12.365), 1124);
 });
 
 test("preserves explicit and existing custom prices independently", () => {

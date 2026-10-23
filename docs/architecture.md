@@ -158,6 +158,25 @@ The global error middleware returns:
 
 That means error responses are centralized, but status code mapping is still minimal and could be improved later.
 
+## Stock-Loan Journal Reversals
+
+Loan and loan-return operations create intercompany accounting journals in `jurnal` and transaction lines in `transaksi`. Reversal operations use the following durable relationship:
+
+- `jurnal.id_jurnal_original` is nullable and references `jurnal.id`.
+- A populated value identifies the correction/reversal journal that reverses the referenced original journal.
+- Original journals remain in the database; reversal logic does not delete same-month originals.
+- Correction journals invert the original transaction line types and use the current date while retaining the original company.
+- The relation is managed by migration `20261023160000_link_reversal_journal_to_original.cjs`.
+
+The implementation belongs to `src/modules/produk-stock/produk-stock-journal.cjs`:
+
+- `createJournal()` accepts `id_jurnal_original` when creating an explicit reversal journal.
+- `reverseJournal()` supplies the original journal ID and creates the related correction journal.
+- The relation can be queried with `jurnal.id_jurnal_original = original_jurnal_id` or `jurnal.id = reversal_jurnal_id` joined back to the original record.
+- Text references remain descriptive only; the foreign key is the auditable relationship.
+
+Any operation that reverses a loan, return, or cancellation should use `reverseJournal()` so the reversal relationship is preserved consistently.
+
 ## Current Technical Observations
 
 - `PORT` is present in environment examples, but `app.js` currently uses a hardcoded port

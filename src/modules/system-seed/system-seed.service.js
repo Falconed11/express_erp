@@ -756,8 +756,8 @@ const checkSeed = async (trx, definition) => {
       verified.push("Global product price default");
       for (const field of ["persen_hargajual", "persen_hargabatas"]) {
         const percent = Number(row[field]);
-        if (!Number.isFinite(percent) || percent < 0) {
-          details.push(`${field} must be a non-negative number.`);
+        if (!Number.isFinite(percent) || percent < 0 || percent > 255) {
+          details.push(`${field} must be between 0 and 255.`);
         } else {
           verified.push(`${field}: ${percent}%`);
         }

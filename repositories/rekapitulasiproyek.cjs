@@ -4,7 +4,10 @@ const { withTransaction } = require("../helpers/transaction.cjs");
 const {
   invalidateApproval,
 } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
-const { recalculateRecapTax } = require("./rekapitulasiproyek-pajak.cjs");
+const {
+  getProjectEquipmentTaxPercent,
+  recalculateRecapTax,
+} = require("./rekapitulasiproyek-pajak.cjs");
 const table = "rekapitulasiproyek";
 const toIntegerAmount = (value) => {
   const amount = Math.round(Number(value ?? 0));
@@ -19,22 +22,6 @@ const toRate = (value) => {
     throw new Error("Persentase pajak harus bilangan bulat antara 0 dan 100.");
   }
   return rate;
-};
-
-const getProjectTaxDefaults = async (conn, id_proyek) => {
-  const [projectRows] = await conn.execute(
-    "SELECT id_perusahaan FROM proyek WHERE id = ? FOR UPDATE",
-    [id_proyek],
-  );
-  if (!projectRows.length) throw new Error("Proyek tidak ditemukan.");
-  const [defaultRows] = await conn.execute(
-    `SELECT ppd.persen FROM perusahaan_pajak_default ppd
-     INNER JOIN perusahaan p
-       ON p.id = ppd.id_perusahaan AND p.id_pajak = ppd.id
-     WHERE p.id = ? LIMIT 1`,
-    [projectRows[0].id_perusahaan],
-  );
-  return toRate(defaultRows[0]?.persen ?? 0);
 };
 
 const list = ({ id_proyek, versi }) => {
@@ -80,7 +67,10 @@ const create = async ({
   console.log({ id_proyek, versi });
   const sql = `insert into ${table} (id_proyek, versi, diskon, diskoninstalasi, pajak, pajakinstalasi, pajakpersen, pajakinstalasipers, pakaipajakinstalasi) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   return withTransaction(pool, async (conn) => {
-    const defaultTaxPercent = await getProjectTaxDefaults(conn, id_proyek);
+    const defaultTaxPercent = await getProjectEquipmentTaxPercent(
+      conn,
+      id_proyek,
+    );
     const useInstallationTax = Boolean(pakaipajakinstalasi);
     const values = [
       id_proyek,
@@ -175,7 +165,7 @@ const update = async ({
     if (!rows.length) throw new Error("Rekapitulasi proyek tidak ditemukan.");
     const current = rows[0];
     const equipmentTaxPercent = useCompanyDefault
-      ? await getProjectTaxDefaults(conn, current.id_proyek)
+      ? await getProjectEquipmentTaxPercent(conn, current.id_proyek)
       : isExist(pajakpersen)
         ? toRate(pajakpersen)
         : toRate(current.pajakpersen);

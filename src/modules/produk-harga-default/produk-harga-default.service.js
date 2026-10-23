@@ -1,3 +1,4 @@
+import currency from "currency.js";
 import db from "../../config/knex.js";
 import priceDefaultRepository from "../../../repositories/produk-price-default.repository.cjs";
 import priceDefaultUtil from "../../../repositories/produk-price-default.util.cjs";
@@ -36,12 +37,22 @@ const normalizeDefault = (input) => {
     String(input.persen_hargabatas).trim() === ""
   )
     throw new Error("Persentase harga jual dan harga batas wajib diisi.");
-  const persen_hargajual = Number(input.persen_hargajual);
-  const persen_hargabatas = Number(input.persen_hargabatas);
+  const normalizePercent = (value) => {
+    const text = String(value).trim();
+    if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
+
+    const normalized = currency(text, { precision: 2 });
+    if (!Number.isFinite(normalized.value)) return null;
+    if (normalized.value < 0 || normalized.value > 255) return null;
+    return normalized.value;
+  };
+
+  const persen_hargajual = normalizePercent(input.persen_hargajual);
+  const persen_hargabatas = normalizePercent(input.persen_hargabatas);
   for (const value of [persen_hargajual, persen_hargabatas]) {
-    if (!Number.isInteger(value) || value < 0 || value > 255)
+    if (value === null)
       throw new Error(
-        "Persentase harus berupa bilangan bulat antara 0 dan 255.",
+        "Persentase harus berupa angka desimal maksimal 2 tempat antara 0 dan 255.",
       );
   }
   const scope_key =

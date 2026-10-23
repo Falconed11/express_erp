@@ -1199,9 +1199,10 @@ app.get("/api/exportpenawaran", async (req, res) => {
 app.post("/api/proyek", async (req, res) => {
   const _result = await proyek
     .create(req.body)
-    .then((_result) =>
+    .then((result) =>
       res.json({
         message: "Proyek berhasil ditambahkan",
+        ...result,
       }),
     )
     .catch((e) => res.status(400).json({ message: e.message }));

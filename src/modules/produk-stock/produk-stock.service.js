@@ -59,6 +59,19 @@ const Service = {
       updated_by: user?.id_karyawan ?? null,
     });
   },
+  cancelOrphanLoan(id, user) {
+    const idLoan = Number(id);
+    const idPerusahaan = Number(user?.id_perusahaan);
+    if (!Number.isInteger(idLoan) || idLoan <= 0)
+      throw new Error("ID pinjaman tidak valid.");
+    if (!Number.isInteger(idPerusahaan) || idPerusahaan <= 0)
+      throw new Error("Perusahaan pengguna tidak valid.");
+    return productStockRepository.cancelOrphanLoanForCompany({
+      id: idLoan,
+      id_perusahaan: idPerusahaan,
+      updated_by: user?.id_karyawan ?? null,
+    });
+  },
   listUnclaimedEntries(filters, user) {
     assertCanClaimStock(user);
     return Model.listUnclaimedEntries(filters);
@@ -84,9 +97,7 @@ const Service = {
     });
   },
   createEntry(data, user) {
-    const idPerusahaan = Number(
-      user?.id_perusahaan ?? data?.id_perusahaan,
-    );
+    const idPerusahaan = Number(user?.id_perusahaan ?? data?.id_perusahaan);
     if (!Number.isInteger(idPerusahaan) || idPerusahaan <= 0)
       throw new Error("Perusahaan belum dipilih.");
     return productEntryRepository.create({

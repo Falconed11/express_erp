@@ -7,6 +7,7 @@ router.post("/entries", Controller.createEntry);
 router.post("/entries/:id/claim", Controller.claimEntry);
 router.get("/loans", Controller.listLoans);
 router.post("/loans/:id/returns", Controller.returnLoan);
+router.delete("/loans/:id", Controller.cancelOrphanLoan);
 router.delete("/returns/:id", Controller.revertReturn);
 router.get("/unclaimed-entries", Controller.listUnclaimedEntries);
 

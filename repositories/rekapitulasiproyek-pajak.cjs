@@ -1,5 +1,29 @@
 const { assertTransaction } = require("../helpers/transaction.cjs");
 
+const toRate = (value) => {
+  const rate = Number(value ?? 0);
+  if (!Number.isInteger(rate) || rate < 0 || rate > 100) {
+    throw new Error("Persentase pajak harus bilangan bulat antara 0 dan 100.");
+  }
+  return rate;
+};
+
+const getProjectEquipmentTaxPercent = async (conn, id_proyek) => {
+  const [projectRows] = await conn.execute(
+    "SELECT id_perusahaan FROM proyek WHERE id = ? FOR UPDATE",
+    [id_proyek],
+  );
+  if (!projectRows.length) throw new Error("Proyek tidak ditemukan.");
+  const [defaultRows] = await conn.execute(
+    `SELECT ppd.persen FROM perusahaan_pajak_default ppd
+     INNER JOIN perusahaan p
+       ON p.id = ppd.id_perusahaan AND p.id_pajak = ppd.id
+     WHERE p.id = ? LIMIT 1`,
+    [projectRows[0].id_perusahaan],
+  );
+  return toRate(defaultRows[0]?.persen ?? 0);
+};
+
 const calculateTaxAmount = (subtotal, discount, percent) => {
   const taxableAmount = Math.max(
     0,
@@ -65,4 +89,8 @@ const recalculateRecapTax = async (
   return updates;
 };
 
-module.exports = { recalculateRecapTax, calculateTaxAmount };
+module.exports = {
+  recalculateRecapTax,
+  calculateTaxAmount,
+  getProjectEquipmentTaxPercent,
+};

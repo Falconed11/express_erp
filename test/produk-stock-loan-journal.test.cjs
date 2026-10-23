@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   buildBorrowerReturnLines,
+  reverseJournal,
 } = require("../src/modules/produk-stock/produk-stock-journal.cjs");
 
 const accounts = {
@@ -42,4 +43,46 @@ test("more expensive returned stock clears the loan and recognizes a loss", () =
   assert.deepEqual(totals(lines), { debit: 1200, credit: 1200 });
   assert.equal(lines[1].id_coa, accounts.KerugianSelisih);
   assert.equal(lines[1].amount, 200);
+});
+
+test("reversal journal links to the original journal", async () => {
+  const statements = [];
+  const connection = {
+    execute: async (sql, values) => {
+      statements.push({ sql, values });
+      if (/FROM jurnal WHERE id =/.test(sql)) {
+        return [
+          [
+            {
+              id: 57,
+              id_perusahaan: 2,
+              id_jurnal_form: null,
+              journal_month: "2025-01",
+              current_month: "2026-10",
+            },
+          ],
+        ];
+      }
+      if (/FROM transaksi WHERE id_jurnal =/.test(sql)) {
+        return [[{ id_coa: 5, tipe: 1, amount: 100, keterangan: "Loan" }]];
+      }
+      if (/INSERT INTO jurnal/.test(sql)) return [{ insertId: 88 }];
+      return [{ affectedRows: 1 }];
+    },
+  };
+
+  const reversalId = await reverseJournal(connection, 57, {
+    updated_by: 9,
+    reference: "cancel loan #5",
+  });
+
+  assert.equal(reversalId, 88);
+  const insertJournal = statements.find(({ sql }) =>
+    /INSERT INTO jurnal/.test(sql),
+  );
+  assert.equal(insertJournal.values[1], 57);
+  const insertTransaction = statements.find(({ sql }) =>
+    /INSERT INTO transaksi/.test(sql),
+  );
+  assert.equal(insertTransaction.values[2], 0);
 });

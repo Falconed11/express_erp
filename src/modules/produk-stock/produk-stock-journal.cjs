@@ -39,14 +39,22 @@ const loadAccountIds = async (conn) => {
 
 const createJournal = async (
   conn,
-  { id_perusahaan, tanggal, keterangan, created_by, lines },
+  {
+    id_perusahaan,
+    tanggal,
+    keterangan,
+    created_by,
+    lines,
+    id_jurnal_original = null,
+  },
 ) => {
   const [journalResult] = await conn.execute(
     `INSERT INTO jurnal
-      (id_perusahaan, tanggal, keterangan, created_by, updated_by)
-     VALUES (?, ?, ?, ?, ?)`,
+      (id_perusahaan, id_jurnal_original, tanggal, keterangan, created_by, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       id_perusahaan,
+      id_jurnal_original,
       tanggal,
       keterangan,
       created_by ?? null,
@@ -260,16 +268,9 @@ const reverseJournal = async (conn, id_jurnal, { updated_by, reference }) => {
   if (!lines.length)
     throw new Error("Jurnal pinjaman tidak memiliki transaksi.");
 
-  if (journal.journal_month === journal.current_month) {
-    await conn.execute("DELETE FROM transaksi WHERE id_jurnal = ?", [
-      id_jurnal,
-    ]);
-    await conn.execute("DELETE FROM jurnal WHERE id = ?", [id_jurnal]);
-    return null;
-  }
-
   return createJournal(conn, {
     id_perusahaan: journal.id_perusahaan,
+    id_jurnal_original: journal.id,
     tanggal: new Date().toISOString().slice(0, 10),
     keterangan: `Koreksi pembatalan ${reference} (jurnal #${id_jurnal})`,
     created_by: updated_by,

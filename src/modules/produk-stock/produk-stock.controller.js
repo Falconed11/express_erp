@@ -3,16 +3,18 @@ import Service from "./produk-stock.service.js";
 
 const Controller = {
   createEntry(req, res, next) {
-    defaultAsyncController(
-      () => Service.createEntry(req.body, req.user),
-      { req, res, next },
-    );
+    defaultAsyncController(() => Service.createEntry(req.body, req.user), {
+      req,
+      res,
+      next,
+    });
   },
   claimEntry(req, res, next) {
-    defaultAsyncController(
-      () => Service.claimEntry(req.params.id, req.user),
-      { req, res, next },
-    );
+    defaultAsyncController(() => Service.claimEntry(req.params.id, req.user), {
+      req,
+      res,
+      next,
+    });
   },
   listLoans(req, res, next) {
     defaultAsyncController(() => Service.listLoans(req.user), {
@@ -30,6 +32,12 @@ const Controller = {
   revertReturn(req, res, next) {
     defaultAsyncController(
       () => Service.revertReturn(req.params.id, req.user),
+      { req, res, next },
+    );
+  },
+  cancelOrphanLoan(req, res, next) {
+    defaultAsyncController(
+      () => Service.cancelOrphanLoan(req.params.id, req.user),
       { req, res, next },
     );
   },
