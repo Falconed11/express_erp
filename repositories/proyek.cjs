@@ -242,6 +242,7 @@ const update = async ({
     "id_po",
     "keterangan",
     "versi",
+    "sembunyikankop",
   ];
   const fields = [];
   const values = [];

@@ -39,6 +39,7 @@ const ProyekModel = {
     "id_po",
     "keterangan",
     "versi",
+    "sembunyikankop",
   ],
   async findAll() {
     const [rows] = await db.execute(`SELECT * FROM ${this.table}`);
