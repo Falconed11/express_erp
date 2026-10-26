@@ -158,13 +158,19 @@ const Service = {
     return db("produk_harga_default as d")
       .leftJoin("vendor as v", "v.id", "d.id_vendor")
       .leftJoin("kategoriproduk as k", "k.id", "d.id_kategori")
+      .leftJoin("karyawan as ku", "ku.id", "d.updated_by")
       .where("d.aktif", 1)
       .andWhere((query) =>
         query
           .whereIn("d.scope", ["global", "kategori"])
           .orWhere("v.is_main", 1),
       )
-      .select("d.*", "v.nama as vendor", "k.nama as kategori")
+      .select(
+        "d.*",
+        "v.nama as vendor",
+        "k.nama as kategori",
+        "ku.nama as updated_by_name",
+      )
       .orderByRaw(
         "FIELD(d.scope, 'global', 'kategori', 'vendor', 'vendor_kategori')",
       )
@@ -174,15 +180,13 @@ const Service = {
   async create(input, actorId) {
     const data = normalizeDefault(input);
     return withDefaultMutation(async (trx) => {
-      if (data.scope === "global") {
-        const existing = await trx("produk_harga_default")
-          .where({ scope_key: "global" })
-          .first("id");
-        if (existing)
-          throw new Error(
-            "Default global sudah tersedia. Edit nilai yang ada.",
-          );
-      }
+      const existing = await trx("produk_harga_default")
+        .where({ scope_key: data.scope_key })
+        .first("id");
+      if (existing)
+        throw new Error(
+          "Default harga untuk cakupan ini sudah tersedia. Silakan edit default yang ada.",
+        );
       await validateMainVendor(trx, data.id_vendor);
       if (data.id_kategori) {
         const category = await trx("kategoriproduk")

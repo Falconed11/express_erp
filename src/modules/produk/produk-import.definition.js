@@ -292,6 +292,7 @@ const commitProduk = async (job, actor) => {
                 id_merek: brandIds.get(row.merek.toLowerCase()),
                 tipe: row.tipe,
                 hargamodal: row.hargamodal,
+                ...(job.context.set_produk_aktif_on_update ? { aktif: 1 } : {}),
                 ...(job.context.update_main_vendor
                   ? {
                       main_vendor:
@@ -328,6 +329,7 @@ const commitProduk = async (job, actor) => {
               tipe: row.tipe, // Updates with original input casing
               hargamodal: row.hargamodal,
               ...prices,
+              ...(job.context.set_produk_aktif_on_update ? { aktif: 1 } : {}),
               ...(job.context.update_main_vendor
                 ? {
                     main_vendor:

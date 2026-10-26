@@ -36,6 +36,8 @@ export const createProdukImport = async (req, res) => {
         id_vendor: Number(req.body.id_vendor),
         main_vendor: Number(req.body.id_vendor),
         update_main_vendor: req.body.update_main_vendor === "true",
+        set_produk_aktif_on_update:
+          req.body.set_produk_aktif_on_update === "true",
         id_perusahaan: idPerusahaan,
         peran: req.user.peran,
       },
