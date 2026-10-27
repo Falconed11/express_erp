@@ -445,7 +445,16 @@ app.delete("/api/bank", async (req, res) => {
 
 // customer
 const canManageCustomer = (req) => req.user?.peran !== "sales";
+const canManageActiveStatus = (req) =>
+  ["owner", "super"].includes(req.user?.peran);
 app.get("/api/customer", async (req, res) => {
+  if (
+    ([true, 1, "1"].includes(req.query.includeInactive) ||
+      [false, 0, "0"].includes(req.query.aktif)) &&
+    !canManageActiveStatus(req)
+  ) {
+    return res.status(403).json({ message: "Akses data non aktif ditolak." });
+  }
   const list = customer.list(req.query);
   res.json(await list);
 });
@@ -462,6 +471,12 @@ app.post("/api/customer", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/customer", async (req, res) => {
+  if (req.body.aktif !== undefined && !canManageActiveStatus(req)) {
+    return res.status(403).json({
+      success: false,
+      message: "Hanya owner atau super yang dapat mengubah status instansi.",
+    });
+  }
   if (!canManageCustomer(req)) {
     return res.status(403).json({
       success: false,
@@ -482,9 +497,15 @@ app.put("/api/transfercustomer", async (req, res) => {
   }
 });
 app.delete("/api/customer", async (req, res) => {
+  if (!canManageActiveStatus(req)) {
+    return res.status(403).json({
+      success: false,
+      message: "Sales tidak memiliki izin untuk menonaktifkan customer.",
+    });
+  }
   customer
-    .destroy(req.body)
-    .then((_result) => res.json({ message: "customer berhasil dihapus" }))
+    .destroy({ ...req.body, updated_by: req.user?.id_karyawan })
+    .then((_result) => res.json({ message: "customer berhasil dinonaktifkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
@@ -1529,6 +1550,13 @@ app.delete("/api/lembur", async (req, res) => {
 
 // vendor
 app.get("/api/vendor", async (req, res) => {
+  if (
+    ([true, 1, "1"].includes(req.query.includeInactive) ||
+      [false, 0, "0"].includes(req.query.aktif)) &&
+    !canManageActiveStatus(req)
+  ) {
+    return res.status(403).json({ message: "Akses data non aktif ditolak." });
+  }
   const _list = vendor
     .list(req.query)
     .then((result) => res.json(result))
@@ -1561,6 +1589,11 @@ app.put("/api/transfervendor", async (req, res) => {
 });
 app.put("/api/vendor", async (req, res) => {
   try {
+    if (req.body.aktif !== undefined && !canManageActiveStatus(req)) {
+      return res.status(403).json({
+        message: "Hanya owner atau super yang dapat mengubah status vendor.",
+      });
+    }
     if (
       req.body.is_main !== undefined &&
       !["owner", "super"].includes(req.user?.peran)
@@ -1581,9 +1614,14 @@ app.put("/api/vendor", async (req, res) => {
   }
 });
 app.delete("/api/vendor", async (req, res) => {
+  if (!canManageActiveStatus(req)) {
+    return res.status(403).json({
+      message: "Hanya owner atau super yang dapat menonaktifkan vendor.",
+    });
+  }
   vendor
-    .destroy(req.body)
-    .then((_result) => res.json({ message: "vendor berhasil dihapus" }))
+    .destroy({ ...req.body, updated_by: req.user?.id_karyawan })
+    .then((_result) => res.json({ message: "vendor berhasil dinonaktifkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 
