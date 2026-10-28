@@ -706,6 +706,14 @@ app.put("/api/keranjangproyek", async (req, res) => {
     res.status(400).json({ message: e.message || "Unknown Error" });
   }
 });
+app.post("/api/keranjangproyek/reorder", async (req, res) => {
+  try {
+    const result = await keranjangproyek.reorder(req.body);
+    res.json({ message: "Urutan produk berhasil diperbarui", data: result });
+  } catch (e) {
+    res.status(400).json({ message: e.message || "Unknown Error" });
+  }
+});
 app.put("/api/keranjangproyekupdatehargabypersenprovit", async (req, res) => {
   const _result = await keranjangproyek
     .updateHargaJualByPersenProvit(req.body)

@@ -101,6 +101,7 @@ const createRevenueJournal = async (
 
 const list = async ({
   id_proyek,
+  id_perusahaan,
   id_metodepembayaran,
   monthyear,
   start,
@@ -121,13 +122,14 @@ const list = async ({
     start ? `and pp.tanggal>=?` : ""
   } ${end ? `and pp.tanggal<=?` : ""} ${
     id_metodepembayaran ? "and id_metodepembayaran=?" : ""
-  } order by pp.tanggal ${asc ? "asc" : "desc"}`;
+  } ${id_perusahaan ? "and p.id_perusahaan=?" : ""} order by pp.tanggal ${asc ? "asc" : "desc"}`;
   const values = [];
   if (id_proyek) values.push(id_proyek);
   if (monthyear) values.push(monthyear);
   if (start) values.push(start);
   if (end) values.push(end);
   if (id_metodepembayaran) values.push(id_metodepembayaran);
+  if (id_perusahaan) values.push(id_perusahaan);
   const [results] = await pool.execute(sql, values);
   return results;
 };
@@ -225,7 +227,9 @@ const getNextPaymentId = async (year, conn) => {
 
 const update = async ({ id, ...rest }) => {
   const { status, tanggal } = rest;
-  if (!tanggal) throw new Error("Tanggal wajib diisi!");
+  if (!tanggal && !Object.hasOwn(rest, "tanggal_penagihan")) {
+    throw new Error("Tanggal wajib diisi!");
+  }
   try {
     const result = await withTransaction(pool, async (conn) => {
       const [[current]] = await conn.execute(
@@ -235,11 +239,11 @@ const update = async ({ id, ...rest }) => {
       if (!current) throw new Error("Payment not found");
       const nextStatus = status == null ? current.status : status;
 
-      const year = new Date(tanggal).getFullYear();
+      const year = new Date(tanggal || current.tanggal).getFullYear();
       const currentYear = new Date(current.tanggal).getFullYear();
       let id_second = current.id_second;
 
-      if (!id_second || currentYear !== year) {
+      if (tanggal && (!id_second || currentYear !== year)) {
         const { id_second: newId } = await getNextPaymentId(year, conn);
         id_second = newId;
       }
@@ -254,13 +258,15 @@ const update = async ({ id, ...rest }) => {
         "pembayar",
         "untukpembayaran",
         "tanggal",
+        "tanggal_penagihan",
         "keterangan",
       ];
 
       const entries = Object.entries(rest).filter(
         ([k, v]) =>
           allowedFields.includes(k) &&
-          (v != null || ["id_metodepembayaran", "id_coa"].includes(k)),
+          (v != null ||
+            ["id_metodepembayaran", "id_coa", "tanggal_penagihan"].includes(k)),
       );
 
       const fields = entries.map(([k]) => `${k}=?`);
@@ -270,20 +276,29 @@ const update = async ({ id, ...rest }) => {
         fields.push("id_second=?");
         values.push(id_second);
       }
+      const paymentFieldsChanged = entries.some(([key]) =>
+        [
+          "status",
+          "nominal",
+          "id_metodepembayaran",
+          "id_coa",
+          "tanggal",
+        ].includes(key),
+      );
 
       if (fields.length === 0)
         return { affectedRows: 0, message: "No fields to update" };
 
       const isChangingToUnpaid =
         Number(current.status) === 1 && Number(nextStatus) === 0;
-      if (isChangingToUnpaid && current.id_jurnal) {
+      if (paymentFieldsChanged && isChangingToUnpaid && current.id_jurnal) {
         await deleteRevenueJournal(conn, current.id_jurnal);
       }
 
       values.push(id);
       const sql = `UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`;
       const [result] = await conn.execute(sql, values);
-      if (Number(nextStatus) === 1) {
+      if (paymentFieldsChanged && Number(nextStatus) === 1) {
         if (current.id_jurnal)
           await deleteRevenueJournal(conn, current.id_jurnal);
         const nextPaymentMethodId = Object.prototype.hasOwnProperty.call(
@@ -307,7 +322,7 @@ const update = async ({ id, ...rest }) => {
           idJurnal,
           id,
         ]);
-      } else {
+      } else if (paymentFieldsChanged) {
         await conn.execute(
           `UPDATE ${table} SET id_jurnal = NULL WHERE id = ?`,
           [id],

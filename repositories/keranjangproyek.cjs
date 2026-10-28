@@ -23,7 +23,8 @@ const list = async ({ id_proyek, instalasi, versi, id_perusahaan }) => {
   left join merek m on p.id_merek=m.id 
   left join vendor v on p.id_vendor=v.id where 1=1 ${
     id_proyek ? `and kp.id_proyek=?` : ""
-  } ${instalasi ? `and instalasi = ?` : ""} and versi=?`;
+  } ${instalasi ? `and instalasi = ?` : ""} and versi=?
+  ORDER BY COALESCE(kp.urutan, kp.id), kp.id`;
   const values = [id_perusahaan ?? null];
   if (id_proyek) values.push(id_proyek);
   if (instalasi) values.push(instalasi);
@@ -136,8 +137,8 @@ const createNewVersion = async ({ id_proyek, versi }) =>
     const targetVersion = Number(versionRows[0]?.next_version);
     const [result] = await conn.execute(
       `INSERT INTO ${table}
-         (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi)
-       SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, ?
+         (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi, urutan)
+       SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, ?, urutan
        FROM ${table}
        WHERE id_proyek = ? AND versi = ?`,
       [targetVersion, id_proyek, versi],
@@ -163,6 +164,7 @@ const update = async ({
     "showmerek",
     "showtipe",
     "keterangan",
+    "urutan",
   ]);
   const fields = [];
   const values = [];
@@ -217,6 +219,59 @@ const update = async ({
   });
 };
 
+const reorder = async ({ ids, updated_by }) => {
+  if (!Array.isArray(ids) || ids.length < 2) {
+    throw new Error("Pilih minimal dua produk untuk mengubah urutan.");
+  }
+  const normalizedIds = ids.map(Number);
+  if (
+    normalizedIds.some((id) => !Number.isInteger(id) || id <= 0) ||
+    new Set(normalizedIds).size !== normalizedIds.length
+  ) {
+    throw new Error("Daftar produk untuk diurutkan tidak valid.");
+  }
+
+  return withTransaction(pool, async (conn) => {
+    const placeholders = normalizedIds.map(() => "?").join(", ");
+    const [rows] = await conn.execute(
+      `SELECT id, id_proyek, versi, instalasi, id_subproyek
+       FROM ${table}
+       WHERE id IN (${placeholders})
+       FOR UPDATE`,
+      normalizedIds,
+    );
+    if (rows.length !== normalizedIds.length) {
+      throw new Error("Sebagian produk tidak ditemukan.");
+    }
+
+    const firstRow = rows[0];
+    const sameGroup = rows.every(
+      (row) =>
+        Number(row.id_proyek) === Number(firstRow.id_proyek) &&
+        Number(row.versi) === Number(firstRow.versi) &&
+        Number(row.instalasi) === Number(firstRow.instalasi) &&
+        (row.id_subproyek ?? null) === (firstRow.id_subproyek ?? null),
+    );
+    if (!sameGroup) {
+      throw new Error("Produk harus berada dalam sub proyek yang sama.");
+    }
+
+    for (const [urutan, id] of normalizedIds.entries()) {
+      await conn.execute(`UPDATE ${table} SET urutan = ? WHERE id = ?`, [
+        urutan,
+        id,
+      ]);
+    }
+    await invalidateApproval(
+      conn,
+      firstRow.id_proyek,
+      firstRow.versi,
+      updated_by,
+    );
+    return { affectedRows: normalizedIds.length };
+  });
+};
+
 const updateHargaJualByPersenProvit = async ({ id_proyek, persenProvit }) => {
   const sql = `UPDATE keranjangproyek SET harga = ceil(hargamodal*(1+?/100)) WHERE id_proyek = ?`;
   const values = [persenProvit, id_proyek];
@@ -260,6 +315,7 @@ module.exports = {
   create,
   createNewVersion,
   update,
+  reorder,
   updateHargaJualByPersenProvit,
   insertKeranjangProyek,
   destroy,
