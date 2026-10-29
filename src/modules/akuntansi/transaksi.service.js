@@ -115,46 +115,39 @@ const Service = {
   },
   async patch(id, data) {
     const { transaksi, produk, nama: _productName, ...jurnal } = data;
-    console.log(data);
     validateTransaksiData(transaksi);
-    try {
-      const result = await withTransaction(async (conn) => {
-        const jurnalResult = await JurnalModel.patch(id, jurnal, conn);
-        if (produk !== undefined) {
-          await produkkeluar.destroyByJurnalInTransaction(id, conn);
-          if (produk?.id_produk) {
-            await produkkeluar.createInTransaction(
-              {
-                ...produk,
-                id_jurnal: id,
-                created_by: jurnal.created_by ?? jurnal.updated_by,
-                updated_by: jurnal.updated_by,
-                metodepengeluaran: "operasionalkantor",
-                tanggal: jurnal.tanggal,
-                keterangan: jurnal.keterangan || "",
-                sn: 0,
-              },
-              conn,
-            );
-          }
+    return withTransaction(async (conn) => {
+      const jurnalResult = await JurnalModel.patch(id, jurnal, conn);
+      if (produk !== undefined) {
+        await produkkeluar.destroyByJurnalInTransaction(id, conn);
+        if (produk?.id_produk) {
+          await produkkeluar.createInTransaction(
+            {
+              ...produk,
+              id_jurnal: id,
+              created_by: jurnal.created_by ?? jurnal.updated_by,
+              updated_by: jurnal.updated_by,
+              metodepengeluaran: "operasionalkantor",
+              tanggal: jurnal.tanggal,
+              keterangan: jurnal.keterangan || "",
+              sn: 0,
+            },
+            conn,
+          );
         }
+      }
+      if (jurnal.updated_by !== undefined) {
         transaksi.forEach((item) => {
           item.updated_by = jurnal.updated_by;
         });
-        console.log("done");
-        const transaksiResults = await Promise.all(
-          transaksi.map(({ id, ...data }) =>
-            TransaksiModel.patch(id, data, conn),
-          ),
-        );
-        return { jurnal: jurnalResult, transaksi: transaksiResults };
-      });
-      console.log(result);
-      return result;
-    } catch (err) {
-      console.log(err);
-      throw err;
-    }
+      }
+      const transaksiResults = await Promise.all(
+        transaksi.map(({ id, ...data }) =>
+          TransaksiModel.patch(id, data, conn),
+        ),
+      );
+      return { jurnal: jurnalResult, transaksi: transaksiResults };
+    });
   },
   async destroy(id) {
     try {

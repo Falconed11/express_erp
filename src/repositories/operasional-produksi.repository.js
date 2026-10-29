@@ -171,14 +171,16 @@ const update = (
   idProyek,
   { tanggal, deskripsi, nominal, updated_by, aktif },
 ) => {
-  const changes = {
-    tanggal,
-    deskripsi,
-    nominal,
-    updated_by,
-    updated_at: db.fn.now(),
-  };
-  if (aktif !== undefined) changes.aktif = aktif;
+  const changes = Object.fromEntries(
+    Object.entries({
+      tanggal,
+      deskripsi,
+      nominal,
+      updated_by,
+      updated_at: db.fn.now(),
+      aktif,
+    }).filter(([, value]) => value !== undefined),
+  );
   return db(TABLE).where({ id, id_proyek: idProyek }).update(changes);
 };
 
