@@ -155,20 +155,30 @@ const create = async ({
   id_karyawankwitansi = null,
   pembayar = "",
   untukpembayaran = "",
-  tanggal = "",
+  tanggal = null,
+  tanggal_penagihan = null,
   keterangan = "",
   status = 0,
+  status_penagihan = null,
   created_by = null,
 }) => {
-  const { id_second } = await getNextPaymentId(
-    new Date(tanggal).getFullYear(),
-    pool,
-  );
-  const sql = `insert into ${table} (id_proyek, id_second, status, nominal, id_metodepembayaran, id_coa, id_karyawaninvoice, id_karyawankwitansi, pembayar, untukpembayaran, tanggal, keterangan) values (${idproyek ? `(select id from proyek where id_second=?)` : `?`}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  if (!tanggal_penagihan) {
+    throw new Error("Tanggal penagihan wajib diisi.");
+  }
+  if (+status && !tanggal) {
+    throw new Error("Tanggal pelunasan wajib diisi untuk pembayaran lunas.");
+  }
+  const resolvedBillingStatus =
+    status_penagihan || (+status ? "paid" : "waiting");
+  const { id_second } = +status
+    ? await getNextPaymentId(new Date(tanggal).getFullYear(), pool)
+    : { id_second: null };
+  const sql = `insert into ${table} (id_proyek, id_second, status, status_penagihan, nominal, id_metodepembayaran, id_coa, id_karyawaninvoice, id_karyawankwitansi, pembayar, untukpembayaran, tanggal, tanggal_penagihan, keterangan) values (${idproyek ? `(select id from proyek where id_second=?)` : `?`}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const values = [
     idproyek ?? id_proyek,
     id_second,
     status,
+    resolvedBillingStatus,
     nominal,
     id_metodepembayaran,
     id_coa,
@@ -177,6 +187,7 @@ const create = async ({
     pembayar,
     untukpembayaran,
     tanggal,
+    tanggal_penagihan,
     keterangan ?? "",
   ];
   console.log(values);
@@ -226,9 +237,12 @@ const getNextPaymentId = async (year, conn) => {
 };
 
 const update = async ({ id, ...rest }) => {
-  const { status, tanggal } = rest;
-  if (!tanggal && !Object.hasOwn(rest, "tanggal_penagihan")) {
-    throw new Error("Tanggal wajib diisi!");
+  const { status, tanggal, tanggal_penagihan } = rest;
+  if (!tanggal_penagihan) {
+    throw new Error("Tanggal penagihan wajib diisi.");
+  }
+  if (Number(status) === 1 && !tanggal) {
+    throw new Error("Tanggal pelunasan wajib diisi untuk pembayaran lunas.");
   }
   try {
     const result = await withTransaction(pool, async (conn) => {
@@ -239,11 +253,16 @@ const update = async ({ id, ...rest }) => {
       if (!current) throw new Error("Payment not found");
       const nextStatus = status == null ? current.status : status;
 
-      const year = new Date(tanggal || current.tanggal).getFullYear();
-      const currentYear = new Date(current.tanggal).getFullYear();
-      let id_second = current.id_second;
+      const currentDate = current.tanggal || current.tanggal_penagihan;
+      const year = new Date(tanggal || tanggal_penagihan).getFullYear();
+      const currentYear = new Date(currentDate).getFullYear();
+      let id_second = Number(nextStatus) === 1 ? current.id_second : null;
 
-      if (tanggal && (!id_second || currentYear !== year)) {
+      if (
+        Number(nextStatus) === 1 &&
+        tanggal &&
+        (!id_second || currentYear !== year)
+      ) {
         const { id_second: newId } = await getNextPaymentId(year, conn);
         id_second = newId;
       }
@@ -259,6 +278,7 @@ const update = async ({ id, ...rest }) => {
         "untukpembayaran",
         "tanggal",
         "tanggal_penagihan",
+        "status_penagihan",
         "keterangan",
       ];
 
@@ -266,7 +286,12 @@ const update = async ({ id, ...rest }) => {
         ([k, v]) =>
           allowedFields.includes(k) &&
           (v != null ||
-            ["id_metodepembayaran", "id_coa", "tanggal_penagihan"].includes(k)),
+            [
+              "id_metodepembayaran",
+              "id_coa",
+              "tanggal",
+              "tanggal_penagihan",
+            ].includes(k)),
       );
 
       const fields = entries.map(([k]) => `${k}=?`);
