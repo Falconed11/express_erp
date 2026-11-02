@@ -68,6 +68,8 @@ const Model = generateStandardCRUDModel({
       ORDER BY pk.id
       LIMIT 1) id_produkkeluar_proyek`,
     `(CASE
+      WHEN jf.system_key = 'OPERASIONAL_KANTOR'
+      THEN 0
       WHEN EXISTS (
         SELECT 1
         FROM produkkeluar pk
