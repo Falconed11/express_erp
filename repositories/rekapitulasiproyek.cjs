@@ -99,6 +99,7 @@ const createkategoriProyek = async ({ id_proyek, versi, jenis_proyek }) => {
   const sql = `insert into ${table} (id_proyek, audio, cctv, multimedia, versi) values ( ?, '${audio}', '${cctv}', '${multimedia}', ?)`;
   const values = [id_proyek, versi];
   return withTransaction(pool, async (conn) => {
+    await invalidateApproval(conn, id_proyek, versi);
     const [result] = await conn.execute(sql, values);
     return result;
   });
@@ -226,6 +227,7 @@ const updatekategoriProyek = async ({
       [id],
     );
     if (!rows.length) throw new Error("Rekapitulasi proyek tidak ditemukan.");
+    await invalidateApproval(conn, rows[0].id_proyek, rows[0].versi);
     const [result] = await conn.execute(sql, values);
     return result;
   });

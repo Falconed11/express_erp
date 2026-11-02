@@ -5,6 +5,7 @@ import { createKeteranganKhususPenawaranService } from "./keterangan-khusus-pena
 const createRepository = (overrides = {}) => ({
   getProject: async () => ({ id: 7, id_karyawan: 11, progress: 50 }),
   hasOfferVersion: async () => true,
+  hasApprovedOffer: async () => false,
   list: async () => [],
   create: async (data) => data,
   update: async () => ({ affectedRows: 1 }),
@@ -95,6 +96,31 @@ test("rejects writes by users who do not own or manage the project", async () =>
     { statusCode: 403 },
   );
   assert.equal(createCalled, false);
+});
+
+test("approved offers cannot have quotation notes created, updated, or removed", async () => {
+  const service = createKeteranganKhususPenawaranService(
+    createRepository({ hasApprovedOffer: async () => true }),
+  );
+
+  await assert.rejects(
+    service.create(
+      { id_proyek: 7, versi: 2, keterangan: "Catatan" },
+      editor,
+    ),
+    { statusCode: 409 },
+  );
+  await assert.rejects(
+    service.update(
+      { id: 19, id_proyek: 7, versi: 2, keterangan: "Perubahan" },
+      editor,
+    ),
+    { statusCode: 409 },
+  );
+  await assert.rejects(
+    service.remove({ id: 19, id_proyek: 7, versi: 2 }, editor),
+    { statusCode: 409 },
+  );
 });
 
 test("updates and deletes only entries within the requested version", async () => {

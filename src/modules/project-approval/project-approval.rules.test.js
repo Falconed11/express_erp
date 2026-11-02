@@ -56,9 +56,8 @@ test("an existing approval is sufficient only at or above the required level", (
   assert.equal(isApprovalSufficient(null, null), true);
 });
 
-test("the original approver or an approver at the same or higher level can cancel", () => {
+test("head-sales approvals retain the existing cancellation permissions", () => {
   const approval = { approvedBy: 24, approvedLevel: "head-sales" };
-
   assert.equal(
     canCancelApproval(approval, { id_karyawan: 24, peran: "sales" }),
     true,
@@ -74,5 +73,22 @@ test("the original approver or an approver at the same or higher level can cance
   assert.equal(
     canCancelApproval(approval, { id_karyawan: 25, peran: "sales" }),
     false,
+  );
+});
+
+test("owner approvals can only be canceled by super", () => {
+  const approval = { approvedBy: 24, approvedLevel: "owner" };
+
+  assert.equal(
+    canCancelApproval(approval, { id_karyawan: 24, peran: "owner" }),
+    false,
+  );
+  assert.equal(
+    canCancelApproval(approval, { id_karyawan: 25, peran: "owner" }),
+    false,
+  );
+  assert.equal(
+    canCancelApproval(approval, { id_karyawan: 25, peran: "super" }),
+    true,
   );
 });

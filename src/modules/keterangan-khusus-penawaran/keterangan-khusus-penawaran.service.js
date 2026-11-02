@@ -57,6 +57,15 @@ const assertCanEdit = (project, user) => {
   }
 };
 
+const assertOfferEditable = async (scope, repository) => {
+  if (await repository.hasApprovedOffer(scope.idProyek, scope.versi)) {
+    throw invalid(
+      "Penawaran sudah disetujui dan terkunci. Minta super membatalkan persetujuan terlebih dahulu.",
+      409,
+    );
+  }
+};
+
 const assertAffected = (result) => {
   if (!result.affectedRows)
     throw invalid("Keterangan khusus tidak ditemukan.", 404);
@@ -75,6 +84,7 @@ export const createKeteranganKhususPenawaranService = (
     const scope = parseScope(body);
     const project = await assertValidScope(scope, repository);
     assertCanEdit(project, user);
+    await assertOfferEditable(scope, repository);
     return repository.create({
       ...scope,
       keterangan: parseNote(body.keterangan),
@@ -100,6 +110,7 @@ export const createKeteranganKhususPenawaranService = (
     }
     const project = await assertValidScope(scope, repository);
     assertCanEdit(project, user);
+    await assertOfferEditable(scope, repository);
     const result = await repository.update({
       id,
       ...scope,
@@ -115,6 +126,7 @@ export const createKeteranganKhususPenawaranService = (
     const id = parsePositiveInteger(query.id, "ID keterangan");
     const project = await assertValidScope(scope, repository);
     assertCanEdit(project, user);
+    await assertOfferEditable(scope, repository);
     const result = await repository.remove({
       id,
       ...scope,

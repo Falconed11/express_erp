@@ -4,6 +4,7 @@ const { withTransaction } = require("./../helpers/transaction.cjs");
 const {
   getProjectEquipmentTaxPercent,
 } = require("./rekapitulasiproyek-pajak.cjs");
+const { assertOfferEditable } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 const {
   deleteClosedLoansForProject,
 } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
@@ -254,6 +255,12 @@ const update = async ({
   }
   try {
     const result = await withTransaction(pool, async (conn) => {
+      if (fields.length > 0 || id_instansi || instansi) {
+        await assertOfferEditable(conn, id);
+      }
+      if (Number(id_statusproyek) === 1) {
+        await assertOfferEditable(conn, id);
+      }
       if (instansi && !id_instansi) {
         const customerInsertId = await customerCreate({
           nama: instansi,
@@ -352,6 +359,7 @@ const destroy = async ({ id }) => {
 
     let sql, values, _result;
 
+    await assertOfferEditable(connection, id);
     await deleteClosedLoansForProject({
       conn: connection,
       id_proyek: id,

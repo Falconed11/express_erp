@@ -23,6 +23,18 @@ export const hasOfferVersion = async (idProyek, versi) => {
   return Boolean(rows[0]?.offer_exists);
 };
 
+export const hasApprovedOffer = async (idProyek, versi) => {
+  const [rows] = await db.execute(
+    `SELECT id
+     FROM proyek_penawaran_approval
+     WHERE id_proyek = ? AND versi = ? AND aktif = 1
+       AND approved_level IS NOT NULL
+     LIMIT 1`,
+    [idProyek, versi],
+  );
+  return rows.length > 0;
+};
+
 export const list = async (idProyek, versi) => {
   const [rows] = await db.execute(
     `SELECT id, id_proyek, versi, keterangan, aktif, created_at, updated_at

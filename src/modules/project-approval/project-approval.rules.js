@@ -38,7 +38,13 @@ export const isApprovalSufficient = (requiredLevel, approvedLevel) => {
 export const canApprove = (requiredLevel, role) =>
   (APPROVAL_RANK[role] ?? 0) >= (APPROVAL_RANK[requiredLevel] ?? Infinity);
 
-export const canCancelApproval = (approval, user) =>
-  (approval?.approvedBy != null &&
-    String(approval.approvedBy) === String(user?.id_karyawan)) ||
-  canApprove(approval?.approvedLevel, user?.peran);
+export const canCancelApproval = (approval, user) => {
+  if (approval?.approvedLevel === "owner") {
+    return user?.peran === "super";
+  }
+  return (
+    (approval?.approvedBy != null &&
+      String(approval.approvedBy) === String(user?.id_karyawan)) ||
+    canApprove(approval?.approvedLevel, user?.peran)
+  );
+};
