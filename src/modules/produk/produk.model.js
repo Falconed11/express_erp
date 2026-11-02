@@ -33,7 +33,7 @@ const extraAllowedFields = [
 const baseModel = generateStandardCRUDModel({
   tableName: TABLE_NAME,
   extraAllowedFieldsForCreate: extraAllowedFields,
-  extraAllowedFieldsForUpdate: extraAllowedFields,
+  extraAllowedFieldsForUpdate: [...extraAllowedFields, "aktif"],
 });
 
 const Model = {
@@ -46,6 +46,11 @@ const Model = {
       );
       const existing = existingRows[0];
       if (!existing) throw new Error("Data not found");
+      const isStatusOnlyUpdate = Object.keys(data).every((key) =>
+        ["aktif", "updated_by", "changed_by"].includes(key),
+      );
+      if (isStatusOnlyUpdate) return baseModel.patch(id, data, trx);
+
       const defaults = await priceDefaults.getDefaults(trx);
       const prices = resolveProductPrices(
         { ...existing, ...data },
@@ -93,6 +98,7 @@ const Model = {
     aktif,
     isReadyStock,
     nama,
+    tipe,
     id_kustom,
     id_perusahaan,
     customPrice,
@@ -113,6 +119,10 @@ const Model = {
     if (merek) {
       conditions.push("p.id_merek = ?");
       values.push(merek);
+    }
+    if (String(tipe ?? "").trim()) {
+      conditions.push("LOWER(TRIM(COALESCE(p.tipe, ''))) = LOWER(TRIM(?))");
+      values.push(String(tipe).trim());
     }
     if (aktif === "0" || aktif === "1") {
       conditions.push("p.aktif = ?");
