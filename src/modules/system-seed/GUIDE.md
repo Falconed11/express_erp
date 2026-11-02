@@ -2,12 +2,13 @@
 
 This guide explains how to add a new system journal seed following the existing pattern in the seed service.
 
-The current seed service uses four main system seeds:
+The current seed service uses these main system seeds:
 
 - `OPERASIONAL_KANTOR`
 - `HPP`
 - `PENDAPATAN`
 - `PEMBELIAN`
+- `TRANSFER_SALDO`
 
 Each seed is responsible for creating or synchronizing:
 
@@ -67,6 +68,7 @@ const SYSTEM_KEYS = {
   HPP: "HPP",
   PENDAPATAN: "PENDAPATAN",
   PEMBELIAN: "PEMBELIAN",
+  TRANSFER_SALDO: "TRANSFER_SALDO",
 };
 ```
 
@@ -118,6 +120,7 @@ const seedDefinitions = [
   { key: SYSTEM_KEYS.HPP, label: "HPP" },
   { key: SYSTEM_KEYS.PENDAPATAN, label: "Pendapatan" },
   { key: SYSTEM_KEYS.PEMBELIAN, label: "Pembelian" },
+  { key: SYSTEM_KEYS.TRANSFER_SALDO, label: "Transfer Saldo" },
 ];
 ```
 
@@ -137,6 +140,12 @@ The `label` is the human-readable name shown in the check result.
 ---
 
 # 4. Decide the Accounting Structure First
+
+The `TRANSFER_SALDO` seed creates an Ekuitas COA type, a Modal subtype and
+COA, plus a Transfer Saldo journal form. Separate debit and credit expressions
+both use the `Akun Transfer Saldo` report, which maps Kas, Bank, and Modal.
+The expressions must be separate records because a form cannot link the same
+expression twice.
 
 Before writing `ensureXxx()`, define the accounting structure.
 
@@ -973,6 +982,7 @@ Current protected records are:
 | COA type    | HPP                     | -                               |
 | COA type    | Pendapatan              | -                               |
 | COA type    | Kewajiban Lancar        | -                               |
+| COA type    | Ekuitas                 | -                               |
 | COA subtype | Kas                     | Aktiva Lancar                   |
 | COA subtype | Operasional Kantor      | Biaya Operasional               |
 | COA subtype | HPP                     | HPP                             |
@@ -984,6 +994,7 @@ Current protected records are:
 | COA subtype | Hutang Antarperusahaan  | Kewajiban Lancar                |
 | COA subtype | Untung Selisih Pinjaman | Pendapatan                      |
 | COA subtype | Rugi Selisih Pinjaman   | Biaya Operasional               |
+| COA subtype | Modal                   | Ekuitas                         |
 | COA         | HPP                     | HPP subtype                     |
 | COA         | Pendapatan              | Pendapatan subtype              |
 | COA         | Persediaan              | Persediaan subtype              |
@@ -992,6 +1003,12 @@ Current protected records are:
 | COA         | Hutang Antarperusahaan  | Hutang Antarperusahaan subtype  |
 | COA         | Untung Selisih Pinjaman | matching subtype                |
 | COA         | Rugi Selisih Pinjaman   | matching subtype                |
+| COA         | Modal                   | Modal subtype                   |
+
+The `Transfer Saldo` journal form uses separate `Akun Debit Transfer Saldo`
+and `Akun Kredit Transfer Saldo` expressions. Both point to the `Akun Transfer
+Saldo` report, which maps the Kas, Bank, and Modal COA subtypes, allowing
+transfers among those accounts without including Hutang or other liabilities.
 
 The `Metode Bayar` report section is system-seeded with Bank and Kas subtype
 mappings plus the Hutang COA mapping. The shared `Metode Bayar` journal

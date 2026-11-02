@@ -102,6 +102,7 @@ const Model = generateStandardCRUDModel({
   generateCustomFilter: ({
     id_coa_debit,
     id_coa_kredit,
+    id_coa_jurnal,
     excludeCoaIds: _excludeCoaIds,
     id_produkmasuk,
   }) => {
@@ -125,6 +126,14 @@ const Model = generateStandardCRUDModel({
           AND kredit_filter.id_coa = ?
       )`);
       values.push(id_coa_kredit);
+    }
+    if (id_coa_jurnal) {
+      sqlParts.push(`AND EXISTS (
+        SELECT 1 FROM transaksi coa_filter
+        WHERE coa_filter.id_jurnal = main.id_jurnal
+          AND coa_filter.id_coa = ?
+      )`);
+      values.push(id_coa_jurnal);
     }
     if (id_produkmasuk) {
       sqlParts.push(`AND EXISTS (

@@ -5,6 +5,7 @@ const SYSTEM_KEYS = {
   HPP: "HPP",
   PENDAPATAN: "PENDAPATAN",
   PEMBELIAN: "PEMBELIAN",
+  TRANSFER_SALDO: "TRANSFER_SALDO",
   PRODUK_HARGA_DEFAULT: "PRODUK_HARGA_DEFAULT",
 };
 
@@ -13,6 +14,7 @@ const seedDefinitions = [
   { key: SYSTEM_KEYS.HPP, label: "HPP" },
   { key: SYSTEM_KEYS.PENDAPATAN, label: "Pendapatan" },
   { key: SYSTEM_KEYS.PEMBELIAN, label: "Pembelian" },
+  { key: SYSTEM_KEYS.TRANSFER_SALDO, label: "Transfer Saldo" },
   { key: SYSTEM_KEYS.PRODUK_HARGA_DEFAULT, label: "Default Harga Produk" },
 ];
 
@@ -572,6 +574,106 @@ const ensurePembelian = async (trx) => {
   await syncFormExpression(trx, form.id, metodeBayarExpression.id, "kredit", 2);
 };
 
+const ensureTransferSaldo = async (trx) => {
+  const aktivaLancar = await syncByName(trx, "coa_type", "Aktiva Lancar", {
+    normal_balance: 1,
+    aktif: true,
+    keterangan: "System default",
+  });
+  const ekuitas = await syncByName(trx, "coa_type", "Ekuitas", {
+    normal_balance: 0,
+    aktif: true,
+    keterangan: "System default",
+  });
+
+  const kasSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Kas",
+    {
+      id_coa_type: aktivaLancar.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: aktivaLancar.id },
+  );
+  const bankSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Bank",
+    {
+      id_coa_type: aktivaLancar.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: aktivaLancar.id },
+  );
+  const modalSubtype = await syncByName(
+    trx,
+    "coa_subtype",
+    "Modal",
+    {
+      id_coa_type: ekuitas.id,
+      aktif: true,
+      keterangan: "System default",
+    },
+    { id_coa_type: ekuitas.id },
+  );
+  await syncByName(trx, "coa", "Modal", {
+    id_coa_subtype: modalSubtype.id,
+    aktif: true,
+    keterangan: "System default",
+  });
+
+  const transferAccounts = await syncByName(
+    trx,
+    "laporan",
+    "Akun Transfer Saldo",
+    {
+      isReport: 0,
+      aktif: true,
+      keterangan: "System default",
+    },
+  );
+  for (const subtype of [kasSubtype, bankSubtype, modalSubtype]) {
+    await syncLaporanRelation(trx, transferAccounts.id, {
+      id_coa_subtype: subtype.id,
+    });
+  }
+
+  const form = await syncByName(trx, "jurnal_form", "Transfer Saldo", {
+    system_key: SYSTEM_KEYS.TRANSFER_SALDO,
+    extra_fields: JSON.stringify([]),
+    keterangan: "System default",
+    aktif: true,
+  });
+  const debitAccountExpression = await syncExpression(trx, {
+    nama: "Akun Debit Transfer Saldo",
+    filter_type: "laporan",
+    id_filter: transferAccounts.id,
+  });
+  const creditAccountExpression = await syncExpression(trx, {
+    nama: "Akun Kredit Transfer Saldo",
+    filter_type: "laporan",
+    id_filter: transferAccounts.id,
+  });
+
+  await syncFormExpression(
+    trx,
+    form.id,
+    debitAccountExpression.id,
+    "debit",
+    1,
+  );
+  await syncFormExpression(
+    trx,
+    form.id,
+    creditAccountExpression.id,
+    "kredit",
+    2,
+  );
+};
+
 const ensureProdukHargaDefault = async (trx) => {
   const row = await trx("produk_harga_default")
     .where("scope", "global")
@@ -962,6 +1064,115 @@ const checkSeed = async (trx, definition) => {
     ) {
       details.push("Kredit expression is incorrect.");
     } else verified.push("Expression (kredit): Metode Bayar");
+  } else if (definition.key === SYSTEM_KEYS.TRANSFER_SALDO) {
+    const aktivaLancar = await trx("coa_type")
+      .where({ nama: "Aktiva Lancar", aktif: true })
+      .first();
+    const ekuitas = await trx("coa_type")
+      .where({ nama: "Ekuitas", aktif: true })
+      .first();
+    const kasSubtype = aktivaLancar
+      ? await trx("coa_subtype")
+          .where({
+            nama: "Kas",
+            id_coa_type: aktivaLancar.id,
+            aktif: true,
+          })
+          .first()
+      : null;
+    const bankSubtype = aktivaLancar
+      ? await trx("coa_subtype")
+          .where({
+            nama: "Bank",
+            id_coa_type: aktivaLancar.id,
+            aktif: true,
+          })
+          .first()
+      : null;
+    const modalSubtype = ekuitas
+      ? await trx("coa_subtype")
+          .where({ nama: "Modal", id_coa_type: ekuitas.id, aktif: true })
+          .first()
+      : null;
+    const modalCoa = modalSubtype
+      ? await trx("coa")
+          .where({
+            nama: "Modal",
+            id_coa_subtype: modalSubtype.id,
+            aktif: true,
+          })
+          .first()
+      : null;
+    const transferAccounts = await trx("laporan")
+      .where({ nama: "Akun Transfer Saldo", aktif: true })
+      .first();
+
+    if (form && form.nama !== "Transfer Saldo")
+      details.push("Transfer Saldo system form has the wrong name.");
+    if (!aktivaLancar) details.push("Aktiva Lancar COA type is missing.");
+    else verified.push("COA type: Aktiva Lancar");
+    if (aktivaLancar && aktivaLancar.normal_balance !== 1)
+      details.push("Aktiva Lancar COA type has the wrong normal balance.");
+    if (!kasSubtype) details.push("Kas COA subtype is missing.");
+    else verified.push("COA subtype: Kas");
+    if (!bankSubtype) details.push("Bank COA subtype is missing.");
+    else verified.push("COA subtype: Bank");
+    if (!ekuitas) details.push("Ekuitas COA type is missing.");
+    else verified.push("COA type: Ekuitas");
+    if (ekuitas && ekuitas.normal_balance !== 0)
+      details.push("Ekuitas COA type has the wrong normal balance.");
+    if (!modalSubtype) details.push("Modal COA subtype is missing.");
+    else verified.push("COA subtype: Modal");
+    if (!modalCoa) details.push("Modal COA is missing.");
+    else verified.push("COA: Modal");
+    if (!transferAccounts) {
+      details.push("Akun Transfer Saldo report is missing.");
+    } else {
+      verified.push("Report: Akun Transfer Saldo");
+      if (Number(transferAccounts.isReport) !== 0)
+        details.push("Akun Transfer Saldo must not be a financial report.");
+    }
+
+    for (const [label, subtype] of [
+      ["Kas", kasSubtype],
+      ["Bank", bankSubtype],
+      ["Modal", modalSubtype],
+    ]) {
+      const relation = transferAccounts && subtype
+        ? await trx("laporan_relation")
+            .where({
+              id_parent: transferAccounts.id,
+              id_child: null,
+              id_coa_subtype: subtype.id,
+              aktif: true,
+            })
+            .first()
+        : null;
+      if (!relation)
+        details.push(`${label} subtype is missing from Akun Transfer Saldo.`);
+    }
+
+    const debit = expressions.find((e) => e.input_type === "debit");
+    const kredit = expressions.find((e) => e.input_type === "kredit");
+    for (const [inputType, expression, expectedName] of [
+      ["Debit", debit, "Akun Debit Transfer Saldo"],
+      ["Kredit", kredit, "Akun Kredit Transfer Saldo"],
+    ]) {
+      if (
+        !expression ||
+        !expression.aktif ||
+        expression.nama !== expectedName ||
+        expression.filter_type !== "laporan" ||
+        expression.id_filter !== transferAccounts?.id
+      ) {
+        details.push(`${inputType} expression is incorrect.`);
+      } else {
+        verified.push(`Expression (${inputType.toLowerCase()}): ${expectedName}`);
+      }
+    }
+    if (debit && kredit && debit.expression_id === kredit.expression_id) {
+      details.push("Debit and credit expressions must be distinct.");
+    }
   } else if (definition.key === SYSTEM_KEYS.PENDAPATAN) {
     const type = await trx("coa_type")
       .where({ nama: "Aktiva Lancar", aktif: true })
@@ -1067,6 +1278,7 @@ const Service = {
       await ensureHpp(trx);
       await ensurePendapatan(trx);
       await ensurePembelian(trx);
+      await ensureTransferSaldo(trx);
       await ensureProdukHargaDefault(trx);
       return {
         seeds: await Promise.all(
