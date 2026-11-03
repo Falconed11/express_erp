@@ -154,6 +154,7 @@ import systemSeedRoutes from "./src/modules/system-seed/system-seed.route.js";
 import proyekRoutes from "./src/routes/proyek.routes.js";
 import transferBank from "./src/routes/transfer-bank.routes.js";
 import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";
+import deviceMonitorRoutes from "./src/modules/device-monitor/device-monitor.route.js";
 
 import errorMiddleware from "./src/middlewares/error.middleware.js";
 import verifyToken from "./src/middlewares/auth.middleware.js";
@@ -256,6 +257,7 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.use("/api/v2/app-config", appConfigRoutes);
+app.use("/api/v2/device-monitor", deviceMonitorRoutes);
 app.use("/api/v2/produk-harga-default", produkHargaDefaultRoutes);
 app.use("/api/v2/perusahaan-pajak-default", perusahaanPajakDefaultRoutes);
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
