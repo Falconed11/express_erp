@@ -150,6 +150,18 @@ const Service = generateDefaultCRUDService({
              j.id AS id_jurnal,
              j.tanggal,
              j.keterangan AS keterangan_jurnal,
+             jf.system_key AS jurnal_form_system_key,
+             (
+               SELECT GROUP_CONCAT(
+                 DISTINCT counter_coa.nama
+                 ORDER BY counter_coa.nama
+                 SEPARATOR ', '
+               )
+               FROM transaksi counter_t
+               INNER JOIN coa counter_coa ON counter_coa.id = counter_t.id_coa
+               WHERE counter_t.id_jurnal = j.id
+                 AND counter_t.id_coa <> t.id_coa
+             ) AS counter_coa,
              t.tipe,
              t.amount,
              CASE
@@ -158,6 +170,7 @@ const Service = generateDefaultCRUDService({
              END AS saldo_change
            FROM transaksi t
            INNER JOIN jurnal j ON j.id = t.id_jurnal
+           LEFT JOIN jurnal_form jf ON jf.id = j.id_jurnal_form
            INNER JOIN coa c ON c.id = t.id_coa
            INNER JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
            INNER JOIN coa_type ct ON ct.id = cs.id_coa_type

@@ -11,10 +11,23 @@ const normalizeMode = (mode) => {
 
 const get = async (idUser) => {
   const [rows] = await pool.execute(
-    "select mode_interaksi_baris_tabel from user_settings where id_user=?",
+    `select mode_interaksi_baris_tabel,
+            default_operasional_kantor_id_coa,
+            default_operasional_produksi_id_coa,
+            default_produk_masuk_id_coa
+     from user_settings where id_user=?`,
     [idUser],
   );
-  return rows[0]?.mode_interaksi_baris_tabel || DEFAULT_MODE;
+  return {
+    mode_interaksi_baris_tabel:
+      rows[0]?.mode_interaksi_baris_tabel || DEFAULT_MODE,
+    default_operasional_kantor_id_coa:
+      rows[0]?.default_operasional_kantor_id_coa ?? null,
+    default_operasional_produksi_id_coa:
+      rows[0]?.default_operasional_produksi_id_coa ?? null,
+    default_produk_masuk_id_coa:
+      rows[0]?.default_produk_masuk_id_coa ?? null,
+  };
 };
 
 const update = async (idUser, mode) => {
@@ -29,4 +42,59 @@ const update = async (idUser, mode) => {
   return normalizedMode;
 };
 
-module.exports = { get, update, DEFAULT_MODE };
+const normalizeCoaId = (idCoa) => {
+  const normalizedId =
+    idCoa == null || idCoa === "" ? null : Number(idCoa);
+  if (
+    normalizedId !== null &&
+    (!Number.isInteger(normalizedId) || normalizedId <= 0)
+  ) {
+    throw new Error("Sumber dana default tidak valid");
+  }
+  return normalizedId;
+};
+
+const updateDefaultOperasionalKantorCoa = async (idUser, idCoa) => {
+  const normalizedId = normalizeCoaId(idCoa);
+  await pool.execute(
+    `insert into user_settings (id_user, default_operasional_kantor_id_coa)
+     values (?, ?)
+     on duplicate key update
+       default_operasional_kantor_id_coa=values(default_operasional_kantor_id_coa)`,
+    [idUser, normalizedId],
+  );
+  return normalizedId;
+};
+
+const updateDefaultOperasionalProduksiCoa = async (idUser, idCoa) => {
+  const normalizedId = normalizeCoaId(idCoa);
+  await pool.execute(
+    `insert into user_settings (id_user, default_operasional_produksi_id_coa)
+     values (?, ?)
+     on duplicate key update
+       default_operasional_produksi_id_coa=values(default_operasional_produksi_id_coa)`,
+    [idUser, normalizedId],
+  );
+  return normalizedId;
+};
+
+const updateDefaultProdukMasukCoa = async (idUser, idCoa) => {
+  const normalizedId = normalizeCoaId(idCoa);
+  await pool.execute(
+    `insert into user_settings (id_user, default_produk_masuk_id_coa)
+     values (?, ?)
+     on duplicate key update
+       default_produk_masuk_id_coa=values(default_produk_masuk_id_coa)`,
+    [idUser, normalizedId],
+  );
+  return normalizedId;
+};
+
+module.exports = {
+  get,
+  update,
+  updateDefaultOperasionalKantorCoa,
+  updateDefaultOperasionalProduksiCoa,
+  updateDefaultProdukMasukCoa,
+  DEFAULT_MODE,
+};

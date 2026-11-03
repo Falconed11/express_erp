@@ -1761,18 +1761,39 @@ app.delete("/api/user", async (req, res) => {
 app.get("/api/user/settings", async (req, res) => {
   userSettings
     .get(req.user.id)
-    .then((mode_interaksi_baris_tabel) =>
-      res.json({ mode_interaksi_baris_tabel }),
-    )
+    .then((settings) => res.json(settings))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/user/settings", async (req, res) => {
-  userSettings
-    .update(req.user.id, req.body.mode_interaksi_baris_tabel)
-    .then((mode_interaksi_baris_tabel) =>
-      res.json({ mode_interaksi_baris_tabel }),
-    )
-    .catch((e) => res.status(400).json({ message: e.message }));
+  try {
+    if (Object.hasOwn(req.body, "mode_interaksi_baris_tabel")) {
+      await userSettings.update(
+        req.user.id,
+        req.body.mode_interaksi_baris_tabel,
+      );
+    }
+    if (Object.hasOwn(req.body, "default_operasional_kantor_id_coa")) {
+      await userSettings.updateDefaultOperasionalKantorCoa(
+        req.user.id,
+        req.body.default_operasional_kantor_id_coa,
+      );
+    }
+    if (Object.hasOwn(req.body, "default_operasional_produksi_id_coa")) {
+      await userSettings.updateDefaultOperasionalProduksiCoa(
+        req.user.id,
+        req.body.default_operasional_produksi_id_coa,
+      );
+    }
+    if (Object.hasOwn(req.body, "default_produk_masuk_id_coa")) {
+      await userSettings.updateDefaultProdukMasukCoa(
+        req.user.id,
+        req.body.default_produk_masuk_id_coa,
+      );
+    }
+    res.json(await userSettings.get(req.user.id));
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
 });
 
 // kategoriproduk
