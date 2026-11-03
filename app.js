@@ -492,6 +492,22 @@ app.put("/api/customer", async (req, res) => {
     .then((_result) => res.json({ message: "customer berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.put("/api/customer/deactivate-all", async (req, res) => {
+  if (!canManageActiveStatus(req)) {
+    return res.status(403).json({
+      success: false,
+      message: "Hanya owner atau super yang dapat menonaktifkan instansi.",
+    });
+  }
+  try {
+    const result = await customer.deactivateAll({
+      updated_by: req.user?.id_karyawan,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
 app.put("/api/transfercustomer", async (req, res) => {
   try {
     const result = await customer.transfer(req.body);
@@ -1625,6 +1641,21 @@ app.put("/api/vendor", async (req, res) => {
     res.status(400).json({ message: e.message || "Unknown Error" });
   }
 });
+app.put("/api/vendor/deactivate-all", async (req, res) => {
+  if (!canManageActiveStatus(req)) {
+    return res.status(403).json({
+      message: "Hanya owner atau super yang dapat menonaktifkan vendor.",
+    });
+  }
+  try {
+    const result = await vendor.deactivateAll({
+      updated_by: req.user?.id_karyawan,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
 app.delete("/api/vendor", async (req, res) => {
   if (!canManageActiveStatus(req)) {
     return res.status(403).json({
@@ -1802,10 +1833,22 @@ app.put("/api/user/settings", async (req, res) => {
 
 // kategoriproduk
 app.get("/api/kategoriproduk", async (req, res) => {
+  if (
+    ([true, 1, "1"].includes(req.query.includeInactive) ||
+      [false, 0, "0"].includes(req.query.aktif)) &&
+    !canManageActiveStatus(req)
+  ) {
+    return res.status(403).json({ message: "Akses data non aktif ditolak." });
+  }
   const list = kategoriproduk.list(req.query);
   res.json(await list);
 });
 app.post("/api/kategoriproduk", async (req, res) => {
+  if (["sales", "head-sales"].includes(req.user?.peran)) {
+    return res.status(403).json({
+      message: "Sales tidak memiliki izin untuk menambah kategori produk.",
+    });
+  }
   const _result = await kategoriproduk
     .create(req.body)
     .then((_result) =>
@@ -1820,10 +1863,30 @@ app.put("/api/transferkategoriproduk", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/kategoriproduk", async (req, res) => {
+  if (req.body.aktif !== undefined && !canManageActiveStatus(req)) {
+    return res.status(403).json({
+      message:
+        "Hanya owner atau super yang dapat mengubah status kategori produk.",
+    });
+  }
   const _result = await kategoriproduk
     .update(req.body)
     .then((_result) => res.json({ message: "kategoriproduk berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/kategoriproduk/deactivate-all", async (req, res) => {
+  if (!canManageActiveStatus(req)) {
+    return res.status(403).json({
+      message:
+        "Hanya owner atau super yang dapat menonaktifkan kategori produk.",
+    });
+  }
+  try {
+    const result = await kategoriproduk.deactivateAll();
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 app.delete("/api/kategoriproduk", async (req, res) => {
   kategoriproduk
@@ -1864,10 +1927,22 @@ app.delete("/api/subkategoriproduk", async (req, res) => {
 
 // merek
 app.get("/api/merek", async (req, res) => {
+  if (
+    ([true, 1, "1"].includes(req.query.includeInactive) ||
+      [false, 0, "0"].includes(req.query.aktif)) &&
+    !canManageActiveStatus(req)
+  ) {
+    return res.status(403).json({ message: "Akses data non aktif ditolak." });
+  }
   const list = merek.list(req.query);
   res.json(await list);
 });
 app.post("/api/merek", async (req, res) => {
+  if (["sales", "head-sales"].includes(req.user?.peran)) {
+    return res.status(403).json({
+      message: "Sales tidak memiliki izin untuk menambah merek.",
+    });
+  }
   const _result = await merek
     .create(req.body)
     .then((_result) => res.json({ message: "merek berhasil ditambahkan" }))
@@ -1880,10 +1955,28 @@ app.put("/api/transfermerek", async (req, res) => {
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/merek", async (req, res) => {
+  if (req.body.aktif !== undefined && !canManageActiveStatus(req)) {
+    return res.status(403).json({
+      message: "Hanya owner atau super yang dapat mengubah status merek.",
+    });
+  }
   const _result = await merek
     .update(req.body)
     .then((_result) => res.json({ message: "merek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
+});
+app.put("/api/merek/deactivate-all", async (req, res) => {
+  if (!canManageActiveStatus(req)) {
+    return res.status(403).json({
+      message: "Hanya owner atau super yang dapat menonaktifkan merek.",
+    });
+  }
+  try {
+    const result = await merek.deactivateAll();
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 app.delete("/api/merek", async (req, res) => {
   merek

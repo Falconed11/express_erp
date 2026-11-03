@@ -132,7 +132,7 @@ const formatAuditDateTime = (value) => {
   return `${formatted} WIB`;
 };
 
-const saveProductAuditEntries = async (entries) => {
+const saveProductAuditEntries = async (entries, connection = db) => {
   if (!entries || entries.length === 0) return [];
   const placeholders = entries.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
   const values = entries.flatMap((entry) => [
@@ -144,7 +144,7 @@ const saveProductAuditEntries = async (entries) => {
     entry.changed_at ?? getIndonesiaDateTime(),
   ]);
   const sql = `INSERT INTO ${AUDIT_TABLE} (table_name, record_id, action, changes, changed_by, changed_at) VALUES ${placeholders}`;
-  await db.execute(sql, values);
+  await connection.execute(sql, values);
   return entries;
 };
 
@@ -167,6 +167,59 @@ const Service = {
   },
   async cleanStock() {
     return Model.cleanStock();
+  },
+  async deactivateAll(actorId = null) {
+    const connection = await db.getConnection();
+    let transactionStarted = false;
+    try {
+      await connection.beginTransaction();
+      transactionStarted = true;
+      const [products] = await connection.execute(
+        "SELECT * FROM produk WHERE aktif=1 FOR UPDATE",
+      );
+      if (products.length === 0) {
+        await connection.commit();
+        transactionStarted = false;
+        return { affectedRows: 0 };
+      }
+
+      const [result] = await connection.execute(
+        "UPDATE produk SET aktif=0, updated_by=? WHERE aktif=1",
+        [actorId],
+      );
+      const changedAt = getIndonesiaDateTime();
+      const auditEntries = products.flatMap((product) =>
+        buildProductAuditEntries({
+          id_produk: product.id,
+          action: "update",
+          before: product,
+          after: { ...product, aktif: 0 },
+          changed_by: actorId,
+          changed_at: changedAt,
+        }),
+      );
+      for (let index = 0; index < auditEntries.length; index += 200) {
+        await saveProductAuditEntries(
+          auditEntries.slice(index, index + 200),
+          connection,
+        );
+      }
+
+      await connection.commit();
+      transactionStarted = false;
+      return result;
+    } catch (error) {
+      if (transactionStarted) {
+        try {
+          await connection.rollback();
+        } catch (rollbackError) {
+          error.rollbackError = rollbackError;
+        }
+      }
+      throw error;
+    } finally {
+      connection.release();
+    }
   },
 
   async getAll(filters = {}) {

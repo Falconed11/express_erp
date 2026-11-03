@@ -26,6 +26,7 @@ router.get("/page", Controller.getPage);
 router.get("/stock-count", Controller.getStockCount);
 router.get("/stock-export", Controller.getStockEntriesForExport);
 router.post("/clean-stock", Controller.cleanStock);
+router.patch("/deactivate-all", Controller.deactivateAll);
 router.get("/imports/sample", downloadProdukImportSample);
 router.post("/imports", upload.single("file"), createProdukImport);
 router.get("/imports/:importId", getProdukImport);

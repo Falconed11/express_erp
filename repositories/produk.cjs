@@ -188,6 +188,7 @@ const insertProduk = async ({
   merek = "",
   vendor = "",
   alamat = "",
+  id_vendor_jenis = null,
   tanggal,
   tanggalMasuk,
   jatuhTempo = null,
@@ -208,7 +209,12 @@ const insertProduk = async ({
       id_merek = await createMerek({ nama: merek, conn });
     }
     if (vendor && !id_vendor) {
-      id_vendor = await createVendor({ nama: vendor, alamat, conn });
+      id_vendor = await createVendor({
+        nama: vendor,
+        alamat,
+        id_vendor_jenis,
+        conn,
+      });
     }
     if (main_vendor == null && id_vendor != null) main_vendor = id_vendor;
     const prices = await resolveProductPricesForConnection(conn, {

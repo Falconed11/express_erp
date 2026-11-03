@@ -117,4 +117,13 @@ const destroy = async ({ id, updated_by, lastuser }) => {
   return update({ id, aktif: 0, updated_by: updated_by ?? lastuser });
 };
 
-module.exports = { list, create, update, destroy, transfer };
+const deactivateAll = async ({ updated_by, lastuser } = {}) => {
+  const auditUser = updated_by ?? lastuser ?? null;
+  const [result] = await pool.execute(
+    `UPDATE ${table} SET aktif=0, updated_by=?, lastuser=? WHERE aktif=1`,
+    [auditUser, auditUser],
+  );
+  return result;
+};
+
+module.exports = { list, create, update, destroy, transfer, deactivateAll };

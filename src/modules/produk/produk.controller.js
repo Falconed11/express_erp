@@ -120,6 +120,19 @@ const Controller = generateDefaultCRUDController({
       });
     },
 
+    async deactivateAll(req, res, next) {
+      if (!canCleanStock(req)) {
+        return res.status(403).json({
+          success: false,
+          message: "Hanya owner atau super yang dapat menonaktifkan semua produk.",
+        });
+      }
+      defaultAsyncController(
+        async () => Service.deactivateAll(req.user?.id_karyawan ?? null),
+        { req, res, next },
+      );
+    },
+
     async getKategori(req, res, next) {
       defaultAsyncController(async () => Service.listKategori(), {
         req,
