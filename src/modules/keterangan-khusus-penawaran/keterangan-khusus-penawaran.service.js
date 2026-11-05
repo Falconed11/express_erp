@@ -76,7 +76,8 @@ export const createKeteranganKhususPenawaranService = (
 ) => ({
   async list(query) {
     const scope = parseScope(query);
-    await assertValidScope(scope, repository);
+    const project = await repository.getProject(scope.idProyek);
+    if (!project) throw invalid("Proyek tidak ditemukan.", 404);
     return repository.list(scope.idProyek, scope.versi);
   },
 

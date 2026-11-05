@@ -4,7 +4,9 @@ const { withTransaction } = require("./../helpers/transaction.cjs");
 const {
   getProjectEquipmentTaxPercent,
 } = require("./rekapitulasiproyek-pajak.cjs");
-const { assertOfferEditable } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
+const {
+  assertOfferEditable,
+} = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 const {
   deleteClosedLoansForProject,
 } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
@@ -38,6 +40,17 @@ const list = async ({
     .trim()
     .split(/\s+/)
     .filter(Boolean);
+  const statusFilterValues = String(id_statusproyek ?? "")
+    .split(",")
+    .filter(Boolean);
+  const isNoStatusFilter = id_statusproyek === "__none__";
+  const statusFilter = isNoStatusFilter
+    ? "and 1=0"
+    : statusFilterValues.length > 1
+      ? `and id_statusproyek in (${statusFilterValues.map(() => "?").join(",")})`
+      : id_statusproyek
+        ? "and id_statusproyek=?"
+        : "";
   const validColumns = ["tanggal", "tanggal_penawaran"];
   if (sort && !validColumns.includes(sort)) {
     throw new Error("Kolom tidak valid");
@@ -61,7 +74,7 @@ const list = async ({
     id_karyawan ? `and id_karyawan=?` : ""
   } ${id_jenisproyek ? "and id_jenisproyek=?" : ""}
   ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}
-  ${id_statusproyek ? ` and id_statusproyek=? ` : ""}
+  ${statusFilter ? ` ${statusFilter} ` : ""}
   ${id_produk ? "and cp.id_produk=?" : ""}
   ${nama ? "and p.nama like ?" : ""}
   ${klien ? "and p.klien like ?" : ""}
@@ -90,7 +103,7 @@ const list = async ({
     ...(end ? [end] : []),
     ...(id_karyawan ? [id_karyawan] : []),
     ...(id_jenisproyek ? [id_jenisproyek] : []),
-    ...(id_statusproyek ? [id_statusproyek] : []),
+    ...(isNoStatusFilter ? [] : statusFilterValues),
     ...(id_produk ? [id_produk] : []),
     ...(nama ? [`%${nama}%`] : []),
     ...(klien ? [`%${klien}%`] : []),
