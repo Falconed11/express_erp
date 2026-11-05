@@ -1763,6 +1763,12 @@ app.put("/api/subproyek", async (req, res) => {
     .then((_result) => res.json({ message: "subproyek berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
+app.post("/api/subproyek/reorder", async (req, res) => {
+  subproyek
+    .reorder(req.body)
+    .then((_result) => res.json({ message: "urutan subproyek berhasil diubah" }))
+    .catch((e) => res.status(400).json({ message: e.message }));
+});
 app.delete("/api/subproyek", async (req, res) => {
   subproyek
     .destroy(req.body)
