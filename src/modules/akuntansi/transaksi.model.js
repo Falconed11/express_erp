@@ -35,6 +35,8 @@ const Model = generateStandardCRUDModel({
     id_jurnal_form: "jf.id",
   },
   customSelect: [
+    "(SUM(CASE WHEN main.tipe = 1 THEN main.amount ELSE 0 END) OVER ()) total_debit",
+    "(SUM(CASE WHEN main.tipe = 0 THEN main.amount ELSE 0 END) OVER ()) total_kredit",
     "j.tanggal",
     "j.keterangan keterangan_jurnal",
     "c.nama coa",
