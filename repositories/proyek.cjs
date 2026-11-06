@@ -268,7 +268,10 @@ const update = async ({
   }
   try {
     const result = await withTransaction(pool, async (conn) => {
-      if (fields.length > 0 || id_instansi || instansi) {
+      const hasOfferChanges = fields.some(
+        (field) => field !== "sembunyikankop=?",
+      );
+      if (hasOfferChanges || id_instansi || instansi) {
         await assertOfferEditable(conn, id);
       }
       if (Number(id_statusproyek) === 1) {

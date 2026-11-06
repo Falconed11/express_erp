@@ -23,6 +23,7 @@ const Controller = {
       () =>
         Service.generatePurchaseJournal({
           id_produkmasuk: req.params.id,
+          id_coa_bayar: req.body?.id_coa_bayar,
           user: req.user,
         }),
       { req, res, next },

@@ -369,6 +369,8 @@ const update = async ({
         throw new Error("Jurnal pembelian awal tidak ditemukan.");
 
       let nextTerbayar = Number(oldEntry.terbayar || 0);
+      if (!journals.length && nextTerbayar >= oldTotal - 0.01)
+        nextTerbayar = nextTotal;
       if (purchaseCredit) {
         const [[creditRows]] = await Promise.all([
           conn.execute(

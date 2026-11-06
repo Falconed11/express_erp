@@ -52,14 +52,13 @@ const assertCanRepairPurchaseJournal = (user) => {
     throw invalid("Tidak memiliki izin mengelola jurnal pembelian.", 403);
 };
 
-const getCompatiblePurchaseJournals = async (
+export const getCompatiblePurchaseJournals = async (
   conn,
   { entryId, companyId, total, journalId },
 ) => {
   const journalCondition = journalId ? "AND j.id = ?" : "";
   const values = [
     companyId,
-    `Pembelian stok masuk #${entryId}`,
     entryId,
     ...(journalId ? [journalId] : []),
     total,
@@ -75,7 +74,6 @@ const getCompatiblePurchaseJournals = async (
      INNER JOIN transaksi t ON t.id_jurnal = j.id
      INNER JOIN coa c ON c.id = t.id_coa
      WHERE j.id_perusahaan = ?
-       AND j.keterangan = ?
        AND NOT EXISTS (
          SELECT 1
          FROM produkmasuk_pembayaran linked
@@ -84,17 +82,106 @@ const getCompatiblePurchaseJournals = async (
        )
        ${journalCondition}
      GROUP BY j.id, j.tanggal, j.keterangan
-     HAVING COUNT(t.id) = 2
+     HAVING COUNT(t.id) BETWEEN 2 AND 3
        AND SUM(CASE WHEN t.tipe = 1 THEN 1 ELSE 0 END) = 1
-       AND SUM(CASE WHEN t.tipe = 0 THEN 1 ELSE 0 END) = 1
+       AND SUM(CASE WHEN t.tipe = 0 THEN 1 ELSE 0 END) BETWEEN 1 AND 2
        AND ROUND(SUM(CASE WHEN t.tipe = 1 THEN t.amount ELSE 0 END), 2) = ROUND(?, 2)
        AND ROUND(SUM(CASE WHEN t.tipe = 0 THEN t.amount ELSE 0 END), 2) = ROUND(?, 2)
        AND SUM(CASE WHEN t.tipe = 1 AND c.nama = 'Persediaan' THEN 1 ELSE 0 END) = 1
+       AND SUM(CASE WHEN t.tipe = 0 AND c.nama = 'Persediaan' THEN 1 ELSE 0 END) = 0
      ORDER BY j.tanggal DESC, j.id DESC
      LIMIT 100`,
     values,
   );
   return rows;
+};
+
+export const isPurchaseJournalShape = (lines, total) => {
+  if (lines.length < 2 || lines.length > 3) return false;
+  const debitLines = lines.filter((line) => Number(line.tipe) === 1);
+  const creditLines = lines.filter((line) => Number(line.tipe) === 0);
+  const roundedTotal = Math.round(Number(total) * 100);
+  return (
+    debitLines.length === 1 &&
+    creditLines.length >= 1 &&
+    debitLines[0].coa === "Persediaan" &&
+    creditLines.every(
+      (line) => Number(line.id_coa) !== Number(debitLines[0].id_coa),
+    ) &&
+    Math.round(Number(debitLines[0].amount) * 100) === roundedTotal &&
+    Math.round(
+      creditLines.reduce((sum, line) => sum + Number(line.amount), 0) * 100,
+    ) === roundedTotal
+  );
+};
+
+const getLinkedPurchaseDetails = async (
+  conn,
+  { entryId, total, lock = false },
+) => {
+  const [links] = await conn.execute(
+    `SELECT pmp.id, pmp.id_jurnal, j.id_jurnal_form, j.keterangan,
+            DATE_FORMAT(j.tanggal, '%Y-%m') AS journal_month,
+            DATE_FORMAT(CURRENT_DATE(), '%Y-%m') AS current_month
+     FROM produkmasuk_pembayaran pmp
+     INNER JOIN jurnal j ON j.id = pmp.id_jurnal
+     WHERE pmp.id_produkmasuk = ? AND pmp.aktif = 1
+     ORDER BY pmp.id ASC
+     ${lock ? "FOR UPDATE" : ""}`,
+    [entryId],
+  );
+  if (!links.length) return { links: [], sourceLink: null, lines: [] };
+
+  const journalIds = links.map((link) => link.id_jurnal);
+  const placeholders = journalIds.map(() => "?").join(", ");
+  const [allLines] = await conn.execute(
+    `SELECT t.id, t.id_jurnal, t.id_coa, t.tipe, t.amount, t.keterangan,
+            c.nama AS coa, cs.nama AS coa_subtype, ct.nama AS coa_type
+     FROM transaksi t
+     INNER JOIN coa c ON c.id = t.id_coa
+     LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
+     LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
+     WHERE t.id_jurnal IN (${placeholders})
+     ORDER BY t.id ASC
+     ${lock ? "FOR UPDATE" : ""}`,
+    journalIds,
+  );
+  const linesByJournal = new Map();
+  for (const line of allLines) {
+    const journalLines = linesByJournal.get(Number(line.id_jurnal)) || [];
+    journalLines.push(line);
+    linesByJournal.set(Number(line.id_jurnal), journalLines);
+  }
+
+  const purchaseDescription = `Pembelian stok masuk #${entryId}`;
+  const sourceLink =
+    links.find((link) => link.keterangan === purchaseDescription) ||
+    links.find(
+      (link) =>
+        !link.keterangan?.startsWith(
+          `Koreksi pembelian stok masuk #${entryId}`,
+        ) &&
+        isPurchaseJournalShape(
+          linesByJournal.get(Number(link.id_jurnal)) || [],
+          total,
+        ),
+    ) ||
+    null;
+  const purchaseLinks = links.filter(
+    (link) =>
+      Number(link.id) === Number(sourceLink?.id) ||
+      link.keterangan?.startsWith(`Koreksi pembelian stok masuk #${entryId}`),
+  );
+  const purchaseJournalIds = new Set(
+    purchaseLinks.map((link) => Number(link.id_jurnal)),
+  );
+  return {
+    links: purchaseLinks,
+    sourceLink,
+    lines: allLines.filter((line) =>
+      purchaseJournalIds.has(Number(line.id_jurnal)),
+    ),
+  };
 };
 
 export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
@@ -119,42 +206,19 @@ export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
      ORDER BY pmp.id ASC`,
     [entryId],
   );
-  const [purchaseLines] = await db.execute(
-    `SELECT pmp.id AS id_link, pmp.id_jurnal, j.id_jurnal_form,
-            j.keterangan, j.tanggal, t.id AS id_transaksi, t.id_coa,
-            t.tipe, t.amount, c.nama AS coa, cs.nama AS coa_subtype,
-            ct.nama AS coa_type
-     FROM produkmasuk_pembayaran pmp
-     INNER JOIN jurnal j ON j.id = pmp.id_jurnal
-     INNER JOIN transaksi t ON t.id_jurnal = j.id
-     INNER JOIN coa c ON c.id = t.id_coa
-     LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
-     LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
-     WHERE pmp.id_produkmasuk = ? AND pmp.aktif = 1
-       AND (
-         j.keterangan = ?
-         OR j.keterangan = ?
-       )
-     ORDER BY pmp.id ASC, t.id ASC`,
-    [
-      entryId,
-      `Pembelian stok masuk #${entryId}`,
-      `Koreksi pembelian stok masuk #${entryId}`,
-    ],
+  const { sourceLink, lines: purchaseLines } = await getLinkedPurchaseDetails(
+    db,
+    { entryId, total: Number(entry.jumlah) * Number(entry.harga) },
   );
 
   const accountBalances = new Map();
-  let initialPaymentLinkId = null;
-  let initialPaymentIsEditable = false;
+  const initialPaymentLinkId = sourceLink?.id ?? null;
+  const initialPaymentIsEditable = Boolean(sourceLink);
   let initialDebtAccountId = null;
   let initialDebtAccountName = "";
   for (const line of purchaseLines) {
     const isDebtAccount =
       line.coa_type === "Kewajiban Lancar" || line.coa_subtype === "Hutang";
-    if (line.keterangan === `Pembelian stok masuk #${entryId}`) {
-      initialPaymentLinkId = line.id_link;
-      initialPaymentIsEditable = true;
-    }
     if (!isDebtAccount) continue;
     const balance = accountBalances.get(line.id_coa) || {
       amount: 0,
@@ -209,8 +273,7 @@ export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
     payments: payments.map((payment) => ({
       ...payment,
       isPayment: payment.keterangan === `Pembayaran stok masuk #${entryId}`,
-      isPurchaseJournal:
-        payment.keterangan === `Pembelian stok masuk #${entryId}`,
+      isPurchaseJournal: Number(payment.id) === Number(initialPaymentLinkId),
       isCorrection: payment.keterangan?.startsWith(
         `Koreksi pembelian stok masuk #${entryId}`,
       ),
@@ -224,6 +287,7 @@ export const getPaymentOverview = async ({ id_produkmasuk, user }) => {
 
 export const generateMissingPurchaseJournal = async ({
   id_produkmasuk,
+  id_coa_bayar,
   user,
 }) => {
   const entryId = getEntryId(id_produkmasuk);
@@ -242,6 +306,7 @@ export const generateMissingPurchaseJournal = async ({
     const total = Number(entry.jumlah) * Number(entry.harga);
     if (!Number.isFinite(total) || total <= 0)
       throw invalid("Total pembelian harus lebih besar dari 0.");
+    const paidAmount = Number(entry.terbayar || 0);
 
     const purchaseDescription = `Pembelian stok masuk #${entryId}`;
     const [existingJournals] = await conn.execute(
@@ -267,11 +332,36 @@ export const generateMissingPurchaseJournal = async ({
         "Data ini sudah memiliki jurnal aktif dan perlu diperiksa.",
         409,
       );
-    if (Number(entry.terbayar || 0) > 0.001)
-      throw invalid(
-        "Pembayaran awal sudah tercatat; akun pembayaran harus diverifikasi manual.",
-        409,
-      );
+    if (paidAmount < -0.001 || paidAmount > total + 0.001)
+      throw invalid("Nominal terbayar tidak sesuai dengan total pembelian.", 409);
+
+    if (paidAmount > 0.001) {
+      if (Math.abs(paidAmount - total) > 0.001)
+        throw invalid(
+          "Pemulihan otomatis hanya tersedia untuk pembelian yang sudah lunas penuh.",
+          409,
+        );
+      const paymentCoaId = Number(id_coa_bayar);
+      if (!Number.isInteger(paymentCoaId) || paymentCoaId <= 0)
+        throw invalid("Akun kas/bank pembayaran wajib dipilih.");
+      await validatePaymentAccount(conn, paymentCoaId, null);
+      if (isDebtAccount(await getAccountType(conn, paymentCoaId)))
+        throw invalid("Akun pembayaran harus berupa kas atau bank.");
+
+      const journalId = await createPurchaseJournal(conn, {
+        id_produkmasuk: entryId,
+        id_perusahaan: companyId,
+        id_coa_kredit: paymentCoaId,
+        tanggal: entry.tanggal,
+        amount: total,
+        lunas: true,
+        created_by: employeeId,
+      });
+      return {
+        message: "Jurnal pembelian Lunas berhasil dipulihkan.",
+        id_jurnal: journalId,
+      };
+    }
 
     const [debtRows] = await conn.execute(
       `SELECT c.id
@@ -372,19 +462,14 @@ export const linkExistingPurchaseJournal = async (data, user) => {
         409,
       );
 
-    const purchaseDescription = `Pembelian stok masuk #${entryId}`;
-    const [currentPurchaseLinks] = await conn.execute(
-      `SELECT pmp.id, pmp.id_jurnal
-       FROM produkmasuk_pembayaran pmp
-       INNER JOIN jurnal j ON j.id = pmp.id_jurnal
-       WHERE pmp.id_produkmasuk = ? AND pmp.aktif = 1
-         AND j.keterangan = ?
-       FOR UPDATE`,
-      [entryId, purchaseDescription],
-    );
-    const currentLink = currentPurchaseLinks[0];
-    if (currentLink) {
-      if (Number(currentLink.id_jurnal) === journalId)
+    const { sourceLink: currentPurchaseLink } =
+      await getLinkedPurchaseDetails(conn, {
+        entryId,
+        total,
+        lock: true,
+      });
+    if (currentPurchaseLink) {
+      if (Number(currentPurchaseLink.id_jurnal) === journalId)
         return {
           message: "Jurnal pembelian sudah tertaut.",
           id_jurnal: journalId,
@@ -682,44 +767,18 @@ const updateInitialPurchasePayment = async (paymentId, data, user) => {
 
   return withTransaction(async (conn) => {
     const entry = await getEntry(conn, entryId, companyId, true);
-    const [linkRows] = await conn.execute(
-      `SELECT pmp.id, pmp.id_jurnal, j.id_jurnal_form, j.keterangan,
-              DATE_FORMAT(j.tanggal, '%Y-%m') AS journal_month,
-              DATE_FORMAT(CURRENT_DATE(), '%Y-%m') AS current_month
-       FROM produkmasuk_pembayaran pmp
-       INNER JOIN jurnal j ON j.id = pmp.id_jurnal
-       WHERE pmp.id_produkmasuk = ? AND pmp.aktif = 1
-         AND (j.keterangan = ? OR j.keterangan = ?)
-       ORDER BY pmp.id ASC
-       FOR UPDATE`,
-      [
-        entryId,
-        `Pembelian stok masuk #${entryId}`,
-        `Koreksi pembelian stok masuk #${entryId}`,
-      ],
-    );
-    const sourceLink = linkRows.find(
-      (link) =>
-        Number(link.id) === normalizedPaymentId &&
-        link.keterangan === `Pembelian stok masuk #${entryId}`,
-    );
-    if (!sourceLink)
+    const {
+      links: linkRows,
+      sourceLink,
+      lines: purchaseLines,
+    } = await getLinkedPurchaseDetails(conn, {
+      entryId,
+      total: Number(entry.jumlah) * Number(entry.harga),
+      lock: true,
+    });
+    if (!sourceLink || Number(sourceLink.id) !== normalizedPaymentId)
       throw invalid("Jurnal pembayaran awal tidak ditemukan.", 404);
 
-    const purchaseJournalIds = linkRows.map((link) => link.id_jurnal);
-    const placeholders = purchaseJournalIds.map(() => "?").join(", ");
-    const [purchaseLines] = await conn.execute(
-      `SELECT t.id, t.id_jurnal, t.id_coa, t.tipe, t.amount, t.keterangan,
-              c.nama AS coa, cs.nama AS coa_subtype, ct.nama AS coa_type
-       FROM transaksi t
-       INNER JOIN coa c ON c.id = t.id_coa
-       LEFT JOIN coa_subtype cs ON cs.id = c.id_coa_subtype
-       LEFT JOIN coa_type ct ON ct.id = cs.id_coa_type
-       WHERE t.id_jurnal IN (${placeholders})
-       ORDER BY t.id ASC
-       FOR UPDATE`,
-      purchaseJournalIds,
-    );
     const originalLines = purchaseLines.filter(
       (line) => Number(line.id_jurnal) === Number(sourceLink.id_jurnal),
     );
@@ -837,7 +896,7 @@ const updateInitialPurchasePayment = async (paymentId, data, user) => {
 
     if (sameMonth) {
       const correctionLinks = linkRows.filter(
-        (link) => link.keterangan !== `Pembelian stok masuk #${entryId}`,
+        (link) => Number(link.id) !== Number(sourceLink.id),
       );
       const correctionJournalIds = correctionLinks.map(
         (link) => link.id_jurnal,

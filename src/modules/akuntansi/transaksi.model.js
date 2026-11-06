@@ -80,11 +80,18 @@ const Model = generateStandardCRUDModel({
       THEN 1 ELSE 0
     END) is_operasional_produksi`,
     `(CASE
-      WHEN (jf.system_key IS NOT NULL AND jf.system_key <> '')
-        OR EXISTS (
+      WHEN EXISTS (
           SELECT 1
           FROM produkmasuk_pembayaran pmp
           WHERE pmp.id_jurnal = j.id AND pmp.aktif = 1
+        ) OR EXISTS (
+          SELECT 1
+          FROM produkkeluar pk
+          WHERE pk.id_jurnal = j.id
+        ) OR EXISTS (
+          SELECT 1
+          FROM pembayaranproyek pp
+          WHERE pp.id_jurnal = j.id
         )
       THEN 1 ELSE 0
     END) is_system_generated`,
