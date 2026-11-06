@@ -55,11 +55,45 @@ const recalculateRecapTax = async (
 
   const [totalsRows] = await conn.execute(
     `SELECT
-       COALESCE(SUM(CASE WHEN instalasi = 0 THEN jumlah * harga ELSE 0 END), 0) AS peralatan,
-       COALESCE(SUM(CASE WHEN instalasi = 1 THEN jumlah * harga ELSE 0 END), 0) AS instalasi
-     FROM keranjangproyek
-     WHERE id_proyek = ? AND versi = ?`,
-    [id_proyek, versi],
+       COALESCE((
+         SELECT SUM(kp.jumlah * kp.harga)
+         FROM keranjangproyek kp
+         LEFT JOIN keranjangproyek_composite_item ci
+           ON ci.id_keranjangproyek = kp.id
+         WHERE kp.id_proyek = ? AND kp.versi = ? AND kp.instalasi = 0
+           AND ci.id IS NULL
+       ), 0) + COALESCE((
+         SELECT SUM(cg.jumlah * component_totals.unit_price)
+         FROM keranjangproyek_composite cg
+         JOIN (
+           SELECT ci.id_composite,
+                  SUM(kp.jumlah * COALESCE(kp.hargakustom, kp.harga)) AS unit_price
+           FROM keranjangproyek_composite_item ci
+           JOIN keranjangproyek kp ON kp.id = ci.id_keranjangproyek
+           GROUP BY ci.id_composite
+         ) component_totals ON component_totals.id_composite = cg.id
+         WHERE cg.id_proyek = ? AND cg.versi = ? AND cg.instalasi = 0
+       ), 0) AS peralatan,
+       COALESCE((
+         SELECT SUM(kp.jumlah * kp.harga)
+         FROM keranjangproyek kp
+         LEFT JOIN keranjangproyek_composite_item ci
+           ON ci.id_keranjangproyek = kp.id
+         WHERE kp.id_proyek = ? AND kp.versi = ? AND kp.instalasi = 1
+           AND ci.id IS NULL
+       ), 0) + COALESCE((
+         SELECT SUM(cg.jumlah * component_totals.unit_price)
+         FROM keranjangproyek_composite cg
+         JOIN (
+           SELECT ci.id_composite,
+                  SUM(kp.jumlah * COALESCE(kp.hargakustom, kp.harga)) AS unit_price
+           FROM keranjangproyek_composite_item ci
+           JOIN keranjangproyek kp ON kp.id = ci.id_keranjangproyek
+           GROUP BY ci.id_composite
+         ) component_totals ON component_totals.id_composite = cg.id
+         WHERE cg.id_proyek = ? AND cg.versi = ? AND cg.instalasi = 1
+       ), 0) AS instalasi`,
+    [id_proyek, versi, id_proyek, versi, id_proyek, versi, id_proyek, versi],
   );
   const totals = totalsRows[0] || {};
   const updates = {};

@@ -127,10 +127,16 @@ const ProyekModel = {
   async findStagedProductByProjectId(id) {
     const [rows] = await db.execute(
       `With sumkeranjangproyek as (
-        select id_produk, sum(jumlah) total, hargamodal
-        from keranjangproyek
-        where id_proyek=?
-        group by id_produk
+        select kp.id_produk,
+          sum(kp.jumlah * coalesce(cg.jumlah, 1)) total,
+          sum(kp.hargamodal * kp.jumlah * coalesce(cg.jumlah, 1)) /
+            nullif(sum(kp.jumlah * coalesce(cg.jumlah, 1)), 0) hargamodal
+        from keranjangproyek kp
+        left join keranjangproyek_composite_item ci
+          on ci.id_keranjangproyek = kp.id
+        left join keranjangproyek_composite cg on cg.id = ci.id_composite
+        where kp.id_proyek=?
+        group by kp.id_produk
         ),
         sumpengeluaranproyek as (
         select id_produk, sum(jumlah) total

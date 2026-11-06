@@ -4,14 +4,43 @@ const _tableName = "keranjangproyek";
 const qNilaiProyek = `
 WITH totals AS (
   SELECT
-    k.id_proyek,
-
-    SUM(CASE WHEN k.instalasi = 0 THEN k.jumlah * k.harga ELSE 0 END) AS harga_barang,
-    SUM(CASE WHEN k.instalasi = 1 THEN k.jumlah * k.harga ELSE 0 END) AS harga_instalasi
-
-  FROM keranjangproyek k
-  WHERE k.id_proyek = ?
-  GROUP BY k.id_proyek
+    ? AS id_proyek,
+    COALESCE((
+      SELECT SUM(kp.jumlah * kp.harga)
+      FROM keranjangproyek kp
+      LEFT JOIN keranjangproyek_composite_item ci
+        ON ci.id_keranjangproyek = kp.id
+      WHERE kp.id_proyek = ? AND kp.instalasi = 0 AND ci.id IS NULL
+    ), 0) + COALESCE((
+      SELECT SUM(cg.jumlah * component_totals.unit_price)
+      FROM keranjangproyek_composite cg
+      JOIN (
+        SELECT ci.id_composite,
+               SUM(kp.jumlah * COALESCE(kp.hargakustom, kp.harga)) AS unit_price
+        FROM keranjangproyek_composite_item ci
+        JOIN keranjangproyek kp ON kp.id = ci.id_keranjangproyek
+        GROUP BY ci.id_composite
+      ) component_totals ON component_totals.id_composite = cg.id
+      WHERE cg.id_proyek = ? AND cg.instalasi = 0
+    ), 0) AS harga_barang,
+    COALESCE((
+      SELECT SUM(kp.jumlah * kp.harga)
+      FROM keranjangproyek kp
+      LEFT JOIN keranjangproyek_composite_item ci
+        ON ci.id_keranjangproyek = kp.id
+      WHERE kp.id_proyek = ? AND kp.instalasi = 1 AND ci.id IS NULL
+    ), 0) + COALESCE((
+      SELECT SUM(cg.jumlah * component_totals.unit_price)
+      FROM keranjangproyek_composite cg
+      JOIN (
+        SELECT ci.id_composite,
+               SUM(kp.jumlah * COALESCE(kp.hargakustom, kp.harga)) AS unit_price
+        FROM keranjangproyek_composite_item ci
+        JOIN keranjangproyek kp ON kp.id = ci.id_keranjangproyek
+        GROUP BY ci.id_composite
+      ) component_totals ON component_totals.id_composite = cg.id
+      WHERE cg.id_proyek = ? AND cg.instalasi = 1
+    ), 0) AS harga_instalasi
 )
 
 SELECT
@@ -50,7 +79,13 @@ const KeranjangProyekModel = {
     return rows;
   },
   async getOfferingSummary(idProyek) {
-    const [rows] = await db.execute(qNilaiProyek, [idProyek]);
+    const [rows] = await db.execute(qNilaiProyek, [
+      idProyek,
+      idProyek,
+      idProyek,
+      idProyek,
+      idProyek,
+    ]);
     return rows[0];
   },
 };
