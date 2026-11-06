@@ -9,6 +9,10 @@ router.get("/:idProyek/summary", KeranjangProyekController.getOfferingSummary);
 router.get("/:idProyek/composites", KeranjangProyekController.listComposites);
 router.post("/:idProyek/composites", KeranjangProyekController.createComposite);
 router.post(
+  "/:idProyek/composites/replace",
+  KeranjangProyekController.replaceComposites,
+);
+router.post(
   "/:idProyek/composites/reorder",
   KeranjangProyekController.reorderComposite,
 );

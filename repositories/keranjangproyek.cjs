@@ -33,7 +33,13 @@ const list = async ({ id_proyek, instalasi, versi, id_perusahaan }) => {
   if (instalasi) values.push(instalasi);
   values.push(versi);
   const [rows] = await pool.execute(sql, values);
-  return rows || [];
+  return (rows || []).map((row) => {
+    const quantity = Number(row.jumlah);
+    if (!Number.isFinite(quantity)) {
+      throw new Error("Jumlah produk dalam keranjang tidak valid.");
+    }
+    return { ...row, jumlah: quantity };
+  });
 };
 
 const listVersion = async ({ id_proyek }) => {

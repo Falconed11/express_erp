@@ -8,6 +8,7 @@ const { recalculateRecapTax } = require("./rekapitulasiproyek-pajak.cjs");
 const groupTable = "keranjangproyek_composite";
 const itemTable = "keranjangproyek_composite_item";
 const basketTable = "keranjangproyek";
+const maxBasketQuantity = 999999999999.999;
 
 const normalizeScope = ({ id_proyek, versi, instalasi }) => {
   const projectId = Number(id_proyek);
@@ -31,6 +32,116 @@ const normalizeQuantity = (value) => {
     throw new Error("Jumlah gabungan harus lebih besar dari nol.");
   }
   return quantity;
+};
+
+const normalizeReplacementSelections = (selections) => {
+  if (!Array.isArray(selections) || selections.length < 2) {
+    throw new Error("Pilih minimal dua baris untuk membuat gabungan.");
+  }
+  const normalized = selections.map((selection) => ({
+    type: selection?.type,
+    id: Number(selection?.id),
+  }));
+  if (
+    normalized.some(
+      ({ type, id }) =>
+        !["item", "composite"].includes(type) ||
+        !Number.isInteger(id) ||
+        id <= 0,
+    )
+  ) {
+    throw new Error("Pilihan produk gabungan tidak valid.");
+  }
+  const keys = normalized.map(({ type, id }) => `${type}:${id}`);
+  if (new Set(keys).size !== keys.length) {
+    throw new Error("Pilihan produk gabungan tidak boleh berulang.");
+  }
+  if (!normalized.some(({ type }) => type === "composite")) {
+    throw new Error("Pilih gabungan yang akan digantikan.");
+  }
+  return normalized;
+};
+
+const expandReplacementComponents = (
+  selections,
+  compositeRows,
+  itemRows,
+  compositeComponentRows,
+) => {
+  const compositesById = new Map(
+    compositeRows.map((row) => [Number(row.id), row]),
+  );
+  const itemsById = new Map(itemRows.map((row) => [Number(row.id), row]));
+  const componentsByCompositeId = new Map();
+  for (const component of compositeComponentRows) {
+    const compositeId = Number(component.id_composite);
+    const components = componentsByCompositeId.get(compositeId) || [];
+    components.push(component);
+    componentsByCompositeId.set(compositeId, components);
+  }
+
+  const expanded = [];
+  const seenItemIds = new Set();
+  for (const selection of selections) {
+    if (selection.type === "item") {
+      const item = itemsById.get(selection.id);
+      if (!item) throw new Error("Produk yang dipilih tidak ditemukan.");
+      const quantity = Number(item.jumlah);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error("Jumlah produk yang dipilih tidak valid.");
+      }
+      if (seenItemIds.has(selection.id)) {
+        throw new Error("Produk gabungan tidak boleh berulang.");
+      }
+      seenItemIds.add(selection.id);
+      expanded.push({
+        id_keranjangproyek: selection.id,
+        jumlah: quantity,
+        id_subproyek: item.id_subproyek ?? null,
+      });
+      continue;
+    }
+
+    const composite = compositesById.get(selection.id);
+    if (!composite) throw new Error("Gabungan yang dipilih tidak ditemukan.");
+    const groupQuantity = Number(composite.jumlah);
+    if (!Number.isFinite(groupQuantity) || groupQuantity <= 0) {
+      throw new Error("Jumlah gabungan yang dipilih tidak valid.");
+    }
+    const components = componentsByCompositeId.get(selection.id) || [];
+    if (components.length === 0) {
+      throw new Error("Gabungan yang dipilih tidak memiliki produk.");
+    }
+    for (const component of components) {
+      const itemId = Number(component.id_keranjangproyek);
+      const componentQuantity = Number(component.jumlah);
+      const quantity = componentQuantity * groupQuantity;
+      if (
+        !Number.isInteger(itemId) ||
+        itemId <= 0 ||
+        !Number.isFinite(componentQuantity) ||
+        componentQuantity <= 0 ||
+        !Number.isFinite(quantity) ||
+        quantity <= 0 ||
+        quantity > maxBasketQuantity
+      ) {
+        throw new Error("Jumlah produk dalam gabungan tidak valid.");
+      }
+      if (seenItemIds.has(itemId)) {
+        throw new Error("Produk gabungan tidak boleh berulang.");
+      }
+      seenItemIds.add(itemId);
+      expanded.push({
+        id_keranjangproyek: itemId,
+        jumlah: quantity,
+        id_subproyek: component.id_subproyek ?? null,
+      });
+    }
+  }
+  if (expanded.length < 2) {
+    throw new Error("Gabungan baru harus memiliki minimal dua produk.");
+  }
+  return expanded;
 };
 
 const assertCompositeEditor = async (conn, idProyek, user) => {
@@ -300,6 +411,212 @@ const create = async (form) => {
       rows.map((row) => row.id_subproyek ?? null),
     );
     sourceSubProjects.add(idSubProject);
+    for (const id of sourceSubProjects) {
+      await normalizeSubProjectOrder(conn, {
+        ...scope,
+        id_subproyek: id,
+      });
+    }
+    await recalculateRecapTax(conn, scope.id_proyek, scope.versi);
+    return { insertId: compositeId };
+  });
+};
+
+const replace = async (form, transactionPool = pool) => {
+  const scope = normalizeScope(form);
+  const quantity = normalizeQuantity(form.jumlah);
+  const name = String(form.nama ?? "").trim();
+  const unit = String(form.satuan ?? "").trim();
+  const selections = normalizeReplacementSelections(form.selections);
+  if (!name) throw new Error("Nama gabungan wajib diisi.");
+
+  const compositeIds = selections
+    .filter(({ type }) => type === "composite")
+    .map(({ id }) => id);
+  const itemIds = selections
+    .filter(({ type }) => type === "item")
+    .map(({ id }) => id);
+
+  return withTransaction(transactionPool, async (conn) => {
+    await assertCompositeEditor(conn, scope.id_proyek, form.user);
+    await invalidateApproval(
+      conn,
+      scope.id_proyek,
+      scope.versi,
+      form.updated_by,
+    );
+    const idSubProject = await validateSubProject(
+      conn,
+      scope.id_proyek,
+      form.id_subproyek,
+    );
+
+    const compositePlaceholders = compositeIds.map(() => "?").join(", ");
+    const [compositeRows] = await conn.execute(
+      `SELECT id, id_proyek, versi, instalasi, id_subproyek, jumlah,
+              COALESCE(urutan, id) AS sort_order
+       FROM ${groupTable}
+       WHERE id IN (${compositePlaceholders})
+       FOR UPDATE`,
+      compositeIds,
+    );
+    if (
+      compositeRows.length !== compositeIds.length ||
+      compositeRows.some(
+        (row) =>
+          Number(row.id_proyek) !== scope.id_proyek ||
+          Number(row.versi) !== scope.versi ||
+          Number(row.instalasi) !== scope.instalasi,
+      )
+    ) {
+      throw new Error(
+        "Gabungan harus berasal dari proyek, versi, dan bagian penawaran yang sama.",
+      );
+    }
+
+    let itemRows = [];
+    if (itemIds.length > 0) {
+      const itemPlaceholders = itemIds.map(() => "?").join(", ");
+      [itemRows] = await conn.execute(
+        `SELECT id, id_proyek, versi, instalasi, id_subproyek, jumlah,
+                COALESCE(urutan, id) AS sort_order
+         FROM ${basketTable}
+         WHERE id IN (${itemPlaceholders})
+         FOR UPDATE`,
+        itemIds,
+      );
+      if (
+        itemRows.length !== itemIds.length ||
+        itemRows.some(
+          (row) =>
+            Number(row.id_proyek) !== scope.id_proyek ||
+            Number(row.versi) !== scope.versi ||
+            Number(row.instalasi) !== scope.instalasi,
+        )
+      ) {
+        throw new Error(
+          "Produk harus berasal dari proyek, versi, dan bagian penawaran yang sama.",
+        );
+      }
+      const [existingLinks] = await conn.execute(
+        `SELECT id_keranjangproyek FROM ${itemTable}
+         WHERE id_keranjangproyek IN (${itemPlaceholders})`,
+        itemIds,
+      );
+      if (existingLinks.length > 0) {
+        throw new Error("Produk yang dipilih sudah menjadi bagian gabungan.");
+      }
+    }
+
+    const [compositeComponentRows] = await conn.execute(
+      `SELECT ci.id_composite, ci.id_keranjangproyek,
+              COALESCE(ci.urutan, ci.id) AS component_order,
+              kp.id_proyek, kp.versi, kp.instalasi,
+              kp.jumlah, kp.id_subproyek
+       FROM ${itemTable} ci
+       JOIN ${basketTable} kp ON kp.id = ci.id_keranjangproyek
+       WHERE ci.id_composite IN (${compositePlaceholders})
+       ORDER BY ci.id_composite, component_order, ci.id
+       FOR UPDATE`,
+      compositeIds,
+    );
+    if (
+      compositeComponentRows.some(
+        (component) =>
+          Number(component.id_proyek) !== scope.id_proyek ||
+          Number(component.versi) !== scope.versi ||
+          Number(component.instalasi) !== scope.instalasi,
+      )
+    ) {
+      throw new Error(
+        "Produk dalam gabungan tidak cocok dengan proyek, versi, atau bagian penawaran.",
+      );
+    }
+    const components = expandReplacementComponents(
+      selections,
+      compositeRows,
+      itemRows,
+      compositeComponentRows,
+    );
+
+    const selectedCompositeIds = new Set(compositeIds);
+    const targetEntities = await listEntities(conn, {
+      ...scope,
+      id_subproyek: idSubProject,
+    });
+    const selectedTargetOrders = [
+      ...compositeRows
+        .filter((row) => (row.id_subproyek ?? null) === idSubProject)
+        .map((row) => Number(row.sort_order)),
+      ...itemRows
+        .filter((row) => (row.id_subproyek ?? null) === idSubProject)
+        .map((row) => Number(row.sort_order)),
+    ];
+    const remainingTargetEntities = targetEntities.filter(
+      (entity) =>
+        entity.entity_type !== "composite" ||
+        !selectedCompositeIds.has(Number(entity.entity_id)),
+    );
+    const order =
+      selectedTargetOrders.length > 0
+        ? Math.min(...selectedTargetOrders)
+        : remainingTargetEntities.length > 0
+          ? Number(remainingTargetEntities.at(-1).sort_order) + 1
+          : 0;
+
+    await conn.execute(
+      `DELETE FROM ${itemTable}
+       WHERE id_composite IN (${compositePlaceholders})`,
+      compositeIds,
+    );
+    await conn.execute(
+      `DELETE FROM ${groupTable}
+       WHERE id IN (${compositePlaceholders})`,
+      compositeIds,
+    );
+
+    for (const component of components) {
+      await conn.execute(
+        `UPDATE ${basketTable}
+         SET jumlah = ?, lastuser = ?
+         WHERE id = ?`,
+        [component.jumlah, form.updated_by ?? null, component.id_keranjangproyek],
+      );
+    }
+
+    const [result] = await conn.execute(
+      `INSERT INTO ${groupTable}
+         (id_proyek, versi, instalasi, id_subproyek, nama, jumlah, satuan,
+          urutan, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        scope.id_proyek,
+        scope.versi,
+        scope.instalasi,
+        idSubProject,
+        name,
+        quantity,
+        unit,
+        order,
+        form.updated_by ?? null,
+        form.updated_by ?? null,
+      ],
+    );
+    const compositeId = result.insertId;
+    for (const [urutan, component] of components.entries()) {
+      await conn.execute(
+        `INSERT INTO ${itemTable}
+           (id_composite, id_keranjangproyek, urutan)
+         VALUES (?, ?, ?)`,
+        [compositeId, component.id_keranjangproyek, urutan],
+      );
+    }
+
+    const sourceSubProjects = new Set([
+      idSubProject,
+      ...compositeRows.map((row) => row.id_subproyek ?? null),
+      ...components.map((component) => component.id_subproyek ?? null),
+    ]);
     for (const id of sourceSubProjects) {
       await normalizeSubProjectOrder(conn, {
         ...scope,
@@ -642,4 +959,14 @@ const copyForVersion = async (
   }
 };
 
-module.exports = { list, create, update, destroy, reorder, copyForVersion };
+module.exports = {
+  list,
+  create,
+  replace,
+  update,
+  destroy,
+  reorder,
+  copyForVersion,
+  normalizeReplacementSelections,
+  expandReplacementComponents,
+};

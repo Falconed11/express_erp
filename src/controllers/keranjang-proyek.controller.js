@@ -35,6 +35,17 @@ const KeranjangProyekController = {
       { req, res, next },
     );
   },
+  async replaceComposites(req, res, next) {
+    defaultAsyncController(
+      async () =>
+        KeranjangProyekService.replaceComposites({
+          ...req.body,
+          id_proyek: req.params.idProyek,
+          user: req.user,
+        }),
+      { req, res, next },
+    );
+  },
   async updateComposite(req, res, next) {
     defaultAsyncController(
       async () =>

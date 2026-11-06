@@ -18,6 +18,14 @@ const KeranjangProyekService = {
       updated_by: user?.id_karyawan ?? null,
     });
   },
+  async replaceComposites({ id_proyek, user, ...form }) {
+    return KeranjangProyekComposite.replace({
+      ...form,
+      id_proyek,
+      user,
+      updated_by: user?.id_karyawan ?? null,
+    });
+  },
   async updateComposite({ id, id_proyek, form, user }) {
     return KeranjangProyekComposite.update({
       ...form,
