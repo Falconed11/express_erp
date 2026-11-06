@@ -208,6 +208,19 @@ const commitProduk = async (job, actor) => {
       brands.map((row) => [row.nama.toLowerCase(), row.id]),
     );
 
+    if (job.context.set_produk_aktif_on_update) {
+      const categoryIdList = [...categoryIds.values()];
+      const brandIdList = [...brandIds.values()];
+      if (categoryIdList.length) {
+        await trx("kategoriproduk")
+          .whereIn("id", categoryIdList)
+          .update({ aktif: 1 });
+      }
+      if (brandIdList.length) {
+        await trx("merek").whereIn("id", brandIdList).update({ aktif: 1 });
+      }
+    }
+
     const types = [...new Set(rows.map((row) => row.tipe))];
     const existing = await trx("produk")
       .select(
