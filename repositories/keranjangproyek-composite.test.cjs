@@ -151,7 +151,7 @@ test("replacement selection validation requires unique rows and a group", () => 
   );
 });
 
-test("replacement expansion scales old components and preserves standalone quantities", () => {
+test("replacement expansion preserves per-set and standalone quantities", () => {
   const expanded = expandReplacementComponents(
     selections,
     [{ id: 7, jumlah: 2 }],
@@ -168,14 +168,43 @@ test("replacement expansion scales old components and preserves standalone quant
       jumlah,
     })),
     [
-      { id_keranjangproyek: 11, jumlah: 6 },
-      { id_keranjangproyek: 12, jumlah: 4 },
+      { id_keranjangproyek: 11, jumlah: 3 },
+      { id_keranjangproyek: 12, jumlah: 2 },
       { id_keranjangproyek: 13, jumlah: 5 },
     ],
   );
 });
 
-test("replacement expansion keeps fractional quantities for decimal storage", () => {
+test("replacing multiple composites keeps each component quantity per set", () => {
+  const expanded = expandReplacementComponents(
+    [
+      { type: "composite", id: 7 },
+      { type: "composite", id: 8 },
+    ],
+    [
+      { id: 7, jumlah: 2 },
+      { id: 8, jumlah: 4 },
+    ],
+    [],
+    [
+      { id_composite: 7, id_keranjangproyek: 11, jumlah: 3, id_subproyek: 2 },
+      { id_composite: 8, id_keranjangproyek: 12, jumlah: 5, id_subproyek: 3 },
+    ],
+  );
+
+  assert.deepEqual(
+    expanded.map(({ id_keranjangproyek, jumlah }) => ({
+      id_keranjangproyek,
+      jumlah,
+    })),
+    [
+      { id_keranjangproyek: 11, jumlah: 3 },
+      { id_keranjangproyek: 12, jumlah: 5 },
+    ],
+  );
+});
+
+test("replacement expansion preserves per-set fractional quantities", () => {
   const expanded = expandReplacementComponents(
     [{ type: "composite", id: 8 }, { type: "item", id: 13 }],
     [{ id: 8, jumlah: 0.5 }],
@@ -185,7 +214,7 @@ test("replacement expansion keeps fractional quantities for decimal storage", ()
     ],
   );
 
-  assert.equal(expanded[0].jumlah, 1.5);
+  assert.equal(expanded[0].jumlah, 3);
   assert.equal(expanded[1].jumlah, 5);
 });
 
@@ -270,8 +299,8 @@ test("replacement commits all old groups, quantities, and new links atomically",
       .filter(({ query }) => query.startsWith("UPDATE keranjangproyek SET jumlah"))
       .map(({ values }) => [values[0], values[2]]),
     [
-      [6, 11],
-      [4, 12],
+      [3, 11],
+      [2, 12],
       [5, 13],
     ],
   );

@@ -115,15 +115,12 @@ const expandReplacementComponents = (
     for (const component of components) {
       const itemId = Number(component.id_keranjangproyek);
       const componentQuantity = Number(component.jumlah);
-      const quantity = componentQuantity * groupQuantity;
       if (
         !Number.isInteger(itemId) ||
         itemId <= 0 ||
         !Number.isFinite(componentQuantity) ||
         componentQuantity <= 0 ||
-        !Number.isFinite(quantity) ||
-        quantity <= 0 ||
-        quantity > maxBasketQuantity
+        componentQuantity > maxBasketQuantity
       ) {
         throw new Error("Jumlah produk dalam gabungan tidak valid.");
       }
@@ -133,7 +130,7 @@ const expandReplacementComponents = (
       seenItemIds.add(itemId);
       expanded.push({
         id_keranjangproyek: itemId,
-        jumlah: quantity,
+        jumlah: componentQuantity,
         id_subproyek: component.id_subproyek ?? null,
       });
     }

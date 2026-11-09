@@ -8,6 +8,11 @@ const {
   assertOfferEditable,
 } = require("../src/modules/project-approval/project-approval-invalidation.cjs");
 const {
+  assertProjectDetailEditor,
+  isProjectDetailUpdate,
+  shouldAssertStatusResetApproval,
+} = require("./project-edit-access.cjs");
+const {
   deleteClosedLoansForProject,
 } = require("../src/modules/produk-stock/produk-stock.repository.cjs");
 const table = "proyek";
@@ -237,6 +242,7 @@ const update = async ({
   lastuser,
   id_statusproyek,
   tanggal,
+  user,
   ...rest
 }) => {
   if (!id) return new Error("Id harus diisi!");
@@ -268,13 +274,19 @@ const update = async ({
   }
   try {
     const result = await withTransaction(pool, async (conn) => {
-      const hasOfferChanges = fields.some(
-        (field) => field !== "sembunyikankop=?",
-      );
-      if (hasOfferChanges || id_instansi || instansi) {
-        await assertOfferEditable(conn, id);
+      const isDetailUpdate = isProjectDetailUpdate({
+        fields,
+        id_instansi,
+        instansi,
+      });
+      if (isDetailUpdate) {
+        const [projects] = await conn.execute(
+          `SELECT id_karyawan FROM ${table} WHERE id = ? FOR UPDATE`,
+          [id],
+        );
+        assertProjectDetailEditor(projects[0], user);
       }
-      if (Number(id_statusproyek) === 1) {
+      if (shouldAssertStatusResetApproval({ id_statusproyek, isDetailUpdate })) {
         await assertOfferEditable(conn, id);
       }
       if (instansi && !id_instansi) {

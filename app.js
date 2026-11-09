@@ -547,9 +547,9 @@ app.post("/api/proyek", async (req, res) => {
 });
 app.put("/api/proyek", async (req, res) => {
   const _result = await proyek
-    .update(req.body)
+    .update({ ...req.body, user: req.user })
     .then((_result) => res.json({ message: "Proyek berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) => res.status(e.statusCode || 400).json({ message: e.message }));
 });
 app.delete("/api/proyek", async (req, res) => {
   proyek
@@ -1258,9 +1258,9 @@ app.post("/api/proyek", async (req, res) => {
 });
 app.put("/api/proyek", async (req, res) => {
   const _result = await proyek
-    .update(req.body)
+    .update({ ...req.body, user: req.user })
     .then((_result) => res.json({ message: "Proyek berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) => res.status(e.statusCode || 400).json({ message: e.message }));
 });
 app.delete("/api/proyek", async (req, res) => {
   proyek
