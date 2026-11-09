@@ -11,11 +11,14 @@ const {
 const {
   copyForVersion: copyKeteranganKhususForVersion,
 } = require("./keterangan-khusus-penawaran.cjs");
+const {
+  copyForVersion: copyCompositeForVersion,
+} = require("./keranjangproyek-composite.cjs");
 const { recalculateRecapTax } = require("./rekapitulasiproyek-pajak.cjs");
 const table = "keranjangproyek";
 
 const list = async ({ id_proyek, instalasi, versi, id_perusahaan }) => {
-  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.id id_produk, p.nama, p.stok, coalesce(psp.stok, 0) stok_perusahaan, p.tipe, p.hargamodal, p.hargajual, p.hargabatas, p.satuan, p.tanggal From ${table} kp
+  const sql = `Select sp.id id_subproyek, sp.nama subproyek, kpr.nama kategoriproduk, kp.id id_keranjangproyek, kp.jumlah, kp.urutan, kp.hargamodal temphargamodal, kp.harga, kp.hargakustom, kp.instalasi, kp.showmerek, kp.showtipe, kp.keterangan, m.nama nmerek, v.nama nvendor, p.id id_produk, p.nama, p.stok, coalesce(psp.stok, 0) stok_perusahaan, p.tipe, p.hargamodal, p.hargajual, p.hargabatas, p.satuan, p.tanggal From ${table} kp
   left join subproyek sp on kp.id_subproyek = sp.id 
   left join produk p on kp.id_produk = p.id 
   left join produkstokperusahaan psp on psp.id_produk = p.id and psp.id_perusahaan = ?
@@ -30,7 +33,13 @@ const list = async ({ id_proyek, instalasi, versi, id_perusahaan }) => {
   if (instalasi) values.push(instalasi);
   values.push(versi);
   const [rows] = await pool.execute(sql, values);
-  return rows || [];
+  return (rows || []).map((row) => {
+    const quantity = Number(row.jumlah);
+    if (!Number.isFinite(quantity)) {
+      throw new Error("Jumlah produk dalam keranjang tidak valid.");
+    }
+    return { ...row, jumlah: quantity };
+  });
 };
 
 const listVersion = async ({ id_proyek }) => {
@@ -135,14 +144,41 @@ const createNewVersion = async ({ id_proyek, versi }) =>
       [id_proyek],
     );
     const targetVersion = Number(versionRows[0]?.next_version);
-    const [result] = await conn.execute(
-      `INSERT INTO ${table}
-         (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi, urutan)
-       SELECT id_proyek, id_produk, jumlah, harga, instalasi, keterangan, ?, urutan
+    const [sourceRows] = await conn.execute(
+      `SELECT id, id_proyek, id_produk, jumlah, harga, instalasi, keterangan,
+              urutan
        FROM ${table}
-       WHERE id_proyek = ? AND versi = ?`,
-      [targetVersion, id_proyek, versi],
+       WHERE id_proyek = ? AND versi = ?
+       ORDER BY id`,
+      [id_proyek, versi],
     );
+    const basketIdMap = new Map();
+    let result = { affectedRows: 0 };
+    for (const row of sourceRows) {
+      const [copyResult] = await conn.execute(
+        `INSERT INTO ${table}
+           (id_proyek, id_produk, jumlah, harga, instalasi, keterangan, versi, urutan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          row.id_proyek,
+          row.id_produk,
+          row.jumlah,
+          row.harga,
+          row.instalasi,
+          row.keterangan,
+          targetVersion,
+          row.urutan,
+        ],
+      );
+      basketIdMap.set(Number(row.id), Number(copyResult.insertId));
+      result.affectedRows += copyResult.affectedRows;
+    }
+    await copyCompositeForVersion(conn, {
+      id_proyek,
+      sourceVersion: versi,
+      targetVersion,
+      basketIdMap,
+    });
     await copyKeteranganKhususForVersion(conn, id_proyek, versi, targetVersion);
     return result;
   });
@@ -296,6 +332,14 @@ const destroy = async ({ id, updated_by }) =>
       [id],
     );
     if (!rows.length) return { affectedRows: 0 };
+    const [compositeRows] = await conn.execute(
+      `SELECT id_composite FROM keranjangproyek_composite_item
+       WHERE id_keranjangproyek = ? FOR UPDATE`,
+      [id],
+    );
+    if (compositeRows.length) {
+      throw new Error("Uraikan gabungan sebelum menghapus produk ini.");
+    }
     const [result] = await conn.execute(`DELETE FROM ${table} WHERE id = ?`, [
       id,
     ]);
