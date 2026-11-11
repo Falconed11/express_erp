@@ -97,12 +97,19 @@ const listProjectExpenses = (idProyek) =>
       "k.nama as namakaryawan",
       "pm.harga as hargaprodukmasuk",
       "pm.pinjaman",
+      "pm.id_produkpinjaman",
+      db.raw("COALESCE(stock_vendor.nama, expense_vendor.nama) as vendor"),
+      "lender.nama as nama_perusahaan_pemberi",
     )
     .leftJoin("produkkeluar as pk", "pk.id", "pp.id_produkkeluar")
     .leftJoin("produk as p", "p.id", "pp.id_produk")
     .leftJoin("merek as m", "m.id", "p.id_merek")
     .leftJoin("karyawan as k", "k.id", "pp.id_karyawan")
     .leftJoin("produkmasuk as pm", "pm.id", "pk.id_produkmasuk")
+    .leftJoin("vendor as stock_vendor", "stock_vendor.id", "pm.id_vendor")
+    .leftJoin("vendor as expense_vendor", "expense_vendor.id", "pp.id_vendor")
+    .leftJoin("produkpinjaman as loan", "loan.id", "pm.id_produkpinjaman")
+    .leftJoin("perusahaan as lender", "lender.id", "loan.id_perusahaan_pemberi")
     .where("pp.id_proyek", idProyek);
 
 const list = async (idProyek) => {

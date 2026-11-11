@@ -40,13 +40,47 @@ test("standalone Pinjaman stock is split into a borrower-owned Hutang purchase",
   );
   assert.match(
     source,
-    /INSERT INTO produkmasuk\s+\(id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo,\s+pinjaman, id_perusahaan, created_by, updated_by, jenis_transaksi\)\s+VALUES \(\?, \?, \?, \?, 0, \?, NULL, 0, \?, \?, \?, 'pembelian'\)/i,
-    "The used quantity should be split into a borrower-company purchase entry.",
+    /INSERT INTO produkmasuk\s+\(id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo,\s+pinjaman, id_perusahaan, jenis_transaksi,\s+id_produkmasuk_pinjaman_vendor\)\s+VALUES \(\?, \?, \?, \?, 0, \?, NULL, 0, \?, 'pembelian', \?\)/i,
+    "The split borrower-company purchase should retain the source vendor-loan entry ID.",
   );
   assert.match(
     source,
     /createPurchaseJournal\(conn,\s*\{\s*id_produkmasuk: entryResult\.insertId,\s*id_perusahaan: id_perusahaan_peminjam,\s*id_coa_kredit: debtCoaId,[\s\S]*?lunas: false,/,
     "The split purchase should be journaled as Hutang for the borrower company.",
+  );
+});
+
+test("deleting an unpaid vendor-loan production output restores its source stock", () => {
+  const source = readRepo();
+  const deleteBlock = source.slice(
+    source.indexOf("async function _deleteInTransaction"),
+    source.indexOf("module.exports"),
+  );
+
+  assert.match(
+    deleteBlock,
+    /id_produkmasuk_pinjaman_vendor/,
+    "Deletion should identify purchase entries derived from vendor-loan stock.",
+  );
+  assert.match(
+    deleteBlock,
+    /Number\(stockEntry\.terbayar \|\| 0\) > 0\.001[\s\S]*?paymentLinks\.some/,
+    "Deletion should reject entries with recorded payments or extra linked journals.",
+  );
+  assert.match(
+    deleteBlock,
+    /UPDATE produkmasuk SET keluar = keluar - \? WHERE id = \?[\s\S]*?vendorLoanSourceId/,
+    "Deletion should restore the quantity to the original vendor-loan entry.",
+  );
+  assert.match(
+    deleteBlock,
+    /vendorLoanSourceId != null && vendorLoanSourceCompanyId != null[\s\S]*?vendorLoanSourceCompanyId/,
+    "Deletion should restore company stock to the vendor-loan source company.",
+  );
+  assert.match(
+    deleteBlock,
+    /DELETE FROM produkmasuk_pembayaran WHERE id_produkmasuk = \?[\s\S]*?DELETE FROM transaksi WHERE id_jurnal = \?[\s\S]*?DELETE FROM jurnal WHERE id = \?[\s\S]*?DELETE FROM produkmasuk WHERE id = \?/,
+    "Deletion should remove the generated purchase link, payable journal, and derived entry.",
   );
 });
 

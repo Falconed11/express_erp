@@ -1159,9 +1159,17 @@ app.get("/api/produkmasuk", async (req, res) => {
     }
     filters.id_perusahaan = idPerusahaan;
   }
+  const isStockSummary = filters.summary === "stock";
+  delete filters.summary;
   delete filters.scope;
-  const list = produkmasuk.list(filters);
-  res.json(await list);
+  try {
+    const result = isStockSummary
+      ? await produkmasuk.stockSummary(filters)
+      : await produkmasuk.list(filters);
+    res.json(result);
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ message: error.message });
+  }
 });
 app.post("/api/produkmasuk", async (req, res) => {
   const _result = await produkmasuk

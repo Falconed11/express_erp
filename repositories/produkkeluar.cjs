@@ -282,8 +282,9 @@ const createMarkedLoanPurchaseEntry = async ({
   const [entryResult] = await conn.execute(
     `INSERT INTO produkmasuk
       (id_produk, id_vendor, jumlah, harga, terbayar, tanggal, jatuhtempo,
-       pinjaman, id_perusahaan, created_by, updated_by, jenis_transaksi)
-     VALUES (?, ?, ?, ?, 0, ?, NULL, 0, ?, ?, ?, 'pembelian')`,
+       pinjaman, id_perusahaan, jenis_transaksi,
+       id_produkmasuk_pinjaman_vendor)
+     VALUES (?, ?, ?, ?, 0, ?, NULL, 0, ?, 'pembelian', ?)`,
     [
       id_produk,
       sourceEntry.id_vendor,
@@ -291,8 +292,7 @@ const createMarkedLoanPurchaseEntry = async ({
       sourceEntry.harga,
       tanggal,
       id_perusahaan_peminjam,
-      created_by,
-      updated_by ?? created_by,
+      sourceEntry.id,
     ],
   );
 
@@ -954,6 +954,84 @@ async function _deleteInTransaction({
   id_produk = output.id_produk;
   metodepengeluaran = output.metodepengeluaran;
 
+  const [stockEntryRows] = await conn.execute(
+    `SELECT id, terbayar, id_produkmasuk_pinjaman_vendor
+     FROM produkmasuk
+     WHERE id = ?
+     FOR UPDATE`,
+    [id_produkmasuk],
+  );
+  const stockEntry = stockEntryRows[0];
+  if (!stockEntry) throw new Error("Produk masuk untuk stok keluar tidak ditemukan.");
+
+  let vendorLoanSourceId = stockEntry.id_produkmasuk_pinjaman_vendor;
+  let vendorLoanSourceCompanyId = null;
+  let vendorLoanPurchaseJournalId = null;
+  if (vendorLoanSourceId != null) {
+    const [paymentLinks] = await conn.execute(
+      `SELECT pmp.id_jurnal, j.keterangan
+       FROM produkmasuk_pembayaran pmp
+       INNER JOIN jurnal j ON j.id = pmp.id_jurnal
+       WHERE pmp.id_produkmasuk = ? AND pmp.aktif = 1
+       FOR UPDATE`,
+      [id_produkmasuk],
+    );
+    const purchaseDescription = `Pembelian stok masuk #${id_produkmasuk}`;
+    const purchaseLink = paymentLinks.find(
+      (link) => link.keterangan === purchaseDescription,
+    );
+    if (!purchaseLink) {
+      throw new Error(
+        "Jurnal pembelian stok pinjaman vendor tidak ditemukan; operasional produksi tidak dapat dihapus.",
+      );
+    }
+
+    const hasPayment =
+      Number(stockEntry.terbayar || 0) > 0.001 ||
+      paymentLinks.some(
+        (link) => Number(link.id_jurnal) !== Number(purchaseLink.id_jurnal),
+      );
+    if (hasPayment) {
+      throw new Error(
+        "Operasional produksi tidak dapat dihapus karena stok pinjaman vendor sudah memiliki pembayaran. Hapus atau balik pembayaran terlebih dahulu.",
+      );
+    }
+
+    const [sourceRows] = await conn.execute(
+      `SELECT id, id_produk, id_perusahaan, pinjaman, id_produkpinjaman
+       FROM produkmasuk
+       WHERE id = ?
+       FOR UPDATE`,
+      [vendorLoanSourceId],
+    );
+    const sourceEntry = sourceRows[0];
+    if (
+      !sourceEntry ||
+      Number(sourceEntry.id_produk) !== Number(id_produk) ||
+      Number(sourceEntry.pinjaman) !== 1 ||
+      sourceEntry.id_produkpinjaman != null
+    ) {
+      throw new Error(
+        "Stok pinjaman vendor asal tidak valid; operasional produksi tidak dapat dihapus.",
+      );
+    }
+    vendorLoanSourceCompanyId = sourceEntry.id_perusahaan;
+
+    const [otherOutputRows] = await conn.execute(
+      `SELECT id
+       FROM ${OUTPUT_TABLE}
+       WHERE id_produkmasuk = ? AND id <> ?
+       FOR UPDATE`,
+      [id_produkmasuk, id],
+    );
+    if (otherOutputRows.length > 0) {
+      throw new Error(
+        "Stok turunan pinjaman vendor masih digunakan transaksi lain dan tidak dapat dihapus.",
+      );
+    }
+    vendorLoanPurchaseJournalId = purchaseLink.id_jurnal;
+  }
+
   if (metodepengeluaran === "proyek") {
     // lock related pengeluaranproyek row(s)
     await conn.execute(
@@ -1025,10 +1103,30 @@ async function _deleteInTransaction({
 
   // Perform deletion and stock revert
   await conn.execute(`DELETE FROM ${OUTPUT_TABLE} WHERE id = ?`, [id]);
-  await conn.execute(
-    `UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?`,
-    [jumlah, id_produkmasuk],
-  );
+  if (vendorLoanSourceId != null) {
+    await conn.execute(
+      `UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?`,
+      [jumlah, vendorLoanSourceId],
+    );
+    await conn.execute(
+      "DELETE FROM produkmasuk_pembayaran WHERE id_produkmasuk = ?",
+      [id_produkmasuk],
+    );
+    await conn.execute("DELETE FROM transaksi WHERE id_jurnal = ?", [
+      vendorLoanPurchaseJournalId,
+    ]);
+    await conn.execute("DELETE FROM jurnal WHERE id = ?", [
+      vendorLoanPurchaseJournalId,
+    ]);
+    await conn.execute("DELETE FROM produkmasuk WHERE id = ?", [
+      id_produkmasuk,
+    ]);
+  } else {
+    await conn.execute(
+      `UPDATE produkmasuk SET keluar = keluar - ? WHERE id = ?`,
+      [jumlah, id_produkmasuk],
+    );
+  }
   await conn.execute(`UPDATE produk SET stok = stok + ? WHERE id = ?`, [
     jumlah,
     id_produk,
@@ -1036,7 +1134,10 @@ async function _deleteInTransaction({
   await adjustCompanyStock({
     conn,
     id_produk,
-    id_perusahaan: output.id_perusahaan,
+    id_perusahaan:
+      vendorLoanSourceId != null && vendorLoanSourceCompanyId != null
+        ? vendorLoanSourceCompanyId
+        : output.id_perusahaan,
     jumlah,
     updated_by: output.updated_by,
   });

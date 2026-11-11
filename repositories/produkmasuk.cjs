@@ -12,47 +12,204 @@ const {
 
 const table = "produkmasuk";
 
-const list = async ({ id_produk, laporan, pinjaman, id_perusahaan }) => {
+const entryJoins = `
+  from ${table} pm
+  left join produk p on p.id = pm.id_produk
+  left join merek m on m.id = p.id_merek
+  left join vendor v on v.id = pm.id_vendor
+  left join kategoriproduk kp on kp.id = p.id_kategori`;
+
+const isValidDate = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+const buildEntryFilters = ({
+  id_produk,
+  laporan,
+  pinjaman,
+  id_perusahaan,
+  search,
+  date_from,
+  date_to,
+  status,
+}) => {
+  const conditions = ["pm.id_perusahaan IS NOT NULL"];
+  const values = [];
+  if (id_produk) {
+    conditions.push("pm.id_produk = ?");
+    values.push(id_produk);
+  }
+  if (id_perusahaan) {
+    conditions.push("pm.id_perusahaan = ?");
+    values.push(id_perusahaan);
+  }
+  if (pinjaman) conditions.push("pm.pinjaman = 1");
+  if (laporan) conditions.push("(pm.jumlah - pm.keluar) > 0");
+  if (search?.trim()) {
+    conditions.push(`(
+      CAST(pm.id AS CHAR) LIKE ? OR
+      CAST(p.id_kustom AS CHAR) LIKE ? OR
+      p.nama LIKE ? OR m.nama LIKE ? OR p.tipe LIKE ? OR v.nama LIKE ?
+    )`);
+    const term = `%${search.trim()}%`;
+    values.push(term, term, term, term, term, term);
+  }
+  if (date_from) {
+    if (!isValidDate(date_from)) {
+      const error = new Error("Tanggal awal tidak valid.");
+      error.statusCode = 400;
+      throw error;
+    }
+    conditions.push("pm.tanggal >= ?");
+    values.push(date_from);
+  }
+  if (date_to) {
+    if (!isValidDate(date_to)) {
+      const error = new Error("Tanggal akhir tidak valid.");
+      error.statusCode = 400;
+      throw error;
+    }
+    conditions.push("pm.tanggal <= ?");
+    values.push(date_to);
+  }
+  if (date_from && date_to && date_from > date_to) {
+    const error = new Error("Tanggal awal tidak boleh melewati tanggal akhir.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const statusConditions = {
+    Pengembalian: "pm.jenis_transaksi = 'pengembalian'",
+    "Pinjaman Stok":
+      "(pm.id_produkpinjaman IS NOT NULL OR pm.jenis_transaksi = 'pinjaman')",
+    "Pinjaman Vendor": "COALESCE(pm.pinjaman, 0) = 1",
+    Lunas: `COALESCE(pm.jenis_transaksi, '') <> 'pengembalian'
+      AND pm.id_produkpinjaman IS NULL
+      AND COALESCE(pm.jenis_transaksi, '') <> 'pinjaman'
+      AND COALESCE(pm.pinjaman, 0) <> 1
+      AND pm.terbayar >= pm.jumlah * pm.harga`,
+    Hutang: `COALESCE(pm.jenis_transaksi, '') <> 'pengembalian'
+      AND pm.id_produkpinjaman IS NULL
+      AND COALESCE(pm.jenis_transaksi, '') <> 'pinjaman'
+      AND COALESCE(pm.pinjaman, 0) <> 1
+      AND pm.terbayar < pm.jumlah * pm.harga`,
+  };
+  if (status) {
+    if (!statusConditions[status]) {
+      const error = new Error("Filter status tidak valid.");
+      error.statusCode = 400;
+      throw error;
+    }
+    conditions.push(`(${statusConditions[status]})`);
+  }
+  return { where: `WHERE ${conditions.join(" AND ")}`, values };
+};
+
+const list = async (filters) => {
+  const { laporan } = filters;
+  const { where, values } = buildEntryFilters(filters);
+  const joins = entryJoins;
+  const paginated = filters.page !== undefined || filters.pageSize !== undefined;
+  let paginationSql = "";
+  let paginationValues = [];
+  let pagination = null;
+
+  if (paginated) {
+    const requestedPage = Number(filters.page ?? 1);
+    const pageSize = Number(filters.pageSize ?? 25);
+    if (!Number.isInteger(requestedPage) || requestedPage < 1) {
+      const error = new Error("Nomor halaman tidak valid.");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      const error = new Error("Jumlah baris per halaman tidak valid.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(pm.pinjaman = 1 OR pm.jenis_transaksi = 'pinjaman'), 0) AS pinjaman,
+              COALESCE(SUM(pm.jumlah), 0) AS jumlah,
+              COALESCE(SUM(pm.keluar), 0) AS keluar,
+              COALESCE(SUM(pm.jumlah - pm.keluar), 0) AS sisa,
+              COALESCE(SUM(pm.jumlah * pm.harga), 0) AS total_nilai
+       ${joins} ${where}`,
+      values,
+    );
+    const total = Number(countRows[0]?.total ?? 0);
+    const totalPages = Math.ceil(total / pageSize);
+    const page = Math.min(requestedPage, Math.max(totalPages, 1));
+    pagination = {
+      total,
+      page,
+      pageSize,
+      totalPages,
+      summary: {
+        entries: total,
+        pinjaman: Number(countRows[0]?.pinjaman ?? 0),
+        jumlah: Number(countRows[0]?.jumlah ?? 0),
+        keluar: Number(countRows[0]?.keluar ?? 0),
+        sisa: Number(countRows[0]?.sisa ?? 0),
+        total: Number(countRows[0]?.total_nilai ?? 0),
+      },
+    };
+    paginationSql = "LIMIT ? OFFSET ?";
+    paginationValues = [pageSize, (page - 1) * pageSize];
+  }
+
   const sql = `
-  select  pm.*, 
-          (pm.jumlah*pm.harga-pm.terbayar) hutang, 
-          (pm.jumlah-pm.keluar) sisa, 
-          (pm.jumlah-pm.keluar)*pm.harga sisamodal, 
-          p.id_kustom, 
-          p.nama, 
-          p.tipe, 
-          p.satuan, 
-          p.hargamodal, 
-          p.stok, 
-          p.tanggal tanggalharga, 
-          m.nama merek, 
-          v.nama vendor, 
+  select  pm.*,
+          (pm.jumlah*pm.harga-pm.terbayar) hutang,
+          (pm.jumlah-pm.keluar) sisa,
+          (pm.jumlah-pm.keluar)*pm.harga sisamodal,
+          p.id_kustom,
+          p.nama,
+          p.tipe,
+          p.satuan,
+          p.hargamodal,
+          p.stok,
+          p.tanggal tanggalharga,
+          m.nama merek,
+          v.nama vendor,
           kp.nama kategoriproduk,
           pmc.nama nama_perusahaan,
+          lender.nama nama_perusahaan_pemberi,
           pembayaran.id_jurnal
-  from ${table} pm 
-  left join produk p            on p.id=pm.id_produk 
-  left join merek m             on m.id=p.id_merek 
-  left join vendor v            on v.id=pm.id_vendor 
-  left join kategoriproduk kp   on kp.id=p.id_kategori
-  left join perusahaan pmc      on pmc.id=pm.id_perusahaan
+  ${joins}
+  left join perusahaan pmc on pmc.id = pm.id_perusahaan
+  left join produkpinjaman loan on loan.id = pm.id_produkpinjaman
+  left join perusahaan lender on lender.id = loan.id_perusahaan_pemberi
   left join (
     select id_produkmasuk, max(id_jurnal) id_jurnal
     from produkmasuk_pembayaran
     where aktif = 1
     group by id_produkmasuk
   ) pembayaran on pembayaran.id_produkmasuk = pm.id
-  where pm.id_perusahaan is not null ${
-    id_produk ? `and id_produk = ?` : ""
-  } ${id_perusahaan ? "and pm.id_perusahaan = ?" : ""}
-  ${pinjaman ? "and pm.pinjaman = 1" : ""}
-  ${laporan ? "and (pm.jumlah-pm.keluar) > 0" : ""}
-  order by ${laporan ? `kp.nama, p.nama,` : ""} pm.tanggal desc, p.id, pm.id`;
-  const values = [];
-  if (id_produk) values.push(id_produk);
-  if (id_perusahaan) values.push(id_perusahaan);
-  const [rows] = await pool.execute(sql, values);
-  return rows;
+  ${where}
+  order by ${laporan ? `kp.nama, p.nama,` : ""} pm.tanggal desc, p.id, pm.id
+  ${paginationSql}`;
+  const [rows] = await pool.execute(sql, [...values, ...paginationValues]);
+  return pagination ? { ...pagination, items: rows } : rows;
+};
+
+const stockSummary = async ({ id_produk, id_perusahaan }) => {
+  if (!id_produk || !id_perusahaan) {
+    const error = new Error("Produk dan perusahaan wajib ditentukan.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const [rows] = await pool.execute(
+    `SELECT COALESCE(SUM(pm.jumlah - pm.keluar), 0) AS stok_pinjaman
+     FROM ${table} pm
+     WHERE pm.id_produk = ?
+       AND pm.id_perusahaan = ?
+       AND pm.pinjaman = 1`,
+    [id_produk, id_perusahaan],
+  );
+  return { stok_pinjaman: Number(rows[0]?.stok_pinjaman ?? 0) };
 };
 
 const getLinkedJournals = async (conn, id_produkmasuk) => {
@@ -590,4 +747,11 @@ const destroy = async ({ id, updated_by = null }) => {
   }
 };
 
-module.exports = { list, create, update, destroy, createCorrectionJournal };
+module.exports = {
+  list,
+  stockSummary,
+  create,
+  update,
+  destroy,
+  createCorrectionJournal,
+};
