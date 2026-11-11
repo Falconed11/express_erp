@@ -15,9 +15,17 @@ router.get("/total", async (req, res, next) => {
 
 router.get("/", async (req, res, next) => {
   try {
-    if (!req.query.id_proyek)
-      return res.status(400).json({ message: "id_proyek wajib diisi" });
-    res.json(await repository.list(req.query.id_proyek));
+    if (req.query.id_proyek) {
+      return res.json(await repository.list(req.query.id_proyek));
+    }
+
+    const companyId = req.user?.id_perusahaan;
+    if (!companyId)
+      return res
+        .status(403)
+        .json({ message: "Perusahaan pengguna tidak ditemukan" });
+
+    res.json(await repository.listForCompany(companyId));
   } catch (error) {
     next(error);
   }

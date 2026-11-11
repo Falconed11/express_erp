@@ -3,8 +3,13 @@ import db from "../config/knex.js";
 const TABLE = "operasionalproduksi";
 const HPP_FORM_NAME = "HPP";
 
-const listLegacy = (idProyek) =>
-  db(TABLE)
+const applyProjectScope = (query, { idProyek, idPerusahaan }) =>
+  idProyek != null
+    ? query.where("project.id", idProyek)
+    : query.where("project.id_perusahaan", idPerusahaan);
+
+const listLegacy = (scope) => {
+  const query = db(TABLE)
     .select(
       "operasionalproduksi.id",
       "operasionalproduksi.id_proyek",
@@ -12,9 +17,11 @@ const listLegacy = (idProyek) =>
       "operasionalproduksi.deskripsi",
       "operasionalproduksi.nominal",
       "operasionalproduksi.aktif",
+      "project.nama as nama_proyek",
       "creator.nama as created_by_name",
       "updater.nama as updated_by_name",
     )
+    .leftJoin("proyek as project", "project.id", "operasionalproduksi.id_proyek")
     .leftJoin(
       "karyawan as creator",
       "creator.id",
@@ -24,17 +31,20 @@ const listLegacy = (idProyek) =>
       "karyawan as updater",
       "updater.id",
       "operasionalproduksi.updated_by",
-    )
-    .where("operasionalproduksi.id_proyek", idProyek);
+    );
 
-const listHppJournals = (idProyek) =>
-  db("jurnal as j")
+  return applyProjectScope(query, scope);
+};
+
+const listHppJournals = (scope) => {
+  const query = db("jurnal as j")
     .select(
       "j.id as id_jurnal",
       "j.id_proyek",
       "j.tanggal",
       "j.keterangan as deskripsi",
       "debit.amount as nominal",
+      "project.nama as nama_proyek",
       db.raw(`(
         SELECT GROUP_CONCAT(DISTINCT fund_coa.nama SEPARATOR ', ')
         FROM transaksi AS fund_transaction
@@ -44,6 +54,7 @@ const listHppJournals = (idProyek) =>
       ) AS sumber_dana`),
       db.raw("1 as aktif"),
     )
+    .join("proyek as project", "project.id", "j.id_proyek")
     .join("jurnal_form as jf", "jf.id", "j.id_jurnal_form")
     .join(
       db("transaksi as debit")
@@ -55,7 +66,6 @@ const listHppJournals = (idProyek) =>
       "debit.id_jurnal",
       "j.id",
     )
-    .where("j.id_proyek", idProyek)
     .andWhere("jf.nama", HPP_FORM_NAME)
     .whereNotExists(function () {
       this.select(db.raw("1"))
@@ -63,8 +73,11 @@ const listHppJournals = (idProyek) =>
         .whereRaw("stock_output.id_jurnal = j.id");
     });
 
-const listProjectExpenses = (idProyek) =>
-  db("pengeluaranproyek as pp")
+  return applyProjectScope(query, scope);
+};
+
+const listProjectExpenses = (scope) => {
+  const query = db("pengeluaranproyek as pp")
     .select(
       "pp.id as id_pengeluaranproyek",
       "pp.id_proyek",
@@ -81,6 +94,7 @@ const listProjectExpenses = (idProyek) =>
       "pk.id_jurnal",
       "pk.id_produkmasuk",
       "pk.metodepengeluaran",
+      "project.nama as nama_proyek",
       db.raw(`(
         SELECT GROUP_CONCAT(DISTINCT fund_coa.nama SEPARATOR ', ')
         FROM transaksi AS fund_transaction
@@ -101,6 +115,7 @@ const listProjectExpenses = (idProyek) =>
       db.raw("COALESCE(stock_vendor.nama, expense_vendor.nama) as vendor"),
       "lender.nama as nama_perusahaan_pemberi",
     )
+    .join("proyek as project", "project.id", "pp.id_proyek")
     .leftJoin("produkkeluar as pk", "pk.id", "pp.id_produkkeluar")
     .leftJoin("produk as p", "p.id", "pp.id_produk")
     .leftJoin("merek as m", "m.id", "p.id_merek")
@@ -109,14 +124,24 @@ const listProjectExpenses = (idProyek) =>
     .leftJoin("vendor as stock_vendor", "stock_vendor.id", "pm.id_vendor")
     .leftJoin("vendor as expense_vendor", "expense_vendor.id", "pp.id_vendor")
     .leftJoin("produkpinjaman as loan", "loan.id", "pm.id_produkpinjaman")
-    .leftJoin("perusahaan as lender", "lender.id", "loan.id_perusahaan_pemberi")
-    .where("pp.id_proyek", idProyek);
+    .leftJoin(
+      "perusahaan as lender",
+      "lender.id",
+      "loan.id_perusahaan_pemberi",
+    );
 
-const list = async (idProyek) => {
+  return applyProjectScope(query, scope);
+};
+
+const listByScope = async (scope) => {
+  if (scope.idProyek == null && scope.idPerusahaan == null) {
+    throw new Error("Project or company scope is required");
+  }
+
   const [legacyRows, journalRows, expenseRows] = await Promise.all([
-    listLegacy(idProyek),
-    listHppJournals(idProyek),
-    listProjectExpenses(idProyek),
+    listLegacy(scope),
+    listHppJournals(scope),
+    listProjectExpenses(scope),
   ]);
   return [
     ...legacyRows.map((row) => ({ ...row, record_type: "legacy" })),
@@ -128,6 +153,9 @@ const list = async (idProyek) => {
       (second.id_jurnal || second.id || 0) - (first.id_jurnal || first.id || 0),
   );
 };
+
+const list = (idProyek) => listByScope({ idProyek });
+const listForCompany = (idPerusahaan) => listByScope({ idPerusahaan });
 
 const total = async (idProyek) => {
   const [legacyTotal, journalTotal] = await Promise.all([
@@ -194,4 +222,4 @@ const update = (
 const destroy = (id, idProyek) =>
   db(TABLE).where({ id, id_proyek: idProyek }).del();
 
-export default { list, total, create, update, destroy };
+export default { list, listForCompany, total, create, update, destroy };
