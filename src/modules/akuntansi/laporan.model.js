@@ -118,7 +118,15 @@ const _validateTreeRecursionFromRoot = async (rootId, conn = db) => {
 };
 
 const fetchTreeRows = async (
-  { id, from, to, id_perusahaan, includeBalance = true, nodeTypes = null } = {},
+  {
+    id,
+    from,
+    to,
+    toExclusive = false,
+    id_perusahaan,
+    includeBalance = true,
+    nodeTypes = null,
+  } = {},
   conn = db,
 ) => {
   const filterClauses = [];
@@ -143,7 +151,7 @@ const fetchTreeRows = async (
   }
 
   if (to != null && to !== "") {
-    filterClauses.push("AND j.tanggal <= ?");
+    filterClauses.push(`AND j.tanggal ${toExclusive ? "<" : "<="} ?`);
     values.push(to);
   }
 
@@ -1100,7 +1108,7 @@ const Model = generateStandardCRUDModel({
 
       return { affectedRows: 1 };
     },
-    async getById(id, data, conn = db) {
+    async getById(id, data, conn = db, { toExclusive = false } = {}) {
       const queryData = data || {};
       if (queryData.type === "tree") {
         return fetchTreeRows(
@@ -1108,6 +1116,7 @@ const Model = generateStandardCRUDModel({
             id,
             from: queryData.from,
             to: queryData.to,
+            toExclusive,
             id_perusahaan: queryData.id_perusahaan,
             includeBalance: true,
           },

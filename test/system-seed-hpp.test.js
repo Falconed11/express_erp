@@ -27,17 +27,37 @@ test("HPP system seed uses debit normal balance", () => {
   );
 });
 
-test("product-loan COA seed names fit the unique 24-character COA column", () => {
+test("product-loan seed uses complete COA names and upgrades legacy aliases", () => {
   const source = readSeedService();
   const accountNames = [
     "Piutang Antarperusahaan",
     "Hutang Antarperusahaan",
-    "Untung Selisih Pinjaman",
-    "Rugi Selisih Pinjaman",
+    "Keuntungan Selisih Pengembalian Pinjaman",
+    "Kerugian Selisih Pengembalian Pinjaman",
   ];
 
   for (const name of accountNames) {
-    assert.ok(name.length <= 24, `${name} exceeds the COA name limit.`);
+    assert.ok(name.length <= 64, `${name} exceeds the COA name limit.`);
     assert.ok(source.includes(`name: "${name}"`), `${name} is not seeded.`);
   }
+
+  assert.match(source, /legacyNames = \[\]/);
+  assert.match(source, /"Untung Selisih Pinjaman"/);
+  assert.match(source, /"Rugi Selisih Pinjaman"/);
+  assert.match(source, /"Keuntungan Selisih Penge"/);
+  assert.match(source, /"Kerugian Selisih Pengemb"/);
+  assert.match(source, /subtype: "Pendapatan Lain-lain"/);
+  assert.match(source, /subtype: "Biaya Lain-lain"/);
+  assert.match(
+    source,
+    /name: "Keuntungan Selisih Pengembalian Pinjaman",\s*subtype: "Pendapatan Lain-lain",\s*parent: pendapatanBiayaLainLainType\.id,/s,
+  );
+  assert.match(
+    source,
+    /name: "Kerugian Selisih Pengembalian Pinjaman",\s*subtype: "Biaya Lain-lain",\s*parent: pendapatanBiayaLainLainType\.id,/s,
+  );
+  assert.doesNotMatch(source, /"coa_type", "Pendapatan Lain-lain"/);
+  assert.doesNotMatch(source, /"coa_type", "Biaya Lain-lain"/);
+  assert.match(source, /"coa_type",\s*"Pendapatan Biaya Lain-lain"/);
+  assert.match(source, /"Pendapatan Biaya Lain-la"/);
 });

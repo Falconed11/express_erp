@@ -504,7 +504,6 @@ const returnLoan = async ({
         id_perusahaan_peminjam: loan.id_perusahaan_peminjam,
         jumlah: quantity,
         harga_pinjaman: loan.harga,
-        harga_peminjam: returnedUnitCost,
         tanggal,
         created_by,
       });

@@ -2,14 +2,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   buildBorrowerReturnLines,
+  createReturnJournals,
   reverseJournal,
 } = require("../src/modules/produk-stock/produk-stock-journal.cjs");
 
 const accounts = {
   Persediaan: 1,
-  HutangAntarperusahaan: 2,
-  KeuntunganSelisih: 3,
-  KerugianSelisih: 4,
+  HutangAntarperusahaan: 3,
 };
 
 const totals = (lines) =>
@@ -21,28 +20,74 @@ const totals = (lines) =>
     { debit: 0, credit: 0 },
   );
 
-test("cheaper returned stock clears the loan and recognizes a gain", () => {
-  const lines = buildBorrowerReturnLines(accounts, 1000, 800);
+test("borrower return clears the loan at its original book value", () => {
+  const lines = buildBorrowerReturnLines(accounts, 1000);
 
   assert.deepEqual(totals(lines), { debit: 1000, credit: 1000 });
-  assert.equal(lines[1].id_coa, accounts.Persediaan);
-  assert.equal(lines[2].id_coa, accounts.KeuntunganSelisih);
-  assert.equal(lines[2].amount, 200);
+  assert.deepEqual(
+    lines.map(({ id_coa, tipe, amount }) => ({ id_coa, tipe, amount })),
+    [
+      { id_coa: accounts.HutangAntarperusahaan, tipe: 1, amount: 1000 },
+      { id_coa: accounts.Persediaan, tipe: 0, amount: 1000 },
+    ],
+  );
 });
 
-test("equal-cost returned stock clears the loan without a variance", () => {
-  const lines = buildBorrowerReturnLines(accounts, 1000, 1000);
+const createReturnJournalTransactions = async (harga_peminjam) => {
+  const statements = [];
+  let nextJournalId = 100;
+  const connection = {
+    execute: async (sql, values) => {
+      statements.push({ sql, values });
+      if (/SELECT c\.nama, c\.id/.test(sql)) {
+        return [
+          [
+            { nama: "Persediaan", id: 1 },
+            { nama: "Piutang Antarperusahaan", id: 2 },
+            { nama: "Hutang Antarperusahaan", id: 3 },
+          ],
+        ];
+      }
+      if (/INSERT INTO jurnal/.test(sql))
+        return [{ insertId: nextJournalId++ }];
+      return [{ affectedRows: 1 }];
+    },
+  };
 
-  assert.deepEqual(totals(lines), { debit: 1000, credit: 1000 });
-  assert.equal(lines.length, 2);
-});
+  await createReturnJournals(connection, {
+    id_produkpinjamanpengembalian: 11,
+    id_produkpinjaman: 12,
+    id_perusahaan_pemberi: 1,
+    id_perusahaan_peminjam: 2,
+    jumlah: 1,
+    harga_pinjaman: 1000,
+    harga_peminjam,
+    tanggal: "2026-10-01",
+  });
 
-test("more expensive returned stock clears the loan and recognizes a loss", () => {
-  const lines = buildBorrowerReturnLines(accounts, 1000, 1200);
+  return statements
+    .filter(({ sql }) => /INSERT INTO transaksi/.test(sql))
+    .map(({ values }) => values);
+};
 
-  assert.deepEqual(totals(lines), { debit: 1200, credit: 1200 });
-  assert.equal(lines[1].id_coa, accounts.KerugianSelisih);
-  assert.equal(lines[1].amount, 200);
+test("returning stock at a different cost posts no gain or loss", async () => {
+  const cheaperReturn = await createReturnJournalTransactions(800);
+  const moreExpensiveReturn = await createReturnJournalTransactions(1200);
+  const borrowerLines = (transactions) =>
+    transactions.slice(2).map(([, id_coa, tipe, amount]) => ({
+      id_coa,
+      tipe,
+      amount,
+    }));
+
+  assert.deepEqual(borrowerLines(cheaperReturn), [
+    { id_coa: accounts.HutangAntarperusahaan, tipe: 1, amount: 1000 },
+    { id_coa: accounts.Persediaan, tipe: 0, amount: 1000 },
+  ]);
+  assert.deepEqual(borrowerLines(moreExpensiveReturn), [
+    { id_coa: accounts.HutangAntarperusahaan, tipe: 1, amount: 1000 },
+    { id_coa: accounts.Persediaan, tipe: 0, amount: 1000 },
+  ]);
 });
 
 test("reversal journal links to the original journal", async () => {

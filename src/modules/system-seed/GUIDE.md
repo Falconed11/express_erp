@@ -983,6 +983,7 @@ Current protected records are:
 | COA type    | Pendapatan              | -                               |
 | COA type    | Kewajiban Lancar        | -                               |
 | COA type    | Ekuitas                 | -                               |
+| COA type    | Pendapatan Biaya Lain-lain | -                            |
 | COA subtype | Kas                     | Aktiva Lancar                   |
 | COA subtype | Operasional Kantor      | Biaya Operasional               |
 | COA subtype | HPP                     | HPP                             |
@@ -992,8 +993,8 @@ Current protected records are:
 | COA subtype | Hutang                  | Kewajiban Lancar                |
 | COA subtype | Piutang Antarperusahaan | Aktiva Lancar                   |
 | COA subtype | Hutang Antarperusahaan  | Kewajiban Lancar                |
-| COA subtype | Untung Selisih Pinjaman | Pendapatan                      |
-| COA subtype | Rugi Selisih Pinjaman   | Biaya Operasional               |
+| COA subtype | Pendapatan Lain-lain    | Pendapatan Biaya Lain-lain      |
+| COA subtype | Biaya Lain-lain         | Pendapatan Biaya Lain-lain      |
 | COA subtype | Modal                   | Ekuitas                         |
 | COA         | HPP                     | HPP subtype                     |
 | COA         | Pendapatan              | Pendapatan subtype              |
@@ -1001,9 +1002,26 @@ Current protected records are:
 | COA         | Hutang                  | Hutang subtype                  |
 | COA         | Piutang Antarperusahaan | Piutang Antarperusahaan subtype |
 | COA         | Hutang Antarperusahaan  | Hutang Antarperusahaan subtype  |
-| COA         | Untung Selisih Pinjaman | matching subtype                |
-| COA         | Rugi Selisih Pinjaman   | matching subtype                |
+| COA         | Keuntungan Selisih Pengembalian Pinjaman | Pendapatan Lain-lain subtype |
+| COA         | Kerugian Selisih Pengembalian Pinjaman   | Biaya Lain-lain subtype      |
 | COA         | Modal                   | Modal subtype                   |
+
+The two Selisih Pengembalian Pinjaman COAs share the
+`Pendapatan Biaya Lain-lain` type and use separate `Pendapatan Lain-lain` and
+`Biaya Lain-lain` subtypes. Existing `Pendapatan` and `Biaya Operasional`
+types remain in use for other COAs.
+
+Stock-loan return journals settle the borrower’s payable and credit inventory
+using the original loan value (`quantity × harga_pinjaman`). A difference in
+the returning company’s recorded cost does not create a gain or loss entry;
+`harga_peminjam` is retained as return-record information only. The two
+Selisih Pengembalian Pinjaman COAs remain seeded for historical entries.
+
+Apply `20261113150000_expand_coa_names.js` and
+`20261113154000_expand_coa_type_name.js` before applying the system seed. The
+latter expands `coa_type.nama` so the shared type name is not truncated. The
+seed recognizes the prior truncated `Pendapatan Biaya Lain-la` name and
+renames that type in place.
 
 The `Transfer Saldo` journal form uses separate `Akun Debit Transfer Saldo`
 and `Akun Kredit Transfer Saldo` expressions. Both point to the `Akun Transfer

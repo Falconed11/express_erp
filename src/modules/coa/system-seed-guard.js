@@ -5,6 +5,7 @@ const SYSTEM_COA_TYPES = new Set([
   "Pendapatan",
   "Kewajiban Lancar",
   "Ekuitas",
+  "Pendapatan Biaya Lain-lain",
 ]);
 
 const SYSTEM_COA_SUBTYPES = new Set([
@@ -19,6 +20,12 @@ const SYSTEM_COA_SUBTYPES = new Set([
   "Hutang Antarperusahaan|Kewajiban Lancar",
   "Untung Selisih Pinjaman|Pendapatan",
   "Rugi Selisih Pinjaman|Biaya Operasional",
+  "Keuntungan Selisih Penge|Pendapatan",
+  "Kerugian Selisih Pengemb|Biaya Operasional",
+  "Keuntungan Selisih Pengembalian Pinjaman|Pendapatan",
+  "Kerugian Selisih Pengembalian Pinjaman|Biaya Operasional",
+  "Pendapatan Lain-lain|Pendapatan Biaya Lain-lain",
+  "Biaya Lain-lain|Pendapatan Biaya Lain-lain",
   "Modal|Ekuitas",
 ]);
 
@@ -31,6 +38,12 @@ const SYSTEM_COAS = new Set([
   "Hutang Antarperusahaan|Hutang Antarperusahaan|Kewajiban Lancar",
   "Untung Selisih Pinjaman|Untung Selisih Pinjaman|Pendapatan",
   "Rugi Selisih Pinjaman|Rugi Selisih Pinjaman|Biaya Operasional",
+  "Keuntungan Selisih Penge|Keuntungan Selisih Penge|Pendapatan",
+  "Kerugian Selisih Pengemb|Kerugian Selisih Pengemb|Biaya Operasional",
+  "Keuntungan Selisih Pengembalian Pinjaman|Keuntungan Selisih Pengembalian Pinjaman|Pendapatan",
+  "Kerugian Selisih Pengembalian Pinjaman|Kerugian Selisih Pengembalian Pinjaman|Biaya Operasional",
+  "Keuntungan Selisih Pengembalian Pinjaman|Pendapatan Lain-lain|Pendapatan Biaya Lain-lain",
+  "Kerugian Selisih Pengembalian Pinjaman|Biaya Lain-lain|Pendapatan Biaya Lain-lain",
   "Modal|Modal|Ekuitas",
 ]);
 

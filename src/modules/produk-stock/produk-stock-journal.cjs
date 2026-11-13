@@ -9,16 +9,12 @@ const loadAccountIds = async (conn) => {
          (c.nama = 'Persediaan' AND cs.nama = 'Persediaan' AND ct.nama = 'Aktiva Lancar')
          OR (c.nama = 'Piutang Antarperusahaan' AND cs.nama = 'Piutang Antarperusahaan' AND ct.nama = 'Aktiva Lancar')
          OR (c.nama = 'Hutang Antarperusahaan' AND cs.nama = 'Hutang Antarperusahaan' AND ct.nama = 'Kewajiban Lancar')
-         OR (c.nama = 'Untung Selisih Pinjaman' AND cs.nama = 'Untung Selisih Pinjaman' AND ct.nama = 'Pendapatan')
-         OR (c.nama = 'Rugi Selisih Pinjaman' AND cs.nama = 'Rugi Selisih Pinjaman' AND ct.nama = 'Biaya Operasional')
        )`,
   );
   const names = {
     Persediaan: "Persediaan",
     PiutangAntarperusahaan: "Piutang Antarperusahaan",
     HutangAntarperusahaan: "Hutang Antarperusahaan",
-    KeuntunganSelisih: "Untung Selisih Pinjaman",
-    KerugianSelisih: "Rugi Selisih Pinjaman",
   };
   const accounts = Object.fromEntries(
     Object.entries(names).map(([key, name]) => [
@@ -83,56 +79,20 @@ const createJournal = async (
 
 const money = (value) => Number(Number(value).toFixed(2));
 
-const buildBorrowerReturnLines = (accounts, loanAmount, returnedAmount) => {
-  const variance = money(Math.abs(loanAmount - returnedAmount));
-  const lines = [
-    {
-      id_coa: accounts.HutangAntarperusahaan,
-      tipe: 1,
-      amount: loanAmount,
-      keterangan: "Pelunasan hutang pinjaman stok",
-    },
-  ];
-  if (returnedAmount < loanAmount) {
-    lines.push(
-      {
-        id_coa: accounts.Persediaan,
-        tipe: 0,
-        amount: returnedAmount,
-        keterangan: "Persediaan stok pengganti dikembalikan",
-      },
-      {
-        id_coa: accounts.KeuntunganSelisih,
-        tipe: 0,
-        amount: variance,
-        keterangan: "Keuntungan selisih pengembalian pinjaman",
-      },
-    );
-  } else if (returnedAmount > loanAmount) {
-    lines.push(
-      {
-        id_coa: accounts.KerugianSelisih,
-        tipe: 1,
-        amount: variance,
-        keterangan: "Kerugian selisih pengembalian pinjaman",
-      },
-      {
-        id_coa: accounts.Persediaan,
-        tipe: 0,
-        amount: returnedAmount,
-        keterangan: "Persediaan stok pengganti dikembalikan",
-      },
-    );
-  } else {
-    lines.push({
-      id_coa: accounts.Persediaan,
-      tipe: 0,
-      amount: returnedAmount,
-      keterangan: "Persediaan stok pengganti dikembalikan",
-    });
-  }
-  return lines;
-};
+const buildBorrowerReturnLines = (accounts, loanAmount) => [
+  {
+    id_coa: accounts.HutangAntarperusahaan,
+    tipe: 1,
+    amount: loanAmount,
+    keterangan: "Pelunasan hutang pinjaman stok",
+  },
+  {
+    id_coa: accounts.Persediaan,
+    tipe: 0,
+    amount: loanAmount,
+    keterangan: "Persediaan stok pengganti dikembalikan",
+  },
+];
 
 const createLoanJournals = async (
   conn,
@@ -205,14 +165,12 @@ const createReturnJournals = async (
     id_perusahaan_peminjam,
     jumlah,
     harga_pinjaman,
-    harga_peminjam,
     tanggal,
     created_by,
   },
 ) => {
   const accounts = await loadAccountIds(conn);
   const loanAmount = money(Number(jumlah) * Number(harga_pinjaman));
-  const returnedAmount = money(Number(jumlah) * Number(harga_peminjam));
   const description = `Pengembalian pinjaman #${id_produkpinjaman} retur #${id_produkpinjamanpengembalian} (pemberi #${id_perusahaan_pemberi}, peminjam #${id_perusahaan_peminjam})`;
   const lenderJournalId = await createJournal(conn, {
     id_perusahaan: id_perusahaan_pemberi,
@@ -240,7 +198,7 @@ const createReturnJournals = async (
     tanggal,
     keterangan: description,
     created_by,
-    lines: buildBorrowerReturnLines(accounts, loanAmount, returnedAmount),
+    lines: buildBorrowerReturnLines(accounts, loanAmount),
   });
   await conn.execute(
     `UPDATE produkpinjamanpengembalian

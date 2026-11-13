@@ -35,7 +35,9 @@ const Service = generateDefaultCRUDService({
           from: undefined,
           to: data.from,
         };
-        const pastResult = await Model.getById(id, pastQuery, conn);
+        const pastResult = await Model.getById(id, pastQuery, conn, {
+          toExclusive: true,
+        });
         console.log(pastResult);
 
         if (!Array.isArray(currentResult) || !Array.isArray(pastResult)) {

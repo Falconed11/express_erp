@@ -21,9 +21,25 @@ const seedDefinitions = [
 /**
  * Upserts a record by table & name, ensuring all desired payload values match DB state.
  */
-const syncByName = async (trx, table, name, values, matchValues = {}) => {
+const syncByName = async (
+  trx,
+  table,
+  name,
+  values,
+  matchValues = {},
+  legacyNames = [],
+) => {
   const queryCondition = { nama: name, ...matchValues };
   let row = await trx(table).where(queryCondition).first();
+
+  if (!row) {
+    for (const legacyName of legacyNames) {
+      row = await trx(table)
+        .where({ nama: legacyName, ...matchValues })
+        .first();
+      if (row) break;
+    }
+  }
 
   if (!row) {
     const [insertedId] = await trx(table).insert({ nama: name, ...values });
@@ -31,6 +47,7 @@ const syncByName = async (trx, table, name, values, matchValues = {}) => {
   } else {
     // Collect fields that need updates if existing record has wrong values
     const updates = {};
+    if (row.nama !== name) updates.nama = name;
     for (const [key, val] of Object.entries(values)) {
       if (val !== undefined && row[key] !== val) {
         updates[key] = val;
@@ -44,6 +61,124 @@ const syncByName = async (trx, table, name, values, matchValues = {}) => {
   }
 
   return row;
+};
+
+const hasCoaReferences = async (trx, id) => {
+  const references = [
+    ["coa_filter_map", "id_coa"],
+    ["coa_role_visibility", "id_coa"],
+    ["laporan_relation", "id_coa"],
+    ["metodepembayaran", "id_coa"],
+    ["transaksi", "id_coa"],
+  ];
+
+  for (const [table, column] of references) {
+    if (await trx(table).where({ [column]: id }).first()) return true;
+  }
+  return false;
+};
+
+const hasCoaSubtypeReferences = async (trx, id) => {
+  const references = [
+    ["coa_filter_map", "id_coa_subtype"],
+    ["laporan_relation", "id_coa_subtype"],
+  ];
+
+  for (const [table, column] of references) {
+    if (await trx(table).where({ [column]: id }).first()) return true;
+  }
+  return false;
+};
+
+const retireUnusedLegacyProductLoanAccount = async (
+  trx,
+  name,
+  idCoaType,
+) => {
+  const subtype = await trx("coa_subtype")
+    .where({
+      nama: name,
+      id_coa_type: idCoaType,
+      keterangan: "System default",
+    })
+    .first();
+  if (!subtype) return;
+
+  const account = await trx("coa")
+    .where({
+      nama: name,
+      id_coa_subtype: subtype.id,
+      id_perusahaan: null,
+      keterangan: "System default",
+    })
+    .first();
+  if (!account || (await hasCoaReferences(trx, account.id))) return;
+
+  await trx("coa").where({ id: account.id }).update({ aktif: false });
+
+  const otherAccounts = await trx("coa")
+    .where({ id_coa_subtype: subtype.id })
+    .whereNot({ id: account.id })
+    .first();
+  if (!otherAccounts && !(await hasCoaSubtypeReferences(trx, subtype.id))) {
+    await trx("coa_subtype")
+      .where({ id: subtype.id })
+      .update({ aktif: false });
+  }
+};
+
+const deactivateUnusedProductLoanSubtype = async (
+  trx,
+  name,
+  idCoaType,
+) => {
+  const subtype = await trx("coa_subtype")
+    .where({
+      nama: name,
+      id_coa_type: idCoaType,
+      keterangan: "System default",
+    })
+    .first();
+  if (!subtype) return;
+
+  const accounts = await trx("coa")
+    .where({ id_coa_subtype: subtype.id, aktif: true })
+    .first();
+  if (accounts || (await hasCoaSubtypeReferences(trx, subtype.id))) return;
+
+  await trx("coa_subtype")
+    .where({ id: subtype.id })
+    .update({ aktif: false });
+};
+
+const moveProductLoanSubtypeReferences = async (
+  trx,
+  legacyNames,
+  oldTypeId,
+  newTypeId,
+  newSubtypeId,
+) => {
+  for (const name of legacyNames) {
+    const subtype = await trx("coa_subtype")
+      .where({ nama: name, id_coa_type: oldTypeId })
+      .first();
+    if (!subtype || subtype.id === newSubtypeId) continue;
+
+    for (const table of ["laporan_relation", "coa_filter_map"]) {
+      await trx(table)
+        .where({
+          id_coa_subtype: subtype.id,
+          id_coa_type: oldTypeId,
+        })
+        .update({
+          id_coa_subtype: newSubtypeId,
+          id_coa_type: newTypeId,
+        });
+      await trx(table)
+        .where({ id_coa_subtype: subtype.id })
+        .update({ id_coa_subtype: newSubtypeId });
+    }
+  }
 };
 
 /**
@@ -282,22 +417,60 @@ const ensureProductLoanAccounts = async (trx) => {
     aktif: true,
     keterangan: "System default",
   });
-  const biayaType = await syncByName(trx, "coa_type", "Biaya Operasional", {
-    normal_balance: 0,
-    aktif: true,
-    keterangan: "System default",
-  });
-
+  const biayaOperasionalType = await syncByName(
+    trx,
+    "coa_type",
+    "Biaya Operasional",
+    {
+      normal_balance: 0,
+      aktif: true,
+      keterangan: "System default",
+    },
+  );
+  const pendapatanBiayaLainLainType = await syncByName(
+    trx,
+    "coa_type",
+    "Pendapatan Biaya Lain-lain",
+    {
+      normal_balance: pendapatanType.normal_balance,
+      aktif: true,
+      keterangan: "System default",
+    },
+    {},
+    ["Pendapatan Biaya Lain-la"],
+  );
   const accounts = [
     { name: "Piutang Antarperusahaan", parent: aktivaLancar.id },
     { name: "Hutang Antarperusahaan", parent: kewajibanLancar.id },
     {
-      name: "Untung Selisih Pinjaman",
-      parent: pendapatanType.id,
+      name: "Keuntungan Selisih Pengembalian Pinjaman",
+      subtype: "Pendapatan Lain-lain",
+      parent: pendapatanBiayaLainLainType.id,
+      oldType: pendapatanType.id,
+      legacyNames: [
+        "Untung Selisih Pinjaman",
+        "Keuntungan Selisih Penge",
+      ],
+      legacySubtypeNames: [
+        "Keuntungan Selisih Pengembalian Pinjaman",
+        "Untung Selisih Pinjaman",
+        "Keuntungan Selisih Penge",
+      ],
     },
     {
-      name: "Rugi Selisih Pinjaman",
-      parent: biayaType.id,
+      name: "Kerugian Selisih Pengembalian Pinjaman",
+      subtype: "Biaya Lain-lain",
+      parent: pendapatanBiayaLainLainType.id,
+      oldType: biayaOperasionalType.id,
+      legacyNames: [
+        "Rugi Selisih Pinjaman",
+        "Kerugian Selisih Pengemb",
+      ],
+      legacySubtypeNames: [
+        "Kerugian Selisih Pengembalian Pinjaman",
+        "Rugi Selisih Pinjaman",
+        "Kerugian Selisih Pengemb",
+      ],
     },
   ];
 
@@ -305,19 +478,66 @@ const ensureProductLoanAccounts = async (trx) => {
     const subtype = await syncByName(
       trx,
       "coa_subtype",
-      account.name,
+      account.subtype ?? account.name,
       {
         id_coa_type: account.parent,
         aktif: true,
         keterangan: "System default",
       },
-      { id_coa_type: account.parent },
+      {},
+      account.legacySubtypeNames,
     );
-    await syncByName(trx, "coa", account.name, {
-      id_coa_subtype: subtype.id,
-      aktif: true,
-      keterangan: "System default",
-    });
+    account.subtypeId = subtype.id;
+    await syncByName(
+      trx,
+      "coa",
+      account.name,
+      {
+        id_coa_subtype: subtype.id,
+        aktif: true,
+        keterangan: "System default",
+      },
+      {},
+      account.legacyNames,
+    );
+  }
+
+  for (const account of accounts.filter((item) => item.legacySubtypeNames)) {
+    await moveProductLoanSubtypeReferences(
+      trx,
+      account.legacySubtypeNames,
+      account.oldType,
+      account.parent,
+      account.subtypeId,
+    );
+  }
+
+  await retireUnusedLegacyProductLoanAccount(
+    trx,
+    "Keuntungan Selisih Penge",
+    pendapatanType.id,
+    pendapatanBiayaLainLainType.id,
+  );
+  await retireUnusedLegacyProductLoanAccount(
+    trx,
+    "Kerugian Selisih Pengemb",
+    biayaOperasionalType.id,
+    pendapatanBiayaLainLainType.id,
+  );
+
+  for (const name of [
+    "Untung Selisih Pinjaman",
+    "Keuntungan Selisih Penge",
+    "Keuntungan Selisih Pengembalian Pinjaman",
+  ]) {
+    await deactivateUnusedProductLoanSubtype(trx, name, pendapatanType.id);
+  }
+  for (const name of [
+    "Rugi Selisih Pinjaman",
+    "Kerugian Selisih Pengemb",
+    "Kerugian Selisih Pengembalian Pinjaman",
+  ]) {
+    await deactivateUnusedProductLoanSubtype(trx, name, biayaOperasionalType.id);
   }
 };
 
@@ -816,12 +1036,14 @@ const checkMetodeBayarStructure = async (trx) => {
     { name: "Piutang Antarperusahaan", type: "Aktiva Lancar" },
     { name: "Hutang Antarperusahaan", type: "Kewajiban Lancar" },
     {
-      name: "Untung Selisih Pinjaman",
-      type: "Pendapatan",
+      name: "Keuntungan Selisih Pengembalian Pinjaman",
+      subtype: "Pendapatan Lain-lain",
+      type: "Pendapatan Biaya Lain-lain",
     },
     {
-      name: "Rugi Selisih Pinjaman",
-      type: "Biaya Operasional",
+      name: "Kerugian Selisih Pengembalian Pinjaman",
+      subtype: "Biaya Lain-lain",
+      type: "Pendapatan Biaya Lain-lain",
     },
   ];
   for (const account of productLoanAccounts) {
@@ -831,7 +1053,7 @@ const checkMetodeBayarStructure = async (trx) => {
       .where({
         "account.nama": account.name,
         "account.aktif": true,
-        "subtype.nama": account.name,
+        "subtype.nama": account.subtype ?? account.name,
         "subtype.aktif": true,
         "type.nama": account.type,
         "type.aktif": true,
