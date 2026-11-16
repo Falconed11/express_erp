@@ -351,7 +351,10 @@ app.put("/api/aktivitassales", async (req, res) => {
 });
 app.delete("/api/aktivitassales", async (req, res) => {
   aktivitassales
-    .destroy(req.body)
+    .destroy({
+      ...req.body,
+      isSuper: req.user?.peran === "super",
+    })
     .then((_result) => res.json({ message: "Data berhasil dihapus" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });

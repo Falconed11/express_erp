@@ -12,14 +12,36 @@ const list = async ({
   rowsPerPage = null,
   start = null,
   end = null,
+  includeInactive = false,
+  status = "",
 }) => {
   console.log(id_karyawan);
+  const showInactive = [true, 1, "1", "true"].includes(includeInactive);
+  const statusConditions = {
+    completed: "a.tanggalselesai IS NOT NULL",
+    overdue: "a.tanggalselesai IS NULL AND DATE(a.tanggal) < CURDATE()",
+    today: "a.tanggalselesai IS NULL AND DATE(a.tanggal) = CURDATE()",
+    this_week:
+      "a.tanggalselesai IS NULL AND DATE(a.tanggal) > CURDATE() AND YEARWEEK(a.tanggal, 1) = YEARWEEK(CURDATE(), 1)",
+    upcoming:
+      "a.tanggalselesai IS NULL AND DATE(a.tanggal) > CURDATE() AND YEARWEEK(a.tanggal, 1) > YEARWEEK(CURDATE(), 1)",
+  };
+  const statusCondition = Object.prototype.hasOwnProperty.call(
+    statusConditions,
+    status,
+  )
+    ? statusConditions[status]
+    : null;
+  if (status && !statusCondition)
+    throw new Error("Filter status tidak valid.");
   const conditions = [
     ...(id ? ["a.id = ?"] : []),
     ...(id_instansi ? ["a.id_instansi = ?"] : []),
     ...(id_karyawan ? ["a.id_karyawan = ?"] : []),
     ...(start ? ["a.tanggal >= ?"] : []),
-    ...(end ? ["a.tanggal <= ?"] : []),
+    ...(end ? ["a.tanggal < DATE_ADD(?, INTERVAL 1 DAY)"] : []),
+    ...(!showInactive ? ["a.aktif = 1"] : []),
+    ...(status ? [statusCondition] : []),
   ];
   const whereClause = conditions.length
     ? `WHERE ${conditions.join(" AND ")}`
@@ -125,6 +147,15 @@ const create = async ({
 
 const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
   if (id == null) throw new Error("Id tidak valid");
+  if (rest.aktif !== undefined) {
+    if ([true, 1, "1"].includes(rest.aktif)) {
+      rest.aktif = 1;
+    } else if ([false, 0, "0"].includes(rest.aktif)) {
+      rest.aktif = 0;
+    } else {
+      throw new Error("Status aktif tidak valid.");
+    }
+  }
   if (rest.id_jenis_aktivitas !== undefined) {
     if (!rest.id_jenis_aktivitas)
       throw new Error("Aktivitas belum dipilih.");
@@ -165,7 +196,7 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
   const fields = [],
     values = [];
   if (isSelesai == true) {
-    const res = await list({ id });
+    const res = await list({ id, includeInactive: true });
     const rows = res?.results;
     if (!rows.length)
       throw new Error(`Aktivitas Sales id: ${id} tidak ditemukan`);
@@ -198,6 +229,7 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
     "jabatan",
     "kontak",
     "email",
+    "aktif",
     "catatan",
     "output",
     "tindakanselanjutnya",
@@ -218,7 +250,19 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
   return result;
 };
 
-const destroy = async ({ id }) => {
+const destroy = async ({ id, isSuper = false }) => {
+  if (id == null) throw new Error("Id tidak valid");
+  const [existingRows] = await pool.execute(
+    `SELECT DATE(created_at) = CURDATE() AS created_today FROM ${table} WHERE id = ?`,
+    [id],
+  );
+  if (!existingRows.length)
+    throw new Error(`Aktivitas Sales id: ${id} tidak ditemukan`);
+  if (!isSuper && Number(existingRows[0].created_today) !== 1) {
+    throw new Error(
+      "Aktivitas Sales hanya dapat dihapus pada hari pembuatan data atau oleh super.",
+    );
+  }
   const sql = `delete from ${table} where id =?`;
   const values = [id];
   const [rows] = await pool.execute(sql, values);
