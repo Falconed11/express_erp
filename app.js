@@ -116,6 +116,7 @@ import vendor from "./repositories/vendor.cjs";
 
 // v2
 import appConfigRoutes from "./src/modules/app-config/app-config.route.js";
+import jenisAktivitasSalesRoutes from "./src/modules/jenis-aktivitas-sales/jenis-aktivitas-sales.route.js";
 import roleSwitchRoutes from "./src/modules/auth/role-switch.route.js";
 import produkHargaDefaultRoutes from "./src/modules/produk-harga-default/produk-harga-default.route.js";
 import perusahaanPajakDefaultRoutes from "./src/modules/perusahaan-pajak-default/perusahaan-pajak-default.route.js";
@@ -258,6 +259,7 @@ app.get("/api/auth/me", (req, res) => {
 });
 
 app.use("/api/v2/app-config", appConfigRoutes);
+app.use("/api/v2/jenis-aktivitas-sales", jenisAktivitasSalesRoutes);
 app.use("/api/v2/device-monitor", deviceMonitorRoutes);
 app.use("/api/v2/live-chat", liveChatRoutes);
 app.use("/api/v2/produk-harga-default", produkHargaDefaultRoutes);
@@ -330,13 +332,20 @@ app.get("/api/aktivitassales", async (req, res) => {
 });
 app.post("/api/aktivitassales", async (req, res) => {
   const _result = await aktivitassales
-    .create(req.body)
+    .create({
+      ...req.body,
+      created_by: req.user?.id_karyawan ?? null,
+    })
     .then((_result) => res.json({ message: "Data berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/aktivitassales", async (req, res) => {
   const _result = await aktivitassales
-    .update(req.body)
+    .update({
+      ...req.body,
+      updated_by: req.user?.id_karyawan ?? null,
+      isSuper: req.user?.peran === "super",
+    })
     .then((_result) => res.json({ message: "Data berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });

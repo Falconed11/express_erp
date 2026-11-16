@@ -7,6 +7,7 @@ const SYSTEM_KEYS = {
   PEMBELIAN: "PEMBELIAN",
   TRANSFER_SALDO: "TRANSFER_SALDO",
   PRODUK_HARGA_DEFAULT: "PRODUK_HARGA_DEFAULT",
+  AKTIVITAS_SALES_TYPES: "AKTIVITAS_SALES_TYPES",
 };
 
 const seedDefinitions = [
@@ -16,7 +17,16 @@ const seedDefinitions = [
   { key: SYSTEM_KEYS.PEMBELIAN, label: "Pembelian" },
   { key: SYSTEM_KEYS.TRANSFER_SALDO, label: "Transfer Saldo" },
   { key: SYSTEM_KEYS.PRODUK_HARGA_DEFAULT, label: "Default Harga Produk" },
+  { key: SYSTEM_KEYS.AKTIVITAS_SALES_TYPES, label: "Aktivitas Sales" },
 ];
+
+const AKTIVITAS_SALES_TABLE = "jenis_aktivitas_sales";
+const DEFAULT_AKTIVITAS_TYPES = ["Kunjungan", "Presentasi"];
+
+const getAktivitasSalesType = (trx, name) =>
+  trx(AKTIVITAS_SALES_TABLE)
+    .whereRaw("LOWER(nama) = LOWER(?)", [name])
+    .first();
 
 /**
  * Upserts a record by table & name, ensuring all desired payload values match DB state.
@@ -1067,7 +1077,52 @@ const checkMetodeBayarStructure = async (trx) => {
   return { details, verified };
 };
 
+const checkAktivitasSalesTypes = async (trx, definition) => {
+  const details = [];
+  const verified = [];
+
+  for (const requiredType of DEFAULT_AKTIVITAS_TYPES) {
+    const row = await getAktivitasSalesType(trx, requiredType);
+    if (!row) {
+      details.push(`Activity type is missing: ${requiredType}.`);
+    } else if (Number(row.aktif) !== 1) {
+      details.push(`Activity type is inactive: ${requiredType}.`);
+    } else {
+      verified.push(`Aktivitas: ${row.nama}`);
+    }
+  }
+
+  return {
+    key: definition.key,
+    label: definition.label,
+    status: details.length === 0 ? "correct" : "wrong",
+    details,
+    verified,
+  };
+};
+
+const ensureAktivitasSalesTypes = async (trx) => {
+  for (const activityType of DEFAULT_AKTIVITAS_TYPES) {
+    const row = await getAktivitasSalesType(trx, activityType);
+    if (!row) {
+      await trx(AKTIVITAS_SALES_TABLE).insert({
+        nama: activityType,
+        aktif: true,
+        keterangan: "System default",
+      });
+    } else if (Number(row.aktif) !== 1) {
+      await trx(AKTIVITAS_SALES_TABLE)
+        .where({ id: row.id })
+        .update({ aktif: true });
+    }
+  }
+};
+
 const checkSeed = async (trx, definition) => {
+  if (definition.key === SYSTEM_KEYS.AKTIVITAS_SALES_TYPES) {
+    return checkAktivitasSalesTypes(trx, definition);
+  }
+
   if (definition.key === SYSTEM_KEYS.PRODUK_HARGA_DEFAULT) {
     const row = await trx("produk_harga_default")
       .where({ scope_key: "global", scope: "global", aktif: true })
@@ -1502,6 +1557,7 @@ const Service = {
       await ensurePembelian(trx);
       await ensureTransferSaldo(trx);
       await ensureProdukHargaDefault(trx);
+      await ensureAktivitasSalesTypes(trx);
       return {
         seeds: await Promise.all(
           seedDefinitions.map((def) => checkSeed(trx, def)),
