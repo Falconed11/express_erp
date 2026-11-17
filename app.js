@@ -157,6 +157,7 @@ import transferBank from "./src/routes/transfer-bank.routes.js";
 import vendorJenisRoutes from "./src/modules/vendor/vendor-jenis.route.js";
 import deviceMonitorRoutes from "./src/modules/device-monitor/device-monitor.route.js";
 import liveChatRoutes from "./src/modules/live-chat/live-chat.route.js";
+import { createTargetSalesRouter } from "./src/modules/target-sales/target-sales.route.js";
 
 import errorMiddleware from "./src/middlewares/error.middleware.js";
 import verifyToken from "./src/middlewares/auth.middleware.js";
@@ -262,6 +263,20 @@ app.use("/api/v2/app-config", appConfigRoutes);
 app.use("/api/v2/jenis-aktivitas-sales", jenisAktivitasSalesRoutes);
 app.use("/api/v2/device-monitor", deviceMonitorRoutes);
 app.use("/api/v2/live-chat", liveChatRoutes);
+app.use(
+  "/api/v2/target-kunjungan",
+  createTargetSalesRouter({
+    tableName: "target_kunjungan",
+    isVisitTarget: true,
+  }),
+);
+app.use(
+  "/api/v2/target-omset",
+  createTargetSalesRouter({
+    tableName: "target_omset",
+    isVisitTarget: false,
+  }),
+);
 app.use("/api/v2/produk-harga-default", produkHargaDefaultRoutes);
 app.use("/api/v2/perusahaan-pajak-default", perusahaanPajakDefaultRoutes);
 app.use("/api/v2/coa-filter-map", coaFilterMapRoutes);
