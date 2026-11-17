@@ -156,19 +156,36 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
       throw new Error("Status aktif tidak valid.");
     }
   }
-  if (rest.id_jenis_aktivitas !== undefined) {
-    if (!rest.id_jenis_aktivitas)
+  if (
+    rest.id_instansi !== undefined ||
+    rest.id_jenis_aktivitas !== undefined
+  ) {
+    if (rest.id_jenis_aktivitas !== undefined && !rest.id_jenis_aktivitas)
       throw new Error("Aktivitas belum dipilih.");
     const [existingRows] = await pool.execute(
-      `SELECT id_jenis_aktivitas FROM ${table} WHERE id = ?`,
+      `SELECT id_instansi, id_jenis_aktivitas, DATE(created_at) = CURDATE() AS created_today FROM ${table} WHERE id = ?`,
       [id],
     );
     if (!existingRows.length)
       throw new Error(`Aktivitas Sales id: ${id} tidak ditemukan`);
-    const isUnchanged =
-      String(existingRows[0].id_jenis_aktivitas) ===
-      String(rest.id_jenis_aktivitas);
-    if (!isUnchanged) {
+    const existing = existingRows[0];
+    const isInstansiChanged =
+      rest.id_instansi !== undefined &&
+      String(rest.id_instansi ?? "") !== String(existing.id_instansi ?? "");
+    const isActivityChanged =
+      rest.id_jenis_aktivitas !== undefined &&
+      String(rest.id_jenis_aktivitas) !==
+        String(existing.id_jenis_aktivitas ?? "");
+    if (
+      !isSuper &&
+      Number(existing.created_today) !== 1 &&
+      (isInstansiChanged || isActivityChanged)
+    ) {
+      throw new Error(
+        "Instansi dan aktivitas hanya dapat diubah pada hari pembuatan data atau oleh super.",
+      );
+    }
+    if (rest.id_jenis_aktivitas !== undefined && isActivityChanged) {
       const [activityTypes] = await pool.execute(
         "SELECT id FROM jenis_aktivitas_sales WHERE id = ? AND aktif = 1",
         [rest.id_jenis_aktivitas],

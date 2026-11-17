@@ -4,8 +4,20 @@ const { pool } = require("./db.2.0.0.cjs");
 const table = "karyawan";
 
 const list = async ({ id, id_statuskaryawan, aktif }) => {
-  const sql = `Select sk.status statuskaryawan, count(distinct o.id) noperasionalkantor, count(distinct pp.id) npengeluaranproyek, count(distinct p.id) nproyek, count(distinct a.id) naktivitassales, count(distinct t.id) ntodolist, k.* From ${table} k 
+  const sql = `Select
+    sk.status statuskaryawan,
+    MAX(creator.nama) created_by_name,
+    MAX(updater.nama) updated_by_name,
+    count(distinct o.id) noperasionalkantor,
+    count(distinct pp.id) npengeluaranproyek,
+    count(distinct p.id) nproyek,
+    count(distinct a.id) naktivitassales,
+    count(distinct t.id) ntodolist,
+    k.*
+  From ${table} k
   left join statuskaryawan sk on sk.id=k.id_statuskaryawan
+  left join karyawan creator on creator.id=k.created_by
+  left join karyawan updater on updater.id=k.updated_by
   left join operasionalkantor o on o.id_karyawan=k.id
   left join pengeluaranproyek pp on pp.id_karyawan=k.id
   left join proyek p on p.id_karyawan=k.id
@@ -16,14 +28,22 @@ const list = async ({ id, id_statuskaryawan, aktif }) => {
   }
   group by k.id
   order by k.nama, k.id`;
-  const values = [id ?? null];
+  const values = id ? [id] : [];
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
 
-const create = async ({ nama, id_statuskaryawan }) => {
-  const sql = `insert into ${table} (nama, id_statuskaryawan) values (?,?)`;
-  const values = [nama, id_statuskaryawan];
+const create = async ({
+  nama,
+  id_statuskaryawan,
+  created_by,
+  updated_by,
+  lastuser,
+}) => {
+  const auditUser = updated_by ?? lastuser ?? created_by ?? null;
+  const creator = created_by ?? auditUser;
+  const sql = `insert into ${table} (nama, id_statuskaryawan, lastuser, created_by, updated_by) values (?,?,?,?,?)`;
+  const values = [nama, id_statuskaryawan, auditUser, creator, auditUser];
   const [rows] = await pool.execute(sql, values);
   return rows;
 };
@@ -58,7 +78,13 @@ const transfer = async ({ id, newId }) => {
     throw err;
   }
 };
-const update = async ({ id, nama, id_statuskaryawan }) => {
+const update = async ({
+  id,
+  nama,
+  id_statuskaryawan,
+  updated_by,
+  lastuser,
+}) => {
   const fields = [];
   const values = [];
   const isExist = (v) => v != null;
@@ -69,6 +95,11 @@ const update = async ({ id, nama, id_statuskaryawan }) => {
   if (isExist(id_statuskaryawan)) {
     fields.push("id_statuskaryawan=?");
     values.push(id_statuskaryawan);
+  }
+  const auditUser = updated_by ?? lastuser;
+  if (auditUser != null) {
+    fields.push("updated_by=?", "lastuser=?");
+    values.push(auditUser, auditUser);
   }
   if (fields.length === 0)
     return { affectedRows: 0, message: "No fields to update" };

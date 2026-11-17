@@ -577,13 +577,22 @@ app.get("/api/karyawan", async (req, res) => {
 });
 app.post("/api/karyawan", async (req, res) => {
   const _result = await karyawan
-    .create(req.body)
+    .create({
+      ...req.body,
+      created_by: req.user?.id_karyawan ?? null,
+      updated_by: req.user?.id_karyawan ?? null,
+      lastuser: req.user?.id_karyawan ?? null,
+    })
     .then((_result) => res.json({ message: "karyawan berhasil ditambahkan" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
 app.put("/api/karyawan", async (req, res) => {
   const _result = await karyawan
-    .update(req.body)
+    .update({
+      ...req.body,
+      updated_by: req.user?.id_karyawan ?? null,
+      lastuser: req.user?.id_karyawan ?? null,
+    })
     .then((_result) => res.json({ message: "karyawan berhasil diubah" }))
     .catch((e) => res.status(400).json({ message: e.message }));
 });
