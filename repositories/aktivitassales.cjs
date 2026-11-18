@@ -49,7 +49,8 @@ const list = async ({
     ? `WHERE ${conditions.join(" AND ")}`
     : "";
   const limitClause = page && rowsPerPage ? "LIMIT ? OFFSET ?" : "";
-  const sql = `select a.*, k.nama namakaryawan, i.nama namainstansi,
+  const sql = `select a.*, DATE_FORMAT(a.tanggal, '%Y-%m-%d') AS tanggal_date,
+k.nama namakaryawan, i.nama namainstansi,
 activity_type.nama aktivitas, creator.nama created_by_name,
 updater.nama updated_by_name from ${table} a
 left join karyawan k on k.id=a.id_karyawan
@@ -73,6 +74,10 @@ left join karyawan updater on updater.id=a.updated_by
   ];
   console.log(values);
   const [rows] = await pool.execute(sql, values);
+  const results = rows.map(({ tanggal_date, ...row }) => ({
+    ...row,
+    tanggal: tanggal_date,
+  }));
   const res =
     page && rowsPerPage
       ? await pool.execute(
@@ -81,7 +86,7 @@ left join karyawan updater on updater.id=a.updated_by
         )
       : null;
   const count = res?.[0]?.[0]?.count ?? 0;
-  return { count, results: rows };
+  return { count, results };
 };
 
 const create = async ({
@@ -216,17 +221,19 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
   const fields = [],
     values = [];
   if (isSelesai == true) {
-    const res = await list({ id, includeInactive: true });
-    const rows = res?.results;
+    const [rows] = await pool.execute(
+      `SELECT DATE_FORMAT(tanggal, '%Y-%m-%d') AS tanggal, tanggalselesai FROM ${table} WHERE id = ?`,
+      [id],
+    );
     if (!rows.length)
       throw new Error(`Aktivitas Sales id: ${id} tidak ditemukan`);
     const now = new Date();
-    if (
-      !(
-        new Date(rows[0].tanggal).setHours(0, 0, 0, 0) <
-          now.setHours(0, 0, 0, 0) || now.getHours() >= 16
-      )
-    )
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+    ].join("-");
+    if (rows[0].tanggal >= today && now.getHours() < 16)
       throw new Error(
         "Penyelesaian dihari yang sama hanya dapat dilakukan setelah pukul 16.00 WIB.",
       );

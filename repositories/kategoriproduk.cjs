@@ -40,7 +40,8 @@ const create = async ({ nama, conn = pool }) => {
 };
 
 const update = async ({ id, nama, aktif }) => {
-  if (!id) throw new Error("Kategori produk tidak valid.");
+  if (id === undefined || id === null || id === "")
+    throw new Error("Kategori produk tidak valid.");
   if (nama !== undefined && !nama) throw new Error("Nama kategori wajib diisi!");
   if (nama === undefined && aktif === undefined) {
     throw new Error("Tidak ada data kategori untuk diperbarui.");
