@@ -8,6 +8,7 @@ const list = async ({
   id,
   id_instansi,
   id_karyawan,
+  id_jenis_aktivitas,
   page = null,
   rowsPerPage = null,
   start = null,
@@ -38,6 +39,7 @@ const list = async ({
     ...(id ? ["a.id = ?"] : []),
     ...(id_instansi ? ["a.id_instansi = ?"] : []),
     ...(id_karyawan ? ["a.id_karyawan = ?"] : []),
+    ...(id_jenis_aktivitas ? ["a.id_jenis_aktivitas = ?"] : []),
     ...(start ? ["a.tanggal >= ?"] : []),
     ...(end ? ["a.tanggal < DATE_ADD(?, INTERVAL 1 DAY)"] : []),
     ...(!showInactive ? ["a.aktif = 1"] : []),
@@ -61,6 +63,7 @@ left join karyawan updater on updater.id=a.updated_by
     ...(id ? [id] : []),
     ...(id_instansi ? [id_instansi] : []),
     ...(id_karyawan ? [id_karyawan] : []),
+    ...(id_jenis_aktivitas ? [id_jenis_aktivitas] : []),
     ...(start ? [start] : []),
     ...(end ? [end] : []),
   ];
