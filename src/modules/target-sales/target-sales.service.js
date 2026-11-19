@@ -92,6 +92,8 @@ export const createTargetSalesService = (model, { isVisitTarget }) => ({
     from,
     to,
     id_karyawan: requestedEmployeeId,
+    group_by: requestedGroupBy,
+    group_period: requestedGroupPeriod,
     user,
   }) {
     const scope = getScope(user);
@@ -100,6 +102,19 @@ export const createTargetSalesService = (model, { isVisitTarget }) => ({
     if (startDate && endDate && startDate > endDate) {
       throw invalidInput("Tanggal awal tidak boleh melewati tanggal akhir.");
     }
+    const groupBy = requestedGroupBy ?? "";
+    const groupPeriod = requestedGroupPeriod ?? "";
+    if (groupBy && !["karyawan", "week", "month"].includes(groupBy)) {
+      throw invalidInput("Pengelompokan target sales tidak valid.");
+    }
+    if (groupPeriod && !["week", "month"].includes(groupPeriod)) {
+      throw invalidInput("Pengelompokan target sales tidak valid.");
+    }
+    const legacyGroupPeriod = ["week", "month"].includes(groupBy) ? groupBy : "";
+    if (legacyGroupPeriod && groupPeriod && legacyGroupPeriod !== groupPeriod) {
+      throw invalidInput("Pengelompokan target sales tidak valid.");
+    }
+    const selectedGroupPeriod = groupPeriod || legacyGroupPeriod;
     let idKaryawan = scope.idKaryawan;
     if (
       !idKaryawan &&
@@ -112,11 +127,25 @@ export const createTargetSalesService = (model, { isVisitTarget }) => ({
         throw invalidInput("Karyawan tidak valid.");
       }
     }
-    const result = await model.summarize({
+    const filters = {
       from: startDate,
       to: endDate,
       idKaryawan,
-    });
+    };
+    const result =
+      groupBy === "karyawan"
+        ? await model.summarizeByEmployee({
+            ...filters,
+            ...(selectedGroupPeriod
+              ? { groupPeriod: selectedGroupPeriod }
+              : {}),
+          })
+        : selectedGroupPeriod
+          ? await model.summarizeByPeriod({
+              ...filters,
+              groupBy: selectedGroupPeriod,
+            })
+          : await model.summarize(filters);
     const total = Number(result.total ?? 0);
     const achieved = Number(result.achieved ?? 0);
     return {
