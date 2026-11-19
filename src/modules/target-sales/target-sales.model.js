@@ -289,6 +289,29 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
       });
     },
 
+    async updateOne({ id, tanggal, jumlah, idKaryawan, auditId }) {
+      return db.transaction(async (trx) => {
+        const target = await trx(tableName)
+          .where({ id, aktif: true })
+          .first("id");
+        if (!target) {
+          const error = new Error("Target tidak ditemukan.");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        await trx(tableName)
+          .where({ id, aktif: true })
+          .update({
+            tanggal,
+            jumlah,
+            id_karyawan: idKaryawan,
+            updated_by: auditId,
+          });
+        return { affectedRows: 1 };
+      });
+    },
+
     async deleteMany(ids) {
       return db.transaction(async (trx) => {
         const existingRows = await trx(tableName)

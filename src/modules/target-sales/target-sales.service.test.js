@@ -8,6 +8,7 @@ const createModel = () => ({
   summarizeByEmployee: async (filters) => filters,
   summarizeByPeriod: async (filters) => filters,
   createMany: async (data) => data,
+  updateOne: async (data) => data,
   deleteMany: async (ids) => ids,
 });
 
@@ -230,6 +231,48 @@ test("Managers can add one shared target for multiple employees", async () => {
 
   assert.deepEqual(result.employeeIds, [12, 13]);
   assert.equal(result.jumlah, 5);
+});
+
+test("Managers can update one target row", async () => {
+  const service = createTargetSalesService(createModel(), {
+    isVisitTarget: false,
+  });
+  const result = await service.update(
+    "27",
+    {
+      tanggal: "2026-11-18",
+      jumlah: 125.5,
+      id_karyawan: "12",
+    },
+    { peran: "owner", id_karyawan: 4 },
+  );
+
+  assert.deepEqual(result, {
+    id: 27,
+    tanggal: "2026-11-18",
+    jumlah: 125.5,
+    idKaryawan: 12,
+    auditId: 4,
+  });
+});
+
+test("Sales cannot update target rows", async () => {
+  const service = createTargetSalesService(createModel(), {
+    isVisitTarget: true,
+  });
+
+  await assert.rejects(
+    service.update(
+      "27",
+      {
+        tanggal: "2026-11-18",
+        jumlah: 5,
+        id_karyawan: "12",
+      },
+      { peran: "sales", id_karyawan: 12 },
+    ),
+    { statusCode: 403 },
+  );
 });
 
 test("Managers can delete multiple selected rows", async () => {

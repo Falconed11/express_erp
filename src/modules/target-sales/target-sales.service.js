@@ -42,6 +42,29 @@ const parsePositiveIds = (value, label) => {
   return ids;
 };
 
+const parseTargetAmount = (value, isVisitTarget) => {
+  const amount = Number(value);
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    (isVisitTarget &&
+      (!Number.isSafeInteger(amount) || amount > 2147483647)) ||
+    (!isVisitTarget && amount > Number.MAX_SAFE_INTEGER)
+  ) {
+    throw invalidInput(
+      isVisitTarget
+        ? "Jumlah target kunjungan harus berupa bilangan bulat positif."
+        : "Jumlah target omset harus berupa angka positif.",
+    );
+  }
+  return amount;
+};
+
+const getAuditId = (user) =>
+  Number.isSafeInteger(Number(user.id_karyawan))
+    ? Number(user.id_karyawan)
+    : null;
+
 const parsePage = (value, fallback, maximum) => {
   const parsed = Number(value ?? fallback);
   if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) {
@@ -161,32 +184,34 @@ export const createTargetSalesService = (model, { isVisitTarget }) => ({
     if (!scope.canManage) throw denied();
 
     const date = parseDate(tanggal, "Tanggal target");
-    const amount = Number(jumlah);
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0 ||
-      (isVisitTarget &&
-        (!Number.isSafeInteger(amount) || amount > 2147483647)) ||
-      (!isVisitTarget && amount > Number.MAX_SAFE_INTEGER)
-    ) {
-      throw invalidInput(
-        isVisitTarget
-          ? "Jumlah target kunjungan harus berupa bilangan bulat positif."
-          : "Jumlah target omset harus berupa angka positif.",
-      );
-    }
+    const amount = parseTargetAmount(jumlah, isVisitTarget);
     if (!Array.isArray(employeeIds)) {
       throw invalidInput("Karyawan wajib dipilih.");
     }
     const ids = parsePositiveIds(employeeIds, "Karyawan");
-    const auditId = Number.isSafeInteger(Number(user.id_karyawan))
-      ? Number(user.id_karyawan)
-      : null;
     return model.createMany({
       tanggal: date,
       jumlah: amount,
       employeeIds: ids,
-      auditId,
+      auditId: getAuditId(user),
+    });
+  },
+
+  async update(id, { tanggal, jumlah, id_karyawan: requestedEmployeeId }, user) {
+    const scope = getScope(user);
+    if (!scope.canManage) throw denied();
+
+    const [targetId] = parsePositiveIds([id], "Baris target");
+    const [employeeId] = parsePositiveIds(
+      [requestedEmployeeId],
+      "Karyawan",
+    );
+    return model.updateOne({
+      id: targetId,
+      tanggal: parseDate(tanggal, "Tanggal target"),
+      jumlah: parseTargetAmount(jumlah, isVisitTarget),
+      idKaryawan: employeeId,
+      auditId: getAuditId(user),
     });
   },
 

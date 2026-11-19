@@ -26,6 +26,18 @@ export const createTargetSalesController = (service) => ({
     );
   },
 
+  update(req, res, next) {
+    defaultAsyncController(
+      async () =>
+        service.update(
+          req.params.id,
+          req.body ?? {},
+          req.user ?? {},
+        ),
+      { req, res, next },
+    );
+  },
+
   deleteMany(req, res, next) {
     defaultAsyncController(
       async () => service.deleteMany(req.body ?? {}, req.user ?? {}),
