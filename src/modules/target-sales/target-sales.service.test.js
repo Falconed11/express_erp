@@ -69,6 +69,69 @@ test("Manager summary follows an optional employee and date filter", async () =>
   assert.equal(result.idKaryawan, 15);
 });
 
+test("Manager summary accepts multiple employee filters", async () => {
+  let receivedFilters;
+  const model = {
+    ...createModel(),
+    summarize: async (filters) => {
+      receivedFilters = filters;
+      return { total: 100, achieved: 65 };
+    },
+  };
+  const service = createTargetSalesService(model, { isVisitTarget: false });
+  const result = await service.summary({
+    id_karyawan: "12,13",
+    user: { peran: "owner" },
+  });
+
+  assert.deepEqual(receivedFilters.idKaryawan, [12, 13]);
+  assert.equal(result.total, 100);
+});
+
+test("Manager summary preserves an explicitly empty employee selection", async () => {
+  let receivedFilters;
+  const model = {
+    ...createModel(),
+    summarize: async (filters) => {
+      receivedFilters = filters;
+      return { total: 0, achieved: 0 };
+    },
+  };
+  const service = createTargetSalesService(model, { isVisitTarget: false });
+  await service.summary({
+    id_karyawan: "",
+    user: { peran: "owner" },
+  });
+
+  assert.deepEqual(receivedFilters.idKaryawan, []);
+});
+
+test("Manager summary rejects invalid employee filters", async () => {
+  const service = createTargetSalesService(createModel(), {
+    isVisitTarget: false,
+  });
+
+  await assert.rejects(
+    service.summary({
+      id_karyawan: "12,invalid",
+      user: { peran: "owner" },
+    }),
+    { statusCode: 400 },
+  );
+});
+
+test("Manager target lists accept multiple employee filters", async () => {
+  const service = createTargetSalesService(createModel(), {
+    isVisitTarget: false,
+  });
+  const result = await service.list({
+    id_karyawan: "12,13",
+    user: { peran: "owner" },
+  });
+
+  assert.deepEqual(result.idKaryawan, [12, 13]);
+});
+
 test("Manager summary can group results by employee", async () => {
   let receivedFilters;
   const model = {

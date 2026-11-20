@@ -1,6 +1,13 @@
 import db from "../../config/knex.js";
 
 export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
+  const applyEmployeeFilter = (query, column, idKaryawan) => {
+    if (Array.isArray(idKaryawan)) {
+      query.whereIn(column, idKaryawan);
+    } else if (idKaryawan !== null && idKaryawan !== undefined) {
+      query.where(column, idKaryawan);
+    }
+  };
   const buildQuery = ({ from, to, idKaryawan }) => {
     const query = db({ target: tableName })
       .join("karyawan as employee", "employee.id", "target.id_karyawan")
@@ -10,7 +17,7 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
 
     if (from) query.where("target.tanggal", ">=", from);
     if (to) query.where("target.tanggal", "<=", to);
-    if (idKaryawan) query.where("target.id_karyawan", idKaryawan);
+    applyEmployeeFilter(query, "target.id_karyawan", idKaryawan);
     return query;
   };
   const buildAchievementQuery = ({ from, to, idKaryawan }) => {
@@ -30,7 +37,7 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
     return query.modify((builder) => {
       if (from) builder.where(dateColumn, ">=", from);
       if (to) builder.where(dateColumn, "<=", to);
-      if (idKaryawan) builder.where(employeeColumn, idKaryawan);
+      applyEmployeeFilter(builder, employeeColumn, idKaryawan);
     });
   };
   const buildPeriodStartExpression = (dateColumn, groupBy) =>

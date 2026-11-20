@@ -42,6 +42,19 @@ const parsePositiveIds = (value, label) => {
   return ids;
 };
 
+const parseEmployeeFilter = (value) => {
+  const values = (Array.isArray(value) ? value : [value]).flatMap((item) =>
+    String(item).split(","),
+  );
+  if (values.every((item) => item === "")) return [];
+
+  const ids = [...new Set(values.map(Number))];
+  if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+    throw invalidInput("Karyawan tidak valid.");
+  }
+  return ids.length === 1 ? ids[0] : ids;
+};
+
 const parseTargetAmount = (value, isVisitTarget) => {
   const amount = Number(value);
   if (
@@ -94,13 +107,11 @@ export const createTargetSalesService = (model, { isVisitTarget }) => ({
       throw invalidInput("Tanggal awal tidak boleh melewati tanggal akhir.");
     }
 
-    let idKaryawan = scope.idKaryawan;
-    if (!idKaryawan && requestedEmployeeId) {
-      idKaryawan = Number(requestedEmployeeId);
-      if (!Number.isSafeInteger(idKaryawan) || idKaryawan <= 0) {
-        throw invalidInput("Karyawan tidak valid.");
-      }
-    }
+    const idKaryawan =
+      scope.idKaryawan ??
+      (requestedEmployeeId === undefined || requestedEmployeeId === null
+        ? null
+        : parseEmployeeFilter(requestedEmployeeId));
 
     return model.list({
       from: startDate,
@@ -138,18 +149,11 @@ export const createTargetSalesService = (model, { isVisitTarget }) => ({
       throw invalidInput("Pengelompokan target sales tidak valid.");
     }
     const selectedGroupPeriod = groupPeriod || legacyGroupPeriod;
-    let idKaryawan = scope.idKaryawan;
-    if (
-      !idKaryawan &&
-      requestedEmployeeId !== undefined &&
-      requestedEmployeeId !== null &&
-      requestedEmployeeId !== ""
-    ) {
-      idKaryawan = Number(requestedEmployeeId);
-      if (!Number.isSafeInteger(idKaryawan) || idKaryawan <= 0) {
-        throw invalidInput("Karyawan tidak valid.");
-      }
-    }
+    const idKaryawan =
+      scope.idKaryawan ??
+      (requestedEmployeeId === undefined || requestedEmployeeId === null
+        ? null
+        : parseEmployeeFilter(requestedEmployeeId));
     const filters = {
       from: startDate,
       to: endDate,
