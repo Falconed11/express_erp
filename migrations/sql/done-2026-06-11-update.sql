@@ -6,7 +6,7 @@ ALTER TABLE laporan DROP COLUMN id_parent,
     DROP COLUMN id_coa_filter,
     DROP COLUMN id_coa,
     DROP COLUMN modifier,
-    ADD COLUMN isReport TINYINT(1) NOT NULL DEFAULT 0
+    ADD COLUMN tipe_laporan TINYINT(1) NOT NULL DEFAULT 0
 AFTER nama;
 -- 2. Adjust COA tables to auto-increment
 ALTER TABLE coa_type

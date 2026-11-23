@@ -391,7 +391,7 @@ const ensureMetodeBayar = async (trx) => {
     { id_coa_type: aktivaLancar.id },
   );
   const laporan = await syncByName(trx, "laporan", "Metode Bayar", {
-    isReport: 0,
+    tipe_laporan: 0,
     aktif: true,
     keterangan: "System default",
   });
@@ -860,7 +860,7 @@ const ensureTransferSaldo = async (trx) => {
     "laporan",
     "Akun Transfer Saldo",
     {
-      isReport: 0,
+      tipe_laporan: 0,
       aktif: true,
       keterangan: "System default",
     },
@@ -1020,7 +1020,7 @@ const checkMetodeBayarStructure = async (trx) => {
   if (!kasSubtype) details.push("Kas COA subtype is missing.");
   if (!bankSubtype) details.push("Bank COA subtype is missing.");
   if (!laporan) details.push("Metode Bayar report section is missing.");
-  else if (Number(laporan.isReport) !== 0) {
+  else if (Number(laporan.tipe_laporan) !== 0) {
     details.push("Metode Bayar must be a report section, not a report root.");
   } else verified.push("Report section: Metode Bayar");
 
@@ -1406,7 +1406,7 @@ const checkSeed = async (trx, definition) => {
       details.push("Akun Transfer Saldo report is missing.");
     } else {
       verified.push("Report: Akun Transfer Saldo");
-      if (Number(transferAccounts.isReport) !== 0)
+      if (Number(transferAccounts.tipe_laporan) !== 0)
         details.push("Akun Transfer Saldo must not be a financial report.");
     }
 

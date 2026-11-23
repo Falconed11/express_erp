@@ -199,6 +199,19 @@ const prepareRelationData = (data, { strictPriority = false } = {}) => {
   return normalized;
 };
 
+const validateAccumulationParent = async (idParent, conn = db) => {
+  if (idParent == null) return;
+
+  const [rows] = await conn.execute(
+    `SELECT tipe_laporan FROM laporan WHERE id = ? LIMIT 1`,
+    [idParent],
+  );
+
+  if (rows[0] && Number(rows[0].tipe_laporan) === 2) {
+    throw new Error("Laporan akumulasi tidak dapat memiliki child");
+  }
+};
+
 const Model = generateStandardCRUDModel({
   allowNoUpdate: true,
   tableName: TABLE_NAME,
@@ -228,6 +241,7 @@ const Model = generateStandardCRUDModel({
   customModel: {
     async create(data, conn = db) {
       const preparedData = prepareRelationData(data, { strictPriority: true });
+      await validateAccumulationParent(preparedData.id_parent, conn);
       await validateNoRecurringNode(
         {
           id_parent: preparedData.id_parent,
@@ -275,6 +289,7 @@ const Model = generateStandardCRUDModel({
       const preparedData = prepareRelationData(effectiveData, {
         strictPriority: touchedPriority,
       });
+      await validateAccumulationParent(preparedData.id_parent, conn);
       await validateNoRecurringNode(
         {
           id,

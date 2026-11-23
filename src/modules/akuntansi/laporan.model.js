@@ -3,7 +3,7 @@ import { generateStandardCRUDModel } from "../default/default.model.js";
 
 const TABLE_NAME = "laporan";
 // relation fields moved to `laporan_relation`; keep laporan fields minimal
-const extraAllowedFields = ["isReport"];
+const extraAllowedFields = ["tipe_laporan"];
 const standardAllowedFieldsForCreate = [
   "nama",
   "created_by",
@@ -31,6 +31,32 @@ const prepareLaporanData = (data) => {
   // Relation-related fields (id_parent, id_coa_filter, id_coa, modifier)
   // are handled separately via `laporan_relation` CRUD operations.
   return data;
+};
+
+const validateAccumulationParent = async (idParent, conn = db) => {
+  if (idParent == null || idParent === "") return;
+
+  const [rows] = await conn.execute(
+    `SELECT tipe_laporan FROM laporan WHERE id = ? LIMIT 1`,
+    [idParent],
+  );
+  if (rows[0] && Number(rows[0].tipe_laporan) === 2) {
+    throw new Error("Laporan akumulasi tidak dapat memiliki child");
+  }
+};
+
+const validateAccumulationHasNoChildren = async (id, tipeLaporan, conn = db) => {
+  if (Number(tipeLaporan) !== 2 || id == null) return;
+
+  const [rows] = await conn.execute(
+    `SELECT id FROM laporan_relation
+     WHERE id_parent = ? AND id_child IS NOT NULL
+     LIMIT 1`,
+    [id],
+  );
+  if (rows.length > 0) {
+    throw new Error("Laporan akumulasi tidak dapat memiliki child");
+  }
 };
 
 const formatCycleError = (node) => {
@@ -680,6 +706,12 @@ const fetchTreeRows = async (
 
         e.level,
         e.node_type,
+        (
+          SELECT laporan.tipe_laporan
+          FROM laporan
+          WHERE laporan.id = e.id_laporan
+          LIMIT 1
+        ) AS tipe_laporan,
 
         e.nama,
         e.keterangan,
@@ -771,6 +803,11 @@ const fetchTreeRows = async (
     }
 
     const calculate = (node) => {
+      if (Number(node.tipe_laporan) === 2) {
+        node.total_balance = 0;
+        return 0;
+      }
+
       const childTotal = (children.get(node.id) || []).reduce(
         (sum, child) => sum + calculate(child),
         0,
@@ -896,6 +933,7 @@ const Model = generateStandardCRUDModel({
         data.id_parent != null &&
         data.id_parent !== ""
       ) {
+        await validateAccumulationParent(data.id_parent, conn);
         await validateTreeRecursion(
           { id: newId, id_parent: data.id_parent },
           conn,
@@ -963,6 +1001,11 @@ const Model = generateStandardCRUDModel({
     },
     async patch(id, data, conn = db) {
       const preparedData = prepareLaporanData(data);
+      await validateAccumulationHasNoChildren(
+        id,
+        preparedData.tipe_laporan,
+        conn,
+      );
 
       // Update laporan core fields
       const fields = [];
@@ -1002,6 +1045,7 @@ const Model = generateStandardCRUDModel({
           }
         } else {
           // validate cycle with new parent
+          await validateAccumulationParent(data.id_parent, conn);
           await validateTreeRecursion({ id, id_parent: data.id_parent }, conn);
           if (existingRow) {
             // update existing relation

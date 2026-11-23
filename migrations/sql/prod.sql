@@ -559,7 +559,7 @@ CREATE TABLE `kwitansi_sequences` (
 CREATE TABLE `laporan` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nama` varchar(24) NOT NULL,
-  `isReport` tinyint(1) NOT NULL DEFAULT 0,
+  `tipe_laporan` tinyint(1) NOT NULL DEFAULT 0,
   `aktif` tinyint(1) NOT NULL DEFAULT 1,
   `keterangan` varchar(200) NOT NULL DEFAULT '',
   `created_at` datetime DEFAULT current_timestamp(),
