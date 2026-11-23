@@ -1,5 +1,89 @@
 import db from "../../config/knex.js";
 
+export const buildTargetSalesAchievementQuery = (
+  database,
+  { isVisitTarget, from, to, idKaryawan },
+) => {
+  const applyEmployeeFilter = (query, column, employeeFilter) => {
+    if (Array.isArray(employeeFilter)) {
+      query.whereIn(column, employeeFilter);
+    } else if (
+      employeeFilter !== null &&
+      employeeFilter !== undefined
+    ) {
+      query.where(column, employeeFilter);
+    }
+  };
+  const dateColumn = isVisitTarget
+    ? "activity.tanggal"
+    : "project.tanggal";
+  const employeeColumn = isVisitTarget
+    ? "activity.id_karyawan"
+    : "project.id_karyawan";
+  const query = isVisitTarget
+    ? database("aktivitassales as activity")
+        .join("karyawan as employee", "employee.id", "activity.id_karyawan")
+        .where("activity.aktif", true)
+        .whereNotNull("activity.tanggalselesai")
+    : database("proyek as project")
+        .join("karyawan as employee", "employee.id", "project.id_karyawan")
+        .join(
+          "statusproyek as status",
+          "status.id",
+          "project.id_statusproyek",
+        )
+        .join(
+          database.raw(`(
+            SELECT
+              offer_project.id AS id_proyek,
+              COALESCE(SUM(
+                CASE
+                  WHEN component_item.id IS NULL
+                  THEN offer_row.jumlah *
+                    COALESCE(offer_row.hargakustom, offer_row.harga)
+                  ELSE 0
+                END
+              ), 0)
+              + COALESCE((
+                SELECT SUM(composite_row.jumlah * component_totals.unit_price)
+                FROM keranjangproyek_composite composite_row
+                JOIN (
+                  SELECT
+                    component_item.id_composite,
+                    SUM(
+                      offer_row.jumlah *
+                      COALESCE(offer_row.hargakustom, offer_row.harga)
+                    ) AS unit_price
+                  FROM keranjangproyek_composite_item component_item
+                  JOIN keranjangproyek offer_row
+                    ON offer_row.id = component_item.id_keranjangproyek
+                  GROUP BY component_item.id_composite
+                ) component_totals
+                  ON component_totals.id_composite = composite_row.id
+                WHERE composite_row.id_proyek = offer_project.id
+                  AND composite_row.versi = offer_project.versi
+              ), 0) AS total_penawaran
+            FROM proyek offer_project
+            JOIN keranjangproyek offer_row
+              ON offer_row.id_proyek = offer_project.id
+              AND offer_row.versi = offer_project.versi
+            LEFT JOIN keranjangproyek_composite_item component_item
+              ON component_item.id_keranjangproyek = offer_row.id
+            GROUP BY offer_project.id, offer_project.versi
+          ) AS offer`),
+          "offer.id_proyek",
+          "project.id",
+        )
+        .where("project.versi", ">", 0)
+        .where("status.progress", 100);
+
+  return query.modify((builder) => {
+    if (from) builder.where(dateColumn, ">=", from);
+    if (to) builder.where(dateColumn, "<=", to);
+    applyEmployeeFilter(builder, employeeColumn, idKaryawan);
+  });
+};
+
 export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
   const applyEmployeeFilter = (query, column, idKaryawan) => {
     if (Array.isArray(idKaryawan)) {
@@ -21,23 +105,11 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
     return query;
   };
   const buildAchievementQuery = ({ from, to, idKaryawan }) => {
-    const dateColumn = isVisitTarget ? "activity.tanggal" : "project.tanggal";
-    const employeeColumn = isVisitTarget
-      ? "activity.id_karyawan"
-      : "project.id_karyawan";
-    const query = isVisitTarget
-      ? db("aktivitassales as activity")
-          .join("karyawan as employee", "employee.id", "activity.id_karyawan")
-          .where("activity.aktif", true)
-          .whereNotNull("activity.tanggalselesai")
-      : db("pembayaranproyek as payment")
-          .join("proyek as project", "project.id", "payment.id_proyek")
-          .join("karyawan as employee", "employee.id", "project.id_karyawan");
-
-    return query.modify((builder) => {
-      if (from) builder.where(dateColumn, ">=", from);
-      if (to) builder.where(dateColumn, "<=", to);
-      applyEmployeeFilter(builder, employeeColumn, idKaryawan);
+    return buildTargetSalesAchievementQuery(db, {
+      isVisitTarget,
+      from,
+      to,
+      idKaryawan,
     });
   };
   const buildPeriodStartExpression = (dateColumn, groupBy) =>
@@ -94,7 +166,7 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
       });
       const achievementAggregate = isVisitTarget
         ? achievementQuery.clone().count({ achieved: "activity.id" }).first()
-        : achievementQuery.clone().sum({ achieved: "payment.nominal" }).first();
+        : achievementQuery.clone().sum({ achieved: "offer.total_penawaran" }).first();
       const [row, achievementRow] = await Promise.all([
         buildQuery({ from, to, idKaryawan })
           .sum({ total: "target.jumlah" })
@@ -148,7 +220,7 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
             .count({ achieved: "activity.id" })
             .groupBy(...achievementGroupingColumns)
         : achievementQuery
-            .sum({ achieved: "payment.nominal" })
+            .sum({ achieved: "offer.total_penawaran" })
             .groupBy(...achievementGroupingColumns);
       const [targetRows, achievementRows] = await Promise.all([
         targetQuery,
@@ -224,7 +296,7 @@ export const createTargetSalesModel = (tableName, { isVisitTarget }) => {
         .orderBy("period_start");
       const groupedAchievements = isVisitTarget
         ? achievementQuery.count({ achieved: "activity.id" })
-        : achievementQuery.sum({ achieved: "payment.nominal" });
+        : achievementQuery.sum({ achieved: "offer.total_penawaran" });
       const [targetRows, achievementRows, employeeCountRow] =
         await Promise.all([
           targetQuery,
