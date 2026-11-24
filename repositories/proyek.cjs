@@ -25,6 +25,7 @@ const list = async ({
   start,
   end,
   sort,
+  date_mode,
   id_perusahaan,
   id_karyawan,
   id_statusproyek,
@@ -60,6 +61,17 @@ const list = async ({
   if (sort && !validColumns.includes(sort)) {
     throw new Error("Kolom tidak valid");
   }
+  if (date_mode != null && !["offer", "status"].includes(date_mode)) {
+    throw new Error("Mode tanggal tidak valid");
+  }
+  const dateColumn =
+    date_mode === "status"
+      ? `(CASE
+          WHEN sp.id = -1 OR LOWER(sp.nama) = 'reject' THEN p.tanggal_reject
+          WHEN sp.progress = 100 THEN p.tanggal
+          ELSE p.tanggal_penawaran
+        END)`
+      : `p.${sort}`;
   const sql = `Select p.*, COUNT(*) OVER () AS totalrows, jp.nama jenisproyek, sp.nama statusproyek, sp.progress, k.nama namakaryawan, pr.nama namaperusahaan, concat('/logo/', pr.logo) logoperusahaan, pr.deskripsi deskripsiperusahaan, pr.alamat alamatperusahaan, pr.kontak kontakperusahaan, i.nama instansi, i.swasta, i.kota, sum(pp.nominal) totalpembayaranproyek, mp.jumlahbarangkeluar, mp.pengeluaranproyek, kp.totalmodal, kp.totalpenawaran
   ${id_produk ? ", count(cp.id_produk) nproduk" : ""}
   From ${table} p 
@@ -75,7 +87,7 @@ const list = async ({
   left join produk p on kp.id_produk=p.id group by id_proyek) kp on kp.id_proyek=p.id 
   where 1=1 ${id ? `and p.id=?` : ""} ${
     id_instansi ? "and id_instansi=?" : ""
-  } ${start ? `and p.${sort}>=?` : ""} ${end ? `and p.${sort}<=?` : ""} ${
+  } ${start ? `and ${dateColumn}>=?` : ""} ${end ? `and ${dateColumn}<=?` : ""} ${
     id_karyawan ? `and id_karyawan=?` : ""
   } ${id_jenisproyek ? "and id_jenisproyek=?" : ""}
   ${countProgressNoOffer ? " and versi<=0 and pengeluaranproyek>0 " : ""}

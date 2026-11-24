@@ -155,6 +155,8 @@ const create = async ({
 
 const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
   if (id == null) throw new Error("Id tidak valid");
+  if (isSelesai !== null && typeof isSelesai !== "boolean")
+    throw new Error("Status penyelesaian tidak valid.");
   if (rest.aktif !== undefined) {
     if ([true, 1, "1"].includes(rest.aktif)) {
       rest.aktif = 1;
@@ -163,6 +165,55 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
     } else {
       throw new Error("Status aktif tidak valid.");
     }
+  }
+  const activityFields = [
+    "id_karyawan",
+    "id_proyek",
+    "id_instansi",
+    "id_jenis_aktivitas",
+    "tanggal",
+    "catatan",
+  ];
+  if (activityFields.some((field) => rest[field] !== undefined)) {
+    const [existingRows] = await pool.execute(
+      `SELECT DATE(created_at) = CURDATE() AS created_today FROM ${table} WHERE id = ?`,
+      [id],
+    );
+    if (!existingRows.length)
+      throw new Error(`Aktivitas Sales id: ${id} tidak ditemukan`);
+    if (!isSuper && Number(existingRows[0].created_today) !== 1) {
+      throw new Error(
+        "Aktivitas hanya dapat diubah pada hari pembuatan data atau oleh super.",
+      );
+    }
+  }
+  const completionFields = [
+    "pic",
+    "jabatan",
+    "kontak",
+    "email",
+    "keterangan_hasil",
+  ];
+  if (
+    completionFields.some((field) => rest[field] !== undefined) &&
+    isSelesai === null
+  ) {
+    throw new Error(
+      "Data penyelesaian hanya dapat diubah melalui fitur penyelesaian.",
+    );
+  }
+  if (
+    isSelesai === true &&
+    [
+      ["pic", "PIC"],
+      ["jabatan", "Jabatan"],
+      ["kontak", "Kontak"],
+      ["keterangan_hasil", "Keterangan Hasil"],
+    ].some(([field]) => !String(rest[field] ?? "").trim())
+  ) {
+    throw new Error(
+      "PIC, Jabatan, Kontak, dan Keterangan Hasil wajib diisi jika penyelesaian ditandai selesai.",
+    );
   }
   if (
     rest.id_instansi !== undefined ||
@@ -220,31 +271,52 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
   }
   const fields = [],
     values = [];
-  if (isSelesai == true) {
+  let completionRecord;
+  if (isSelesai !== null) {
     const [rows] = await pool.execute(
       `SELECT DATE_FORMAT(tanggal, '%Y-%m-%d') AS tanggal, tanggalselesai FROM ${table} WHERE id = ?`,
       [id],
     );
     if (!rows.length)
       throw new Error(`Aktivitas Sales id: ${id} tidak ditemukan`);
-    const now = new Date();
-    const today = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, "0"),
-      String(now.getDate()).padStart(2, "0"),
-    ].join("-");
-    if (rows[0].tanggal >= today && now.getHours() < 16)
+    completionRecord = rows[0];
+    const editFrom = Date.parse(`${completionRecord.tanggal}T09:00:00.000Z`);
+    if (Date.now() < editFrom)
       throw new Error(
-        "Penyelesaian dihari yang sama hanya dapat dilakukan setelah pukul 16.00 WIB.",
+        "Penyelesaian hanya dapat diubah mulai pukul 16.00 WIB pada tanggal rencana kunjungan.",
       );
-    if (!rows[0].tanggalselesai) {
-      fields.push("tanggalselesai=?");
-      values.push(new Date());
-    }
   }
-  if (isSelesai == false) {
+  if (isSelesai === true) {
+    const selectedCompletionDateTime = rest.tanggalselesai;
+    if (
+      typeof selectedCompletionDateTime !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(selectedCompletionDateTime)
+    ) {
+      throw new Error("Tanggal dan waktu penyelesaian tidak valid.");
+    }
+    const parsedCompletionDateTime = new Date(
+      `${selectedCompletionDateTime}:00Z`,
+    );
+    if (
+      Number.isNaN(parsedCompletionDateTime.getTime()) ||
+      parsedCompletionDateTime.toISOString().slice(0, 16) !==
+        selectedCompletionDateTime
+    ) {
+      throw new Error("Tanggal dan waktu penyelesaian tidak valid.");
+    }
+    if (selectedCompletionDateTime.slice(0, 10) < completionRecord.tanggal) {
+      throw new Error(
+        "Tanggal penyelesaian harus sama dengan atau setelah tanggal rencana kunjungan.",
+      );
+    }
+    fields.push("tanggalselesai=?");
+    values.push(`${selectedCompletionDateTime.replace("T", " ")}:00`);
+    delete rest.tanggalselesai;
+  }
+  if (isSelesai === false) {
     fields.push("tanggalselesai=?");
     values.push(null);
+    delete rest.tanggalselesai;
   }
   const allowedFields = [
     "id_karyawan",
@@ -260,6 +332,7 @@ const update = async ({ id, isSelesai = null, isSuper = false, ...rest }) => {
     "catatan",
     "output",
     "tindakanselanjutnya",
+    "keterangan_hasil",
     "updated_by",
   ];
   for (const [key, value] of Object.entries(rest)) {
