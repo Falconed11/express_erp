@@ -1,4 +1,7 @@
 const { pool } = require("./db.2.0.0.cjs");
+const {
+  activateMatchingInactiveCatalogEntry,
+} = require("./catalog-reactivation.cjs");
 const table = "merek";
 const normalizeAktif = (value) => {
   if ([true, 1, "1"].includes(value)) return 1;
@@ -31,8 +34,20 @@ const transfer = async ({ currentId, targetId }) => {
   return result;
 };
 
-const create = async ({ nama, conn = pool }) => {
+const create = async ({
+  nama,
+  conn = pool,
+  allowReactivate = false,
+}) => {
   if (!nama) throw new Error("Nama wajib diisi!");
+  const existingId = await activateMatchingInactiveCatalogEntry({
+    conn,
+    table,
+    name: nama,
+    label: "Merek",
+    allowReactivate,
+  });
+  if (existingId != null) return existingId;
   const sql = `insert into ${table} (nama) values (?)`;
   const values = [nama];
   const [result] = await conn.execute(sql, values);

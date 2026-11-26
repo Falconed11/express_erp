@@ -742,10 +742,13 @@ app.post("/api/keranjangproyek", async (req, res) => {
     const result = await keranjangproyek.create({
       ...req.body,
       userRole: req.user?.peran,
+      allowCatalogReactivation: canManageActiveStatus(req),
     });
     res.json({ message: "Data berhasil ditambahkan", data: result });
   } catch (e) {
-    res.status(400).json({ message: e.message || "Unknown Error" });
+    res
+      .status(e.statusCode || 400)
+      .json({ message: e.message || "Unknown Error" });
   }
 });
 app.post("/api/versibarukeranjangproyek", async (req, res) => {
@@ -1134,6 +1137,7 @@ app.post("/api/produk", async (req, res) => {
   const data = { ...req.body };
   data.created_by = req.user?.id_karyawan ?? data.created_by ?? null;
   data.updated_by = req.user?.id_karyawan ?? data.updated_by ?? null;
+  data.allowCatalogReactivation = canManageActiveStatus(req);
   if (!canViewHargaBatas(req)) {
     delete data.hargabatas;
     delete data.hargabatas_custom;
@@ -1142,7 +1146,9 @@ app.post("/api/produk", async (req, res) => {
   const _result = await produk
     .create(data)
     .then((_result) => res.json({ message: "Produk berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) =>
+      res.status(e.statusCode || 400).json({ message: e.message }),
+    );
 });
 app.put("/api/produk", async (req, res) => {
   if (req.user?.peran === "head-sales") {
@@ -1152,6 +1158,7 @@ app.put("/api/produk", async (req, res) => {
     });
   }
   const data = { ...req.body };
+  data.allowCatalogReactivation = canManageActiveStatus(req);
   if (!canViewHargaBatas(req)) {
     delete data.hargabatas;
     delete data.hargabatas_custom;
@@ -1163,7 +1170,9 @@ app.put("/api/produk", async (req, res) => {
       updated_by: req.user?.id_karyawan ?? data.updated_by ?? null,
     })
     .then((_result) => res.json({ message: "Data berhasil diubah" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) =>
+      res.status(e.statusCode || 400).json({ message: e.message }),
+    );
 });
 app.put("/api/transferproduk", async (req, res) => {
   try {
@@ -1900,11 +1909,16 @@ app.post("/api/kategoriproduk", async (req, res) => {
     });
   }
   const _result = await kategoriproduk
-    .create(req.body)
+    .create({
+      ...req.body,
+      allowReactivate: canManageActiveStatus(req),
+    })
     .then((_result) =>
       res.json({ message: "kategoriproduk berhasil ditambahkan" }),
     )
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) =>
+      res.status(e.statusCode || 400).json({ message: e.message }),
+    );
 });
 app.put("/api/transferkategoriproduk", async (req, res) => {
   const _result = await kategoriproduk
@@ -1994,9 +2008,14 @@ app.post("/api/merek", async (req, res) => {
     });
   }
   const _result = await merek
-    .create(req.body)
+    .create({
+      ...req.body,
+      allowReactivate: canManageActiveStatus(req),
+    })
     .then((_result) => res.json({ message: "merek berhasil ditambahkan" }))
-    .catch((e) => res.status(400).json({ message: e.message }));
+    .catch((e) =>
+      res.status(e.statusCode || 400).json({ message: e.message }),
+    );
 });
 app.put("/api/transfermerek", async (req, res) => {
   const _result = await merek

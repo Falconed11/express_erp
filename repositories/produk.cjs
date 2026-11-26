@@ -7,6 +7,7 @@ const {
 const { create: createKategori } = require("./kategoriproduk.cjs");
 const { create: createMerek } = require("./merek.cjs");
 const { create: createVendor } = require("./vendor.cjs");
+const { resolveProductVendors } = require("./produk-vendor.util.cjs");
 const { createPurchaseJournal } = require("./produkmasuk-jurnal.cjs");
 const {
   adjust: adjustCompanyStock,
@@ -181,6 +182,11 @@ const insertProduk = async ({
   hargajual_custom,
   hargabatas_custom,
   main_vendor = null,
+  main_vendor_name = "",
+  main_vendor_address,
+  main_vendor_id_vendor_jenis,
+  ikuti_vendor_utama,
+  allowCatalogReactivation = false,
   id_coa_kredit,
   lunas = 0,
   keterangan = "",
@@ -188,6 +194,7 @@ const insertProduk = async ({
   merek = "",
   vendor = "",
   alamat = "",
+  alamatVendor,
   id_vendor_jenis = null,
   tanggal,
   tanggalMasuk,
@@ -203,20 +210,36 @@ const insertProduk = async ({
     if (!tanggal) throw new Error("Tanggal belum diisi.");
     if (!satuan) throw new Error("Satuan belum diisi.");
     if (kategoriproduk && id_kategori == null) {
-      id_kategori = await createKategori({ nama: kategoriproduk, conn });
-    }
-    if (merek && !id_merek) {
-      id_merek = await createMerek({ nama: merek, conn });
-    }
-    if (vendor && !id_vendor) {
-      id_vendor = await createVendor({
-        nama: vendor,
-        alamat,
-        id_vendor_jenis,
+      id_kategori = await createKategori({
+        nama: kategoriproduk,
         conn,
+        allowReactivate: allowCatalogReactivation,
       });
     }
-    if (main_vendor == null && id_vendor != null) main_vendor = id_vendor;
+    if (merek && !id_merek) {
+      id_merek = await createMerek({
+        nama: merek,
+        conn,
+        allowReactivate: allowCatalogReactivation,
+      });
+    }
+    const resolvedVendors = await resolveProductVendors(
+      {
+        id_vendor,
+        vendor,
+        main_vendor,
+        main_vendor_name,
+        main_vendor_address,
+        main_vendor_id_vendor_jenis,
+        ikuti_vendor_utama,
+        alamatVendor,
+        alamat,
+        id_vendor_jenis,
+      },
+      (vendorData) => createVendor({ ...vendorData, conn }),
+    );
+    id_vendor = resolvedVendors.id_vendor;
+    main_vendor = resolvedVendors.main_vendor;
     const prices = await resolveProductPricesForConnection(conn, {
       id_kategori,
       main_vendor,
@@ -285,6 +308,8 @@ const insertProduk = async ({
       kategoriInsertId: id_kategori,
       merekInsertId: id_merek,
       vendorInsertId: id_vendor,
+      mainVendorInsertId: resolvedVendors.mainVendorInsertId,
+      stockVendorInsertId: resolvedVendors.stockVendorInsertId,
       produkInsertId: result1.insertId,
       produkMasukInsertId: result2?.insertId,
       jurnalInsertId: journalId,
@@ -447,7 +472,13 @@ const writeAuditEntries = async (conn, entries) => {
   return entries;
 };
 
-const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
+const update = async ({
+  id,
+  conn: transactionConn,
+  stokDelta,
+  allowCatalogReactivation = false,
+  ...rest
+}) => {
   const allowedFields = [
     "id_kustom",
     "id_kategori",
@@ -479,10 +510,15 @@ const update = async ({ id, conn: transactionConn, stokDelta, ...rest }) => {
         rest.id_kategori = await createKategori({
           nama: rest.kategoriproduk,
           conn,
+          allowReactivate: allowCatalogReactivation,
         });
       }
       if (rest.merek && !rest.id_merek) {
-        rest.id_merek = await createMerek({ nama: rest.merek, conn });
+        rest.id_merek = await createMerek({
+          nama: rest.merek,
+          conn,
+          allowReactivate: allowCatalogReactivation,
+        });
       }
       const prices = await resolveProductPricesForConnection(
         conn,
